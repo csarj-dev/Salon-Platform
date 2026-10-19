@@ -52,15 +52,37 @@ describe("getAvailableSlots", () => {
     expect(hhmm(slots)).toEqual(["10:00", "16:00"]);
   });
 
-  it("aplica el margen de preparación tras cada cita", () => {
+  it("aplica el margen antes y después de una cita", () => {
     const slots = getAvailableSlots({
       ...base,
       bufferMin: 15,
       workingHours: [shift("10:00", "14:00")],
       busy: [shift("11:00", "12:00")],
     });
-    // La cita ocupa hasta las 12:15, así que el primer hueco válido es 12:30
-    expect(hhmm(slots)).toEqual(["10:00", "12:30", "13:00"]);
+    // Ocupado efectivo: 10:45-12:15. Antes no cabe una hora; después, desde 12:30.
+    expect(hhmm(slots)).toEqual(["12:30", "13:00"]);
+  });
+
+  it("deja margen también antes de la siguiente cita", () => {
+    const slots = getAvailableSlots({
+      ...base,
+      bufferMin: 15,
+      workingHours: [shift("10:00", "14:00")],
+      busy: [shift("12:00", "13:00")],
+    });
+    // Ocupado efectivo: 11:45-13:15. El de 11:00 acabaría a las 12:00 (sin margen): fuera.
+    // Tras la cita, 13:30 + 60 min pasa del cierre: fuera.
+    expect(hhmm(slots)).toEqual(["10:00", "10:30"]);
+  });
+
+  it("no pide margen al llegar al cierre del turno", () => {
+    const slots = getAvailableSlots({
+      ...base,
+      bufferMin: 15,
+      workingHours: [shift("10:00", "12:00")],
+      busy: [],
+    });
+    expect(hhmm(slots)).toEqual(["10:00", "10:30", "11:00"]);
   });
 
   it("descarta lo que empieza antes de la antelación mínima", () => {
@@ -72,17 +94,5 @@ describe("getAvailableSlots", () => {
       busy: [],
     });
     expect(hhmm(slots)).toEqual(["11:00", "11:30", "12:00"]);
-  });
-
-    it("deja margen también antes de la siguiente cita", () => {
-    const slots = getAvailableSlots({
-      ...base,
-      bufferMin: 15,
-      workingHours: [shift("10:00", "14:00")],
-      busy: [shift("12:00", "13:00")],
-    });
-    // Un servicio de 60 min que empieza a las 11:00 acaba a las 12:00, justo
-    // cuando empieza la cita y sin margen. Lo correcto es no ofrecerlo.
-    expect(hhmm(slots)).toEqual(["10:00", "13:30"]);
   });
 });

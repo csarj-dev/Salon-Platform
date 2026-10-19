@@ -14,7 +14,8 @@
     "db:query": "tsx db/query.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:try": "tsx db/try-availability.ts"
+    "db:try": "tsx db/try-availability.ts",
+    "db:provision": "tsx db/provision.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.8",

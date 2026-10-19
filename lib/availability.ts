@@ -21,8 +21,8 @@ function subtract(shift: Interval, busy: Interval[]): Interval[] {
   for (const b of sorted) {
     const bs = b.start.getTime();
     const be = b.end.getTime();
-    if (be <= cursor) continue;                     // termina antes de lo que miramos
-    if (bs >= shift.end.getTime()) break;           // empieza después del turno
+    if (be <= cursor) continue;           // termina antes de lo que miramos
+    if (bs >= shift.end.getTime()) break; // empieza después del turno
     if (bs > cursor) free.push({ start: new Date(cursor), end: new Date(bs) });
     cursor = Math.max(cursor, be);
   }
@@ -36,12 +36,14 @@ function subtract(shift: Interval, busy: Interval[]): Interval[] {
 export function getAvailableSlots(p: SlotParams): Date[] {
   const stepMs = p.stepMin * MIN;
   const durationMs = p.durationMin * MIN;
+  const bufferMs = p.bufferMin * MIN;
   const earliest = p.now.getTime() + p.minNoticeHours * 60 * MIN;
 
-  // 1. El margen de preparación alarga cada cita por el final
+  // 1. El margen se aplica a ambos lados de lo ocupado:
+  //    después (preparación de la cita existente) y antes (preparación del servicio nuevo)
   const busy = p.busy.map((b) => ({
-    start: b.start,
-    end: new Date(b.end.getTime() + p.bufferMin * MIN),
+    start: new Date(b.start.getTime() - bufferMs),
+    end: new Date(b.end.getTime() + bufferMs),
   }));
 
   const slots: Date[] = [];

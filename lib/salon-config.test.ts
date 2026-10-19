@@ -34,4 +34,17 @@ describe("salonConfigSchema", () => {
       salonConfigSchema.parse({ ...valid, locales: [] }),
     ).toThrow();
   });
+
+    it("sin initialLocations usa una lista vacía", () => {
+    const c = salonConfigSchema.parse(valid);
+    expect(c.initialLocations).toEqual([]);
+  });
+
+  it("acepta varios locales iniciales", () => {
+    const c = salonConfigSchema.parse({
+      ...valid,
+      initialLocations: [{ name: "Centro" }, { name: "Sur", phone: "922000000" }],
+    });
+    expect(c.initialLocations).toHaveLength(2);
+  });
 });
