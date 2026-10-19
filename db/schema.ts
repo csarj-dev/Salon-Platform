@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, integer, text, boolean, timestamp, primaryKey, check,
+  pgTable, pgEnum, integer, text, boolean, timestamp, primaryKey, check, time, smallint
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -57,4 +57,31 @@ export const appointment = pgTable(
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   },
   (t) => [check("ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`)],
+);
+
+export const schedule = pgTable(
+  "schedule",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    staffId: integer("staff_id").notNull().references(() => staff.id),
+    weekday: smallint("weekday").notNull(), // 1 = lunes ... 7 = domingo
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time").notNull(),
+  },
+  (t) => [
+    check("weekday_range", sql`${t.weekday} BETWEEN 1 AND 7`),
+    check("schedule_end_after_start", sql`${t.endTime} > ${t.startTime}`),
+  ],
+);
+
+export const timeOff = pgTable(
+  "time_off",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    staffId: integer("staff_id").notNull().references(() => staff.id),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    reason: text("reason"),
+  },
+  (t) => [check("time_off_ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`)],
 );

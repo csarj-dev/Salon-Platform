@@ -11,19 +11,25 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx db/seed.ts",
-    "db:query": "tsx db/query.ts"
+    "db:query": "tsx db/query.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:try": "tsx db/try-availability.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.8",
     "drizzle-orm": "^0.45.4",
+    "luxon": "^3.7.2",
     "next": "16.4.2",
     "postgres": "^3.4.9",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
+    "@types/luxon": "^3.7.6",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
@@ -31,6 +37,7 @@
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.5"
   }
 }
