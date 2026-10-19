@@ -73,4 +73,16 @@ describe("getAvailableSlots", () => {
     });
     expect(hhmm(slots)).toEqual(["11:00", "11:30", "12:00"]);
   });
+
+    it("deja margen también antes de la siguiente cita", () => {
+    const slots = getAvailableSlots({
+      ...base,
+      bufferMin: 15,
+      workingHours: [shift("10:00", "14:00")],
+      busy: [shift("12:00", "13:00")],
+    });
+    // Un servicio de 60 min que empieza a las 11:00 acaba a las 12:00, justo
+    // cuando empieza la cita y sin margen. Lo correcto es no ofrecerlo.
+    expect(hhmm(slots)).toEqual(["10:00", "13:30"]);
+  });
 });
