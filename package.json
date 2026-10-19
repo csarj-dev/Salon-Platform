@@ -9,7 +9,9 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx db/seed.ts",
+    "db:query": "tsx db/query.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.8",
