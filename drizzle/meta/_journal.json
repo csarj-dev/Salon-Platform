@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792405721378,
+      "tag": "0000_tidy_puma",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792408249985,
+      "tag": "0001_misty_nitro",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792408418873,
+      "tag": "0002_appointment_no_overlap",
+      "breakpoints": true
+    }
+  ]
+}
