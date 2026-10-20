@@ -1,11 +1,11 @@
 const config = {
-  name: "The Room",
+  name: "The Broom",
   timezone: "Atlantic/Canary",
   locales: ["es", "en"],
   defaultLocale: "es",
   branding: {
-    logoText: "The Room",
-    // logo: "/salons/the-room/logo.png", // cuando tengas el archivo en public/salons/the-room/
+    logoText: "The Broom",
+    logo: "/salons/the-room/favicon.ico", // cuando tengas el archivo en public/salons/the-room/
   },
   initialLocations: [
     { name: "The Room Centro", address: "Dirección de ejemplo 1" },

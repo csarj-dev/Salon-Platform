@@ -7,6 +7,7 @@ import { getMessages, getTranslations, setRequestLocale } from "next-intl/server
 import { routing } from "@/i18n/routing";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { themeToCssVars } from "@/lib/theme";
+import { assertLocalesMatch } from "@/lib/locales-guard";
 import "../globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -37,7 +38,8 @@ export default async function LocaleLayout({ children, params }: Props) {
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
 
-  const [config, messages] = await Promise.all([loadSalonConfig(), getMessages()]);
+    const [config, messages] = await Promise.all([loadSalonConfig(), getMessages()]);
+    assertLocalesMatch(config, routing);
 
   return (
     <html lang={locale} style={themeToCssVars(config.theme) as CSSProperties}>
