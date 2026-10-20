@@ -5,5 +5,20 @@
   "Home": {
     "tagline": "Reserva tu cita online",
     "book": "Reservar cita"
+  },
+  "Booking": {
+    "back": "Volver",
+    "title": "Reservar cita",
+    "stepLocation": "¿Dónde quieres venir?",
+    "stepService": "Elige un servicio",
+    "stepStaff": "¿Con quién?",
+    "anyStaff": "Cualquiera",
+    "anyStaffHint": "La primera profesional disponible",
+    "minutes": "{count} min",
+    "change": "Cambiar",
+    "noLocations": "No hay locales disponibles ahora mismo.",
+    "noServices": "Este local no tiene servicios disponibles.",
+    "noStaff": "No hay profesionales disponibles para este servicio.",
+    "nextStep": "Siguiente paso: elegir día y hora (próximamente)"
   }
 }

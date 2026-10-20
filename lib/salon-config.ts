@@ -47,6 +47,7 @@ export const salonConfigSchema = z.object({
   timezone,
   locales: z.array(z.string()).min(1),
   defaultLocale: z.string(),
+  currency: z.string().length(3).default("EUR"),
   branding: brandingSchema.optional(),
   theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
   // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos

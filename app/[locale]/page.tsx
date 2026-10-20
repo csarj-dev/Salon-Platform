@@ -22,7 +22,7 @@ export default async function HomePage({ params }: Props) {
           {config.branding?.logoText ?? config.name}
         </h1>
         <p className="text-muted-foreground">{t("tagline")}</p>
-        <Link href="/reservar" className={buttonVariants({ size: "lg" })}>
+        <Link href="/booking" className={buttonVariants({ size: "lg" })}>
           {t("book")}
         </Link>
       </div>
