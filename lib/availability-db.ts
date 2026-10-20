@@ -20,6 +20,7 @@ export async function getAvailabilityForDay(
   date: string, // "2026-11-02", fecha local del salón
   opts: AvailabilityOptions,
   now: Date = new Date(),
+  ignoreAppointmentId?: number, // para mover una cita sin que se bloquee a sí misma
 ): Promise<Date[]> {
   // 1. ¿Existe el servicio, lo ofrece este local y lo hace esta profesional?
   const [svc] = await db
@@ -68,6 +69,9 @@ export async function getAvailabilityForDay(
         ne(appointment.status, "cancelled"),
         lt(appointment.startsAt, range.end),
         gt(appointment.endsAt, range.start),
+        ignoreAppointmentId !== undefined
+          ? ne(appointment.id, ignoreAppointmentId)
+          : undefined,
       ),
     );
 
