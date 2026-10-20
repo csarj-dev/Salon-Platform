@@ -26,6 +26,19 @@ export const service = pgTable("service", {
   priceCents: integer("price_cents").notNull(),
 });
 
+export const serviceTranslation = pgTable(
+  "service_translation",
+  {
+    serviceId: integer("service_id")
+      .notNull()
+      .references(() => service.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(), // "es", "en"...
+    name: text("name").notNull(),
+    description: text("description"),
+  },
+  (t) => [primaryKey({ columns: [t.serviceId, t.locale] })],
+);
+
 export const staff = pgTable("staff", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
