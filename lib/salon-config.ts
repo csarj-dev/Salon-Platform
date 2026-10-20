@@ -38,8 +38,10 @@ const themeSchema = z.object({
 });
 
 const brandingSchema = z.object({
-  logoText: z.string().optional(), // si falta, se usa el nombre del salón
-  logo: z.string().optional(),     // ruta dentro de /public, p. ej. /salons/the-room/logo.png
+  logoText: z.string().optional(),
+  logo: z.string().optional(),
+  logoWidth: z.number().int().positive().optional(),
+  logoHeight: z.number().int().positive().optional(),
 });
 
 export const salonConfigSchema = z.object({
