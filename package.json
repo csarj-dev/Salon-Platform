@@ -12,8 +12,10 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx db/seed.ts",
     "db:query": "tsx db/query.ts",
-    "test": "vitest run",
     "test:watch": "vitest",
+    "test": "npm run test:unit && npm run test:db",
+    "test:unit": "vitest run lib",
+    "test:db": "vitest run tests --no-file-parallelism",
     "db:try": "tsx db/try-availability.ts",
     "db:provision": "tsx db/provision.ts"
   },

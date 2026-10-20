@@ -20,11 +20,12 @@ export const salonConfigSchema = z.object({
   defaultLocale: z.string(),
   // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos
   initialLocations: z.array(initialLocation).default([]),
-  booking: z.object({
+    booking: z.object({
     slotStepMin: z.number().int().positive().default(30),
     bufferMin: z.number().int().min(0).default(0),
     minNoticeHours: z.number().min(0).default(2),
     maxDaysAhead: z.number().int().positive().default(60),
+    cancellationNoticeHours: z.number().min(0).default(24),
   }),
 });
 
