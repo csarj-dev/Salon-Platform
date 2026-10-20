@@ -38,8 +38,10 @@ const themeSchema = z.object({
 });
 
 const brandingSchema = z.object({
-  logoText: z.string().optional(), // si falta, se usa el nombre del salón
-  logo: z.string().optional(),     // ruta dentro de /public, p. ej. /salons/the-room/logo.png
+  logoText: z.string().optional(),
+  logo: z.string().optional(),
+  logoWidth: z.number().int().positive().optional(),
+  logoHeight: z.number().int().positive().optional(),
 });
 
 export const salonConfigSchema = z.object({
@@ -47,6 +49,7 @@ export const salonConfigSchema = z.object({
   timezone,
   locales: z.array(z.string()).min(1),
   defaultLocale: z.string(),
+  currency: z.string().length(3).default("EUR"),
   branding: brandingSchema.optional(),
   theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
   // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos

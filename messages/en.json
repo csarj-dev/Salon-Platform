@@ -5,5 +5,20 @@
   "Home": {
     "tagline": "Book your appointment online",
     "book": "Book now"
+  },
+  "Booking": {
+    "back": "Back",
+    "title": "Book an appointment",
+    "stepLocation": "Where would you like to come?",
+    "stepService": "Choose a service",
+    "stepStaff": "With whom?",
+    "anyStaff": "Anyone",
+    "anyStaffHint": "The first available professional",
+    "minutes": "{count} min",
+    "change": "Change",
+    "noLocations": "No locations are available right now.",
+    "noServices": "This location has no services available.",
+    "noStaff": "No professionals are available for this service.",
+    "nextStep": "Next step: choose a day and time (coming soon)"
   }
 }
