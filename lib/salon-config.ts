@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { DateTime } from "luxon";
+import { IANAZone } from "luxon";
 import type { AvailabilityOptions } from "./availability-db";
 
 const timezone = z.string().refine(
-  (zone) => DateTime.local().setZone(zone).isValid,
+  (zone) => IANAZone.isValidZone(zone),
   { message: "Zona horaria IANA no válida (ejemplo: Europe/Madrid)" },
 );
 
@@ -13,14 +13,45 @@ const initialLocation = z.object({
   phone: z.string().optional(),
 });
 
+const hex = (fallback: string) =>
+  z
+    .string()
+    .regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, "Color en hexadecimal, por ejemplo #1a1a1a")
+    .default(fallback);
+
+// Tema neutro por defecto; cada salón sobrescribe lo que quiera
+const themeSchema = z.object({
+  background: hex("#ffffff"),
+  foreground: hex("#171717"),
+  surface: hex("#ffffff"),
+  primary: hex("#171717"),
+  primaryForeground: hex("#fafafa"),
+  secondary: hex("#f5f5f5"),
+  secondaryForeground: hex("#171717"),
+  muted: hex("#f5f5f5"),
+  mutedForeground: hex("#737373"),
+  border: hex("#e5e5e5"),
+  radius: z
+    .string()
+    .regex(/^\d+(\.\d+)?(rem|px)$/, "Ejemplo: 0.5rem")
+    .default("0.5rem"),
+});
+
+const brandingSchema = z.object({
+  logoText: z.string().optional(), // si falta, se usa el nombre del salón
+  logo: z.string().optional(),     // ruta dentro de /public, p. ej. /salons/the-room/logo.png
+});
+
 export const salonConfigSchema = z.object({
   name: z.string().min(1),
   timezone,
   locales: z.array(z.string()).min(1),
   defaultLocale: z.string(),
+  branding: brandingSchema.optional(),
+  theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
   // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos
   initialLocations: z.array(initialLocation).default([]),
-    booking: z.object({
+  booking: z.object({
     slotStepMin: z.number().int().positive().default(30),
     bufferMin: z.number().int().min(0).default(0),
     minNoticeHours: z.number().min(0).default(2),

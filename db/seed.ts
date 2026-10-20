@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { db } from "./index";
 import {
-  location, locationService, service, staff, staffService,
+  location, locationService, service, serviceTranslation, staff, staffService,
   client, appointment, schedule, timeOff,
 } from "./schema";
 
@@ -25,6 +25,7 @@ async function main() {
   await db.delete(staffService);
   await db.delete(client);
   await db.delete(staff);
+  await db.delete(serviceTranslation);
   await db.delete(service);
   await db.delete(location);
 
@@ -44,6 +45,15 @@ async function main() {
       { name: "Lifting de pestañas", durationMin: 75, priceCents: 5500 },
     ])
     .returning();
+
+  await db.insert(serviceTranslation).values([
+    { serviceId: lam.id, locale: "es", name: "Laminado de cejas", description: "Cejas peinadas y con volumen durante semanas." },
+    { serviceId: lam.id, locale: "en", name: "Brow lamination", description: "Brushed-up, fuller-looking brows for weeks." },
+    { serviceId: dis.id, locale: "es", name: "Diseño de cejas", description: "Forma y perfilado a medida de tu rostro." },
+    { serviceId: dis.id, locale: "en", name: "Brow shaping", description: "Shape and definition tailored to your face." },
+    { serviceId: lif.id, locale: "es", name: "Lifting de pestañas", description: "Curvatura y mirada abierta sin extensiones." },
+    { serviceId: lif.id, locale: "en", name: "Lash lift", description: "A natural curl and an open look, no extensions." },
+  ]);
 
   const [ana, lucia, marta] = await db
     .insert(staff)
@@ -70,12 +80,9 @@ async function main() {
 
   // 1 = lunes ... 7 = domingo
   await db.insert(schedule).values([
-    // Ana: lunes y martes en Centro, miércoles a viernes en Sur, turno partido
     ...weekly(ana.id, centro.id, [1, 2], [["10:00", "14:00"], ["16:00", "20:00"]]),
     ...weekly(ana.id, sur.id, [3, 4, 5], [["10:00", "14:00"], ["16:00", "20:00"]]),
-    // Lucía: lunes a sábado en Centro, turno continuo
     ...weekly(lucia.id, centro.id, [1, 2, 3, 4, 5, 6], [["09:00", "15:00"]]),
-    // Marta: lunes, miércoles y viernes en Sur, tarde
     ...weekly(marta.id, sur.id, [1, 3, 5], [["12:00", "20:00"]]),
   ]);
 
