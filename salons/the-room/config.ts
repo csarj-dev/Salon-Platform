@@ -20,6 +20,19 @@ const config = {
     maxDaysAhead: 60,
     cancellationNoticeHours: 24,
   },
+  theme: {
+    background: "#f7f1ea",
+    foreground: "#231f20",
+    surface: "#fcfaf7",
+    primary: "#231f20",
+    primaryForeground: "#f7f1ea",
+    secondary: "#e6d8c8",
+    secondaryForeground: "#231f20",
+    muted: "#efe6dc",
+    mutedForeground: "#6b5a4e",
+    border: "#dacab7",
+    radius: "0.25rem",
+  },
 };
 
 export default config;
