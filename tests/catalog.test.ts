@@ -3,17 +3,20 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { db, pgClient } from "../db";
 import {
-  appointment, client, location, locationService, schedule,
-  service, serviceTranslation, staff, staffService, timeOff,
+  appointment, client, location, locationHours, locationService, schedule,
+  service, serviceCategory, serviceCategoryTranslation, serviceTranslation,
+  staff, staffService, timeOff,
 } from "../db/schema";
 import {
-  listActiveLocations, listServicesForLocation, listStaffForService,
+  listActiveLocations, listLocationsWithHours, listServicesByCategory,
+  listServicesForLocation, listStaffForService,
 } from "../lib/catalog";
 
 let centroId: number;
 let surId: number;
 let laminadoId: number;
 let liftingId: number;
+let extraId: number;
 let anaId: number;
 
 beforeAll(async () => {
@@ -28,12 +31,15 @@ beforeAll(async () => {
   await db.delete(staff);
   await db.delete(serviceTranslation);
   await db.delete(service);
+  await db.delete(serviceCategoryTranslation);
+  await db.delete(serviceCategory);
+  await db.delete(locationHours);
   await db.delete(location);
 
   const [centro, sur, cerrado] = await db
     .insert(location)
     .values([
-      { name: "Centro" },
+      { name: "Centro", mapsUrl: "https://maps.example/centro" },
       { name: "Sur" },
       { name: "Cerrado", active: false },
     ])
@@ -42,25 +48,49 @@ beforeAll(async () => {
   surId = sur.id;
   void cerrado;
 
-  const [lam, lif] = await db
+  // Horario del Centro con turno partido el lunes. Sur no tiene horario.
+  await db.insert(locationHours).values([
+    { locationId: centroId, weekday: 1, openTime: "16:00", closeTime: "20:00" },
+    { locationId: centroId, weekday: 1, openTime: "09:00", closeTime: "14:00" },
+    { locationId: cerrado.id, weekday: 1, openTime: "09:00", closeTime: "14:00" },
+  ]);
+
+  // Orden por sort_order, no alfabético: Pestañas (1) va antes que Cejas (2)
+  const [cejas, pestanas] = await db
+    .insert(serviceCategory)
+    .values([
+      { name: "Cejas (interno)", sortOrder: 2 },
+      { name: "Pestañas (interno)", sortOrder: 1 },
+    ])
+    .returning();
+  await db.insert(serviceCategoryTranslation).values([
+    { categoryId: cejas.id, locale: "es", name: "Cejas" },
+    { categoryId: cejas.id, locale: "en", name: "Brows" },
+    { categoryId: pestanas.id, locale: "es", name: "Pestañas" }, // sin inglés a propósito
+  ]);
+
+  const [lam, lif, extra] = await db
     .insert(service)
     .values([
-      { name: "Laminado (interno)", durationMin: 60, priceCents: 4500 },
-      { name: "Lifting (interno)", durationMin: 75, priceCents: 5500 },
+      { name: "Laminado (interno)", durationMin: 60, priceCents: 4500, categoryId: cejas.id },
+      { name: "Lifting (interno)", durationMin: 75, priceCents: 5500, categoryId: pestanas.id, requiresConsultation: true },
+      { name: "Extra (interno)", durationMin: 15, priceCents: 500 }, // sin categoría
     ])
     .returning();
   laminadoId = lam.id;
   liftingId = lif.id;
+  extraId = extra.id;
 
   await db.insert(serviceTranslation).values([
     { serviceId: lam.id, locale: "es", name: "Laminado de cejas", description: "Descripción" },
     { serviceId: lam.id, locale: "en", name: "Brow lamination", description: null },
   ]);
 
-  // Centro ofrece los dos; Sur solo el laminado, con precio propio
+  // Centro ofrece los tres; Sur solo el laminado, con precio propio
   await db.insert(locationService).values([
     { locationId: centroId, serviceId: lam.id },
     { locationId: centroId, serviceId: lif.id },
+    { locationId: centroId, serviceId: extra.id },
     { locationId: surId, serviceId: lam.id, priceCents: 4000 },
   ]);
 
@@ -117,6 +147,12 @@ describe("catálogo", () => {
     expect(sur.find((s) => s.id === laminadoId)?.priceCents).toBe(4000);
   });
 
+  it("indica qué servicios requieren consulta previa", async () => {
+    const r = await listServicesForLocation(centroId, "es", "es");
+    expect(r.find((s) => s.id === liftingId)?.requiresConsultation).toBe(true);
+    expect(r.find((s) => s.id === laminadoId)?.requiresConsultation).toBe(false);
+  });
+
   it("lista una sola vez a las profesionales activas del local", async () => {
     const r = await listStaffForService(centroId, laminadoId);
     expect(r.map((s) => s.id)).toEqual([anaId]); // Ana tiene dos turnos, sale una vez
@@ -125,5 +161,42 @@ describe("catálogo", () => {
   it("no lista profesionales que no trabajan en ese local", async () => {
     const r = await listStaffForService(surId, laminadoId);
     expect(r).toEqual([]);
+  });
+});
+
+describe("carta por categorías", () => {
+  it("agrupa por categoría, ordena por sort_order y deja las sin categoría al final", async () => {
+    const groups = await listServicesByCategory(centroId, "es", "es");
+    expect(groups.map((g) => g.name)).toEqual(["Pestañas", "Cejas", null]);
+    expect(groups[0].services.map((s) => s.id)).toEqual([liftingId]);
+    expect(groups[1].services.map((s) => s.id)).toEqual([laminadoId]);
+    expect(groups[2].services.map((s) => s.id)).toEqual([extraId]);
+  });
+
+  it("traduce las categorías y cae al idioma por defecto si falta la traducción", async () => {
+    const groups = await listServicesByCategory(centroId, "en", "es");
+    expect(groups.map((g) => g.name)).toEqual(["Pestañas", "Brows", null]);
+  });
+
+  it("no devuelve categorías sin servicios en ese local", async () => {
+    const groups = await listServicesByCategory(surId, "es", "es");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("Cejas");
+  });
+});
+
+describe("locales con horario", () => {
+  it("devuelve el horario ordenado, la URL del mapa y excluye los locales inactivos", async () => {
+    const r = await listLocationsWithHours();
+    expect(r.map((l) => l.name)).toEqual(["Centro", "Sur"]);
+
+    const centro = r.find((l) => l.id === centroId)!;
+    expect(centro.mapsUrl).toBe("https://maps.example/centro");
+    expect(centro.hours.map((h) => h.openTime.slice(0, 5))).toEqual(["09:00", "16:00"]);
+  });
+
+  it("un local sin horario devuelve una lista vacía", async () => {
+    const r = await listLocationsWithHours();
+    expect(r.find((l) => l.id === surId)!.hours).toEqual([]);
   });
 });
