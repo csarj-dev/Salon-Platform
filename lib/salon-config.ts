@@ -44,33 +44,87 @@ const brandingSchema = z.object({
   logoHeight: z.number().int().positive().optional(),
 });
 
-export const salonConfigSchema = z.object({
-  name: z.string().min(1),
-  timezone,
-  locales: z.array(z.string()).min(1),
-  defaultLocale: z.string(),
-  currency: z.string().length(3).default("EUR"),
-  branding: brandingSchema.optional(),
-  theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
-  // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos
-  initialLocations: z.array(initialLocation).default([]),
-  booking: z.object({
-    slotStepMin: z.number().int().positive().default(30),
-    bufferMin: z.number().int().min(0).default(0),
-    minNoticeHours: z.number().min(0).default(2),
-    maxDaysAhead: z.number().int().positive().default(60),
-    cancellationNoticeHours: z.number().min(0).default(24),
-  }),
+// WhatsApp en formato internacional: se admiten espacios, "+" y guiones al
+// escribirlo, y se guarda solo con dígitos (34600000000), que es lo que pide wa.me
+const whatsapp = z
+  .string()
+  .transform((v) => v.replace(/[\s+()-]/g, ""))
+  .refine((v) => /^\d{8,15}$/.test(v), {
+    message: "WhatsApp con prefijo de país y solo números, por ejemplo 34600000000",
+  });
+
+const contactSchema = z.object({
+  whatsapp: whatsapp.optional(),
+  email: z.email().optional(),
+  instagram: z.string().min(1).optional(), // solo el usuario, sin @ ni URL
 });
 
+// Una foto de la galería. Sin `src` se pinta un bloque gris (marcador de posición)
+const galleryItemSchema = z.object({
+  src: z.string().min(1).optional(), // ruta dentro de /public
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  alt: z.record(z.string(), z.string()), // texto alternativo por idioma
+});
+
+export const salonConfigSchema = z
+  .object({
+    name: z.string().min(1),
+    timezone,
+    locales: z.array(z.string()).min(1),
+    defaultLocale: z.string(),
+    currency: z.string().length(3).default("EUR"),
+    branding: brandingSchema.optional(),
+    theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
+    contact: contactSchema.default({}),
+    gallery: z.array(galleryItemSchema).default([]),
+    // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos
+    initialLocations: z.array(initialLocation).default([]),
+    booking: z.object({
+      slotStepMin: z.number().int().positive().default(30),
+      bufferMin: z.number().int().min(0).default(0),
+      minNoticeHours: z.number().min(0).default(2),
+      maxDaysAhead: z.number().int().positive().default(60),
+      cancellationNoticeHours: z.number().min(0).default(24),
+    }),
+  })
+  .superRefine((c, ctx) => {
+    // Accesibilidad: toda foto necesita texto alternativo en todos los idiomas del salón
+    c.gallery.forEach((item, i) => {
+      for (const locale of c.locales) {
+        if (!item.alt[locale]?.trim()) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["gallery", i, "alt", locale],
+            message: `Falta el texto alternativo en "${locale}"`,
+          });
+        }
+      }
+    });
+  });
+
 export type SalonConfig = z.infer<typeof salonConfigSchema>;
+export type GalleryItem = SalonConfig["gallery"][number];
+
+// Variables de entorno que pisan valores del archivo de config.
+// Hoy solo SALON_WHATSAPP; así un número personal de pruebas no se sube al repo.
+export function applyEnvOverrides(
+  raw: Record<string, unknown>,
+  env: Record<string, string | undefined>,
+): Record<string, unknown> {
+  const whatsapp = env.SALON_WHATSAPP?.trim();
+  if (!whatsapp) return raw;
+  const contact = (raw.contact ?? {}) as Record<string, unknown>;
+  return { ...raw, contact: { ...contact, whatsapp } };
+}
 
 // Lee SALON_ID del entorno, carga salons/<id>/config.ts y lo valida
 export async function loadSalonConfig(): Promise<SalonConfig> {
   const id = process.env.SALON_ID;
   if (!id) throw new Error("Falta SALON_ID en el entorno");
   const mod = await import(`../salons/${id}/config`);
-  return salonConfigSchema.parse(mod.default);
+  const raw = applyEnvOverrides(mod.default as Record<string, unknown>, process.env);
+  return salonConfigSchema.parse(raw);
 }
 
 // Traduce la configuración del salón a las opciones del cálculo de huecos

@@ -33,6 +33,20 @@ const config = {
     border: "#dacab7",
     radius: "0.25rem",
   },
+  contact: {
+    whatsapp: "34600000000", // provisional; tu número real va en SALON_WHATSAPP
+    instagram: "theroom.estudio",
+  },
+  // Fotos de ejemplo en gris: sin `src` se pinta un bloque con esa proporción.
+  // Cuando haya fotos reales, se añade `src: "/salons/the-room/gallery/foto-1.jpg"`.
+  gallery: [
+    { width: 1080, height: 1350, alt: { es: "Cejas laminadas, resultado final", en: "Laminated brows, final result" } },
+    { width: 1080, height: 1080, alt: { es: "Detalle de lifting de pestañas", en: "Close-up of a lash lift" } },
+    { width: 1080, height: 1350, alt: { es: "Diseño de cejas con henna", en: "Henna brow shaping" } },
+    { width: 1080, height: 1080, alt: { es: "Microblading, antes y después", en: "Microblading, before and after" } },
+    { width: 1080, height: 1350, alt: { es: "Interior del estudio", en: "Inside the studio" } },
+    { width: 1080, height: 1080, alt: { es: "Zona de recepción", en: "Reception area" } },
+  ],
 };
 
 export default config;
