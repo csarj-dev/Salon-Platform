@@ -16,14 +16,60 @@ export const location = pgTable("location", {
   name: text("name").notNull(),
   address: text("address"),
   phone: text("phone"),
+  mapsUrl: text("maps_url"), // enlace "Cómo llegar"
   active: boolean("active").notNull().default(true),
 });
+
+// Horario de apertura al público de cada local (no el de las profesionales).
+// Un día con turno partido = dos filas, igual que en `schedule`.
+export const locationHours = pgTable(
+  "location_hours",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    locationId: integer("location_id")
+      .notNull()
+      .references(() => location.id, { onDelete: "cascade" }),
+    weekday: smallint("weekday").notNull(), // 1 = lunes ... 7 = domingo
+    openTime: time("open_time").notNull(),
+    closeTime: time("close_time").notNull(),
+  },
+  (t) => [
+    check("location_hours_weekday_range", sql`${t.weekday} BETWEEN 1 AND 7`),
+    check("location_hours_close_after_open", sql`${t.closeTime} > ${t.openTime}`),
+  ],
+);
+
+// Categorías de la carta: Cejas, Pestañas, Micropigmentación...
+export const serviceCategory = pgTable("service_category", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(), // nombre interno, de reserva
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const serviceCategoryTranslation = pgTable(
+  "service_category_translation",
+  {
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => serviceCategory.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    name: text("name").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.categoryId, t.locale] })],
+);
 
 export const service = pgTable("service", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
   durationMin: integer("duration_min").notNull(),
   priceCents: integer("price_cents").notNull(),
+  // Si se borra la categoría, el servicio queda sin categoría (no se borra)
+  categoryId: integer("category_id").references(() => serviceCategory.id, {
+    onDelete: "set null",
+  }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  // true = se reserva hablando antes (no por la web)
+  requiresConsultation: boolean("requires_consultation").notNull().default(false),
 });
 
 export const serviceTranslation = pgTable(

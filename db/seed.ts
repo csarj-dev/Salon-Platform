@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { db } from "./index";
 import {
-  location, locationService, service, serviceTranslation, staff, staffService,
+  location, locationHours, locationService, service, serviceCategory,
+  serviceCategoryTranslation, serviceTranslation, staff, staffService,
   client, appointment, schedule, timeOff,
 } from "./schema";
 
@@ -12,6 +13,15 @@ function weekly(staffId: number, locationId: number, days: number[], shifts: Shi
   return days.flatMap((weekday) =>
     shifts.map(([startTime, endTime]) => ({
       staffId, locationId, weekday, startTime, endTime,
+    })),
+  );
+}
+
+// Lo mismo para el horario de apertura de un local
+function opening(locationId: number, days: number[], shifts: Shift[]) {
+  return days.flatMap((weekday) =>
+    shifts.map(([openTime, closeTime]) => ({
+      locationId, weekday, openTime, closeTime,
     })),
   );
 }
@@ -27,22 +37,61 @@ async function main() {
   await db.delete(staff);
   await db.delete(serviceTranslation);
   await db.delete(service);
+  await db.delete(serviceCategoryTranslation);
+  await db.delete(serviceCategory);
+  await db.delete(locationHours);
   await db.delete(location);
 
   const [centro, sur] = await db
     .insert(location)
     .values([
-      { name: "The Room Centro", address: "Dirección de ejemplo 1" },
-      { name: "The Room Sur", address: "Dirección de ejemplo 2" },
+      {
+        name: "The Room Centro",
+        address: "Dirección de ejemplo 1",
+        mapsUrl: "https://www.google.com/maps/search/?api=1&query=Adeje+Tenerife",
+      },
+      {
+        name: "The Room Sur",
+        address: "Dirección de ejemplo 2",
+        mapsUrl: "https://www.google.com/maps/search/?api=1&query=Costa+Adeje+Tenerife",
+      },
     ])
     .returning();
 
-  const [lam, dis, lif] = await db
+  // Horarios de EJEMPLO: se cambian cuando tengamos los reales
+  await db.insert(locationHours).values([
+    ...opening(centro.id, [1, 2, 3, 4, 5], [["09:00", "19:30"]]),
+    ...opening(centro.id, [6], [["09:00", "17:00"]]),
+    ...opening(sur.id, [1, 2, 3, 4, 5], [["10:00", "14:00"], ["16:00", "20:00"]]),
+    ...opening(sur.id, [6], [["10:00", "14:00"]]),
+  ]);
+
+  const [cejas, pestanas, micro] = await db
+    .insert(serviceCategory)
+    .values([
+      { name: "Cejas", sortOrder: 1 },
+      { name: "Pestañas", sortOrder: 2 },
+      { name: "Micropigmentación", sortOrder: 3 },
+    ])
+    .returning();
+
+  await db.insert(serviceCategoryTranslation).values([
+    { categoryId: cejas.id, locale: "es", name: "Cejas" },
+    { categoryId: cejas.id, locale: "en", name: "Brows" },
+    { categoryId: pestanas.id, locale: "es", name: "Pestañas" },
+    { categoryId: pestanas.id, locale: "en", name: "Lashes" },
+    { categoryId: micro.id, locale: "es", name: "Micropigmentación" },
+    { categoryId: micro.id, locale: "en", name: "Micropigmentation" },
+  ]);
+
+  const [lam, dis, lif, mb] = await db
     .insert(service)
     .values([
-      { name: "Laminado de cejas", durationMin: 60, priceCents: 4500 },
-      { name: "Diseño de cejas", durationMin: 30, priceCents: 1800 },
-      { name: "Lifting de pestañas", durationMin: 75, priceCents: 5500 },
+      { name: "Laminado de cejas", durationMin: 60, priceCents: 4500, categoryId: cejas.id, sortOrder: 1 },
+      { name: "Diseño de cejas", durationMin: 30, priceCents: 1800, categoryId: cejas.id, sortOrder: 2 },
+      { name: "Lifting de pestañas", durationMin: 75, priceCents: 5500, categoryId: pestanas.id, sortOrder: 1 },
+      // Se reserva hablando antes: no tiene profesionales asignadas a propósito
+      { name: "Microblading", durationMin: 150, priceCents: 25000, categoryId: micro.id, sortOrder: 1, requiresConsultation: true },
     ])
     .returning();
 
@@ -53,6 +102,8 @@ async function main() {
     { serviceId: dis.id, locale: "en", name: "Brow shaping", description: "Shape and definition tailored to your face." },
     { serviceId: lif.id, locale: "es", name: "Lifting de pestañas", description: "Curvatura y mirada abierta sin extensiones." },
     { serviceId: lif.id, locale: "en", name: "Lash lift", description: "A natural curl and an open look, no extensions." },
+    { serviceId: mb.id, locale: "es", name: "Microblading", description: "Cejas pelo a pelo, con una consulta previa para diseñar la forma." },
+    { serviceId: mb.id, locale: "en", name: "Microblading", description: "Hair-stroke brows, with a prior consultation to design the shape." },
   ]);
 
   const [ana, lucia, marta] = await db
@@ -65,8 +116,10 @@ async function main() {
     { locationId: centro.id, serviceId: lam.id },
     { locationId: centro.id, serviceId: dis.id },
     { locationId: centro.id, serviceId: lif.id },
+    { locationId: centro.id, serviceId: mb.id },
     { locationId: sur.id, serviceId: lam.id },
     { locationId: sur.id, serviceId: dis.id },
+    { locationId: sur.id, serviceId: mb.id },
   ]);
 
   await db.insert(staffService).values([
