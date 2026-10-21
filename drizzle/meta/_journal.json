@@ -50,6 +50,13 @@
       "when": 1792530562586,
       "tag": "0006_mighty_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792579757593,
+      "tag": "0007_luxuriant_bill_hollister",
+      "breakpoints": true
     }
   ]
 }

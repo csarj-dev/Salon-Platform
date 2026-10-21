@@ -195,3 +195,48 @@ export async function listStaffForService(locationId: number, serviceId: number)
     )
     .orderBy(asc(staff.name));
 }
+
+export type FeaturedService = {
+  id: number;
+  name: string;
+  description: string | null;
+};
+
+// Servicios destacados de la portada: marcados como `featured` y ofrecidos en algún
+// local activo, una vez cada uno. Sin precio: depende del local (ver /services).
+export async function listFeaturedServices(
+  locale: string,
+  defaultLocale: string,
+  limit = 6,
+): Promise<FeaturedService[]> {
+  const rows = await db
+    .selectDistinct({ id: service.id, name: service.name, sortOrder: service.sortOrder })
+    .from(service)
+    .innerJoin(locationService, eq(locationService.serviceId, service.id))
+    .innerJoin(location, eq(location.id, locationService.locationId))
+    .where(and(eq(service.featured, true), eq(location.active, true)))
+    .orderBy(asc(service.sortOrder), asc(service.name), asc(service.id))
+    .limit(limit);
+
+  if (rows.length === 0) return [];
+
+  const translations = await db
+    .select()
+    .from(serviceTranslation)
+    .where(
+      and(
+        inArray(serviceTranslation.serviceId, rows.map((r) => r.id)),
+        inArray(serviceTranslation.locale, [...new Set([locale, defaultLocale])]),
+      ),
+    );
+
+  return rows.map((r) => ({
+    id: r.id,
+    ...pickTranslation(
+      translations.filter((t) => t.serviceId === r.id),
+      locale,
+      defaultLocale,
+      r.name,
+    ),
+  }));
+}

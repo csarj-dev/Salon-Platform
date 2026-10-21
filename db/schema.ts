@@ -70,6 +70,8 @@ export const service = pgTable("service", {
   sortOrder: integer("sort_order").notNull().default(0),
   // true = se reserva hablando antes (no por la web)
   requiresConsultation: boolean("requires_consultation").notNull().default(false),
+  // true = aparece en "Nuestros servicios" de la portada
+  featured: boolean("featured").notNull().default(false),
 });
 
 export const serviceTranslation = pgTable(
