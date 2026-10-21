@@ -2,6 +2,7 @@ import "dotenv/config";
 import { db } from "./index";
 import { location } from "./schema";
 import { loadSalonConfig } from "../lib/salon-config";
+import { assignSlugs } from "../lib/slug";
 
 async function main() {
   const config = await loadSalonConfig();
@@ -18,7 +19,8 @@ async function main() {
       ? config.initialLocations
       : [{ name: config.name }];
 
-  await db.insert(location).values(initial);
+  const slugs = assignSlugs(initial.map((l) => l.name));
+  await db.insert(location).values(initial.map((l, i) => ({ ...l, slug: slugs[i] })));
   console.log(`Creados ${initial.length} local(es) para ${config.name}.`);
   process.exit(0);
 }

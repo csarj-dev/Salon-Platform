@@ -1,17 +1,17 @@
+// Ejecutar con (npm run rompe las opciones --alt-* y las comillas en Windows):
+//   npx tsx db/attach-photo.ts staff 1 "C:\ruta\foto.webp" --alt-es "Retrato de Ana" --alt-en "Portrait of Ana"
+//   npx tsx db/attach-photo.ts location-gallery 1 "C:\ruta\sala.webp" --alt-es "Sala" --alt-en "Main room"
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { imageSize } from "image-size";
 import { db, pgClient } from "./index";
-import { location, photo, photoTranslation, service, staff } from "./schema";
+import { location, locationPhoto, photo, photoTranslation, service, staff } from "./schema";
 import { loadSalonConfig } from "../lib/salon-config";
 import { buildPhotoKey, validatePhotoUpload, type PhotoScope } from "../lib/photo-upload";
 import { missingAltLocales, parseAttachArgs, type AttachEntity } from "../lib/photo-cli";
 import { getStorage } from "../lib/storage";
-
-// Ejecutar con (npm run rompe las opciones --alt-* y las comillas en Windows):
-//   npx tsx db/attach-photo.ts staff 1 "C:\ruta\foto.webp" --alt-es "Retrato de Ana" --alt-en "Portrait of Ana"
 
 // image-size detecta el formato por el contenido del archivo, no por su extensión
 const CONTENT_TYPES: Record<string, string> = {
@@ -23,7 +23,7 @@ const CONTENT_TYPES: Record<string, string> = {
 // Devuelve la fila de la entidad (con su foto actual) o undefined si no existe
 async function findEntity(entity: AttachEntity, id: number) {
   const rows =
-    entity === "location"
+    entity === "location" || entity === "location-gallery"
       ? await db.select({ photoId: location.photoId }).from(location).where(eq(location.id, id))
       : entity === "service"
         ? await db.select({ photoId: service.photoId }).from(service).where(eq(service.id, id))
@@ -59,9 +59,10 @@ async function main() {
   }
 
   const salonId = process.env.SALON_ID!;
+  const scope: PhotoScope = args.entity === "location-gallery" ? "gallery" : args.entity;
   const key = buildPhotoKey({
     salonId,
-    scope: args.entity satisfies PhotoScope,
+    scope,
     id: randomUUID(),
     extension: check.extension,
   });
@@ -85,8 +86,17 @@ async function main() {
         await tx.update(location).set({ photoId: p.id }).where(eq(location.id, args.id));
       } else if (args.entity === "service") {
         await tx.update(service).set({ photoId: p.id }).where(eq(service.id, args.id));
-      } else {
+      } else if (args.entity === "staff") {
         await tx.update(staff).set({ photoId: p.id }).where(eq(staff.id, args.id));
+      } else {
+        // Galería del local: se añade al final
+        const [last] = await tx
+          .select({ max: sql<number>`coalesce(max(${locationPhoto.sortOrder}), 0)` })
+          .from(locationPhoto)
+          .where(eq(locationPhoto.locationId, args.id));
+        await tx
+          .insert(locationPhoto)
+          .values({ locationId: args.id, photoId: p.id, sortOrder: Number(last.max) + 1 });
       }
       return p.id;
     });
@@ -95,8 +105,8 @@ async function main() {
     throw error;
   }
 
-  // Si ya había una foto, se borra la anterior (fila y archivo)
-  if (current.photoId !== null) {
+  // Si la entidad ya tenía otra foto de portada o de perfil, se borra la anterior (fila y archivo)
+  if (args.entity !== "location-gallery" && current.photoId !== null) {
     const [old] = await db.select().from(photo).where(eq(photo.id, current.photoId));
     if (old) {
       await db.delete(photo).where(eq(photo.id, old.id));
@@ -104,7 +114,8 @@ async function main() {
     }
   }
 
-  console.log(`Foto ${newPhotoId} asociada a ${args.entity} ${args.id}: ${storage.publicUrl(key)}`);
+  const where = args.entity === "location-gallery" ? "la galería del local" : args.entity;
+  console.log(`Foto ${newPhotoId} asociada a ${where} ${args.id}: ${storage.publicUrl(key)}`);
 }
 
 main()

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { db } from "./index";
+import { slugify } from "../lib/slug";
 import {
   location, locationHours, locationService, service, serviceCategory,
   serviceCategoryTranslation, serviceTranslation, staff, staffService,
@@ -48,11 +49,13 @@ async function main() {
     .values([
       {
         name: "The Room Centro",
+        slug: slugify("The Room Centro"),
         address: "Dirección de ejemplo 1",
         mapsUrl: "https://www.google.com/maps/search/?api=1&query=Adeje+Tenerife",
       },
       {
         name: "The Room Sur",
+        slug: slugify("The Room Sur"),
         address: "Dirección de ejemplo 2",
         mapsUrl: "https://www.google.com/maps/search/?api=1&query=Costa+Adeje+Tenerife",
       },

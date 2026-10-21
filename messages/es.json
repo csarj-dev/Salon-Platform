@@ -58,6 +58,12 @@
     "directions": "Cómo llegar",
     "call": "Llamar",
     "viewMenu": "Ver carta y precios",
-    "messageLocation": "Hola, me gustaría información sobre {location}."
+    "messageLocation": "Hola, me gustaría información sobre {location}.",
+    "viewLocation": "Ver local"
+  },
+  "Location": {
+    "back": "Todos los locales",
+    "galleryTitle": "Fotos del local",
+    "servicesTitle": "Servicios y precios"
   }
 }

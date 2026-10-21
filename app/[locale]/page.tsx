@@ -79,7 +79,11 @@ export default async function HomePage({ params }: Props) {
 
         {/* 5. Locales */}
         <Suspense fallback={<Skeleton className="my-10 h-56 w-full" />}>
-          <LocationsSection locale={locale} whatsapp={config.contact.whatsapp} />
+          <LocationsSection
+            locale={locale}
+            defaultLocale={config.defaultLocale}
+            whatsapp={config.contact.whatsapp}
+          />
         </Suspense>
       </div>
     </main>

@@ -3,7 +3,7 @@ import { db } from "../db";
 import {
   location, locationHours, locationService, schedule, service,
   serviceCategory, serviceCategoryTranslation, serviceTranslation,
-  staff, staffService,
+  staff, staffService, locationPhoto
 } from "../db/schema";
 import { pickTranslation } from "./pick-translation";
 import type { HoursRow } from "./opening-hours";
@@ -17,6 +17,7 @@ export async function listActiveLocations() {
       phone: location.phone,
       mapsUrl: location.mapsUrl,
       photoId: location.photoId,
+      slug: location.slug,
     })
     .from(location)
     .where(eq(location.active, true))
@@ -243,4 +244,47 @@ export async function listFeaturedServices(
       r.name,
     ),
   }));
+}
+
+// Un local activo por su slug, con su horario de apertura (sin agrupar).
+// null si no existe o está inactivo.
+export async function getLocationBySlug(slug: string) {
+  const [row] = await db
+    .select({
+      id: location.id,
+      slug: location.slug,
+      name: location.name,
+      address: location.address,
+      phone: location.phone,
+      mapsUrl: location.mapsUrl,
+      photoId: location.photoId,
+    })
+    .from(location)
+    .where(and(eq(location.slug, slug), eq(location.active, true)));
+  if (!row) return null;
+
+  const hours = await db
+    .select({
+      weekday: locationHours.weekday,
+      openTime: locationHours.openTime,
+      closeTime: locationHours.closeTime,
+    })
+    .from(locationHours)
+    .where(eq(locationHours.locationId, row.id))
+    .orderBy(asc(locationHours.weekday), asc(locationHours.openTime));
+
+  return {
+    ...row,
+    hours: hours.map(({ weekday, openTime, closeTime }): HoursRow => ({ weekday, openTime, closeTime })),
+  };
+}
+
+// Ids de las fotos de la galería de un local, en el orden elegido
+export async function listLocationGalleryPhotoIds(locationId: number): Promise<number[]> {
+  const rows = await db
+    .select({ photoId: locationPhoto.photoId })
+    .from(locationPhoto)
+    .where(eq(locationPhoto.locationId, locationId))
+    .orderBy(asc(locationPhoto.sortOrder), asc(locationPhoto.photoId));
+  return rows.map((r) => r.photoId);
 }

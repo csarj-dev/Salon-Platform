@@ -3,11 +3,12 @@ import { LocationCard } from "@/components/showcase/location-card";
 import { Section } from "@/components/showcase/section";
 import { listLocationsWithHours } from "@/lib/catalog";
 import { formatOpeningHours, groupOpeningHours } from "@/lib/opening-hours";
+import { getPhotoViews } from "@/lib/photos";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 
-type Props = { locale: string; whatsapp?: string };
+type Props = { locale: string; defaultLocale: string; whatsapp?: string };
 
-export async function LocationsSection({ locale, whatsapp }: Props) {
+export async function LocationsSection({ locale, defaultLocale, whatsapp }: Props) {
   const [t, tShow, locations] = await Promise.all([
     getTranslations("Home"),
     getTranslations("Showcase"),
@@ -15,6 +16,12 @@ export async function LocationsSection({ locale, whatsapp }: Props) {
   ]);
 
   if (locations.length === 0) return null;
+
+  const photos = await getPhotoViews(
+    locations.map((l) => l.photoId),
+    locale,
+    defaultLocale,
+  );
 
   return (
     <Section id="locales" title={t("locationsTitle")}>
@@ -32,6 +39,8 @@ export async function LocationsSection({ locale, whatsapp }: Props) {
                   ? buildWhatsAppLink(whatsapp, tShow("messageLocation", { location: l.name }))
                   : null
               }
+              photo={l.photoId === null ? undefined : photos.get(l.photoId)}
+              detailsHref={l.slug ? `/locations/${l.slug}` : undefined}
             />
           </li>
         ))}

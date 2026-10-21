@@ -64,6 +64,13 @@
       "when": 1792593246408,
       "tag": "0008_charming_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792604322752,
+      "tag": "0009_shallow_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

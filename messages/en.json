@@ -58,6 +58,12 @@
     "directions": "Get directions",
     "call": "Call",
     "viewMenu": "View menu and prices",
-    "messageLocation": "Hi, I'd like some information about {location}."
+    "messageLocation": "Hi, I'd like some information about {location}.",
+    "viewLocation": "View location"
+  },
+    "Location": {
+    "back": "All locations",
+    "galleryTitle": "Photos of the location",
+    "servicesTitle": "Services and prices"
   }
 }

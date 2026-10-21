@@ -46,3 +46,10 @@ describe("missingAltLocales", () => {
     expect(missingAltLocales({ es: "Hola", en: "Hi" }, ["es", "en"])).toEqual([]);
   });
 });
+
+describe("location-gallery", () => {
+  it("se acepta como entidad", () => {
+    const a = parseAttachArgs(["location-gallery", "1", "a.webp", "--alt-es", "Sala"]);
+    expect(a.entity).toBe("location-gallery");
+  });
+});
