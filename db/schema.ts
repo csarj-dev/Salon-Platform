@@ -143,7 +143,23 @@ export const staff = pgTable("staff", {
   active: boolean("active").notNull().default(true),
   // Si se borra la foto, la entidad se queda sin foto (no se borra)
   photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
+  // Cuándo se publicó en la página del equipo. Vacío = no se muestra (nadie aparece sin activarlo).
+  listedOnTeamAt: timestamp("listed_on_team_at", { withTimezone: true }),
 });
+
+// Cargo y presentación de cada profesional, por idioma
+export const staffTranslation = pgTable(
+  "staff_translation",
+  {
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    role: text("role"), // "Micropigmentadora", "Estilista de cejas"...
+    bio: text("bio"),
+  },
+  (t) => [primaryKey({ columns: [t.staffId, t.locale] })],
+);
 
 // Qué servicios ofrece cada local (precio propio opcional)
 export const locationService = pgTable(

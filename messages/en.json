@@ -16,7 +16,8 @@
     "services": "Services",
     "locations": "Locations",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "team": "Team"
   },
   "Footer": {
     "contact": "Contact"
@@ -65,5 +66,9 @@
     "back": "All locations",
     "galleryTitle": "Photos of the location",
     "servicesTitle": "Services and prices"
+  },
+    "Team": {
+    "title": "Our team",
+    "worksAt": "Works at"
   }
 }

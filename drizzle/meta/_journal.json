@@ -71,6 +71,13 @@
       "when": 1792604322752,
       "tag": "0009_shallow_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792614706159,
+      "tag": "0010_brief_titania",
+      "breakpoints": true
     }
   ]
 }

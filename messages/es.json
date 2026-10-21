@@ -16,7 +16,8 @@
     "services": "Servicios",
     "locations": "Locales",
     "openMenu": "Abrir menú",
-    "closeMenu": "Cerrar menú"
+    "closeMenu": "Cerrar menú",
+    "team": "Equipo"
   },
   "Footer": {
     "contact": "Contacto"
@@ -65,5 +66,9 @@
     "back": "Todos los locales",
     "galleryTitle": "Fotos del local",
     "servicesTitle": "Servicios y precios"
+  },
+    "Team": {
+    "title": "Nuestro equipo",
+    "worksAt": "Trabaja en"
   }
 }

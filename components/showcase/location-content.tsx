@@ -9,7 +9,7 @@ import { PriceList } from "@/components/showcase/price-list";
 import { Section } from "@/components/showcase/section";
 import { resolveBookingCta } from "@/lib/booking-cta";
 import {
-  getLocationBySlug, listLocationGalleryPhotoIds, listServicesByCategory,
+  getLocationBySlug, listLocationGalleryPhotoIds, listServicesByCategory, listTeam
 } from "@/lib/catalog";
 import { formatOpeningHours, groupOpeningHours } from "@/lib/opening-hours";
 import { getPhotoViews, type PhotoView } from "@/lib/photos";
@@ -17,6 +17,8 @@ import { loadSalonConfig } from "@/lib/salon-config";
 import { serviceWhatsApp } from "@/lib/showcase-links";
 import { isValidSlug } from "@/lib/slug";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
+import { TeamCard } from "@/components/showcase/team-card";
+import { initialsOf } from "@/lib/initials";
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -33,12 +35,13 @@ export async function LocationContent({ params }: Props) {
   const location = await getLocationBySlug(slug);
   if (!location) notFound();
 
-  const [galleryIds, groups] = await Promise.all([
+    const [galleryIds, groups, team] = await Promise.all([
     listLocationGalleryPhotoIds(location.id),
     listServicesByCategory(location.id, locale, config.defaultLocale),
+    listTeam(locale, config.defaultLocale, { locationId: location.id }),
   ]);
   const photos = await getPhotoViews(
-    [location.photoId, ...galleryIds],
+    [location.photoId, ...galleryIds, ...team.map((m) => m.photoId)],
     locale,
     config.defaultLocale,
   );
@@ -86,6 +89,24 @@ export async function LocationContent({ params }: Props) {
             {gallery.map((p) => (
               <li key={p.id} className="overflow-hidden rounded-lg">
                 <Photo photo={p} sizes="(min-width: 768px) 33vw, 50vw" />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {team.length > 0 && (
+        <Section title={t("teamTitle")}>
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {team.map((m) => (
+              <li key={m.id}>
+                <TeamCard
+                  name={m.name}
+                  role={m.role}
+                  bio={m.bio}
+                  photo={m.photoId === null ? undefined : photos.get(m.photoId)}
+                  initials={initialsOf(m.name)}
+                />
               </li>
             ))}
           </ul>
