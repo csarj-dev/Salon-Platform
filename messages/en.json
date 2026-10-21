@@ -16,7 +16,8 @@
     "services": "Services",
     "locations": "Locations",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "team": "Team"
   },
   "Footer": {
     "contact": "Contact"
@@ -58,6 +59,17 @@
     "directions": "Get directions",
     "call": "Call",
     "viewMenu": "View menu and prices",
-    "messageLocation": "Hi, I'd like some information about {location}."
+    "messageLocation": "Hi, I'd like some information about {location}.",
+    "viewLocation": "View location"
+  },
+    "Location": {
+    "back": "All locations",
+    "galleryTitle": "Photos of the location",
+    "servicesTitle": "Services and prices",
+    "teamTitle": "Team at this location"
+  },
+    "Team": {
+    "title": "Our team",
+    "worksAt": "Works at"
   }
 }

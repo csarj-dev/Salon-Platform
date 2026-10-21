@@ -46,6 +46,8 @@ export const location = pgTable("location", {
   address: text("address"),
   phone: text("phone"),
   mapsUrl: text("maps_url"), // enlace "Cómo llegar",
+  // Dirección web del local (/locations/<slug>). Opcional: sin slug no hay página propia.
+  slug: text("slug").unique(),
   // Si se borra la foto, la entidad se queda sin foto (no se borra)
   photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
   active: boolean("active").notNull().default(true),
@@ -68,6 +70,21 @@ export const locationHours = pgTable(
     check("location_hours_weekday_range", sql`${t.weekday} BETWEEN 1 AND 7`),
     check("location_hours_close_after_open", sql`${t.closeTime} > ${t.openTime}`),
   ],
+);
+
+// Galería de fotos de cada local, en orden. La foto de portada es `location.photoId`.
+export const locationPhoto = pgTable(
+  "location_photo",
+  {
+    locationId: integer("location_id")
+      .notNull()
+      .references(() => location.id, { onDelete: "cascade" }),
+    photoId: integer("photo_id")
+      .notNull()
+      .references(() => photo.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.locationId, t.photoId] })],
 );
 
 // Categorías de la carta: Cejas, Pestañas, Micropigmentación...
@@ -126,7 +143,23 @@ export const staff = pgTable("staff", {
   active: boolean("active").notNull().default(true),
   // Si se borra la foto, la entidad se queda sin foto (no se borra)
   photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
+  // Cuándo se publicó en la página del equipo. Vacío = no se muestra (nadie aparece sin activarlo).
+  listedOnTeamAt: timestamp("listed_on_team_at", { withTimezone: true }),
 });
+
+// Cargo y presentación de cada profesional, por idioma
+export const staffTranslation = pgTable(
+  "staff_translation",
+  {
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    role: text("role"), // "Micropigmentadora", "Estilista de cejas"...
+    bio: text("bio"),
+  },
+  (t) => [primaryKey({ columns: [t.staffId, t.locale] })],
+);
 
 // Qué servicios ofrece cada local (precio propio opcional)
 export const locationService = pgTable(

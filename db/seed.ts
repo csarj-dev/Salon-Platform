@@ -1,9 +1,10 @@
 import "dotenv/config";
 import { db } from "./index";
+import { slugify } from "../lib/slug";
 import {
   location, locationHours, locationService, service, serviceCategory,
   serviceCategoryTranslation, serviceTranslation, staff, staffService,
-  client, appointment, schedule, timeOff, photo
+  client, appointment, schedule, timeOff, photo, staffTranslation
 } from "./schema";
 
 type Shift = [string, string];
@@ -48,11 +49,13 @@ async function main() {
     .values([
       {
         name: "The Room Centro",
+        slug: slugify("The Room Centro"),
         address: "Dirección de ejemplo 1",
         mapsUrl: "https://www.google.com/maps/search/?api=1&query=Adeje+Tenerife",
       },
       {
         name: "The Room Sur",
+        slug: slugify("The Room Sur"),
         address: "Dirección de ejemplo 2",
         mapsUrl: "https://www.google.com/maps/search/?api=1&query=Costa+Adeje+Tenerife",
       },
@@ -109,8 +112,20 @@ async function main() {
 
   const [ana, lucia, marta] = await db
     .insert(staff)
-    .values([{ name: "Ana" }, { name: "Lucía" }, { name: "Marta" }])
+    .values([
+      { name: "Ana", listedOnTeamAt: new Date() },
+      { name: "Lucía", listedOnTeamAt: new Date() },
+      { name: "Marta" }, // sin publicar: no aparece en la página del equipo
+    ])
     .returning();
+
+  // Cargo y presentación de EJEMPLO: se cambian por los reales
+  await db.insert(staffTranslation).values([
+    { staffId: ana.id, locale: "es", role: "Especialista en cejas", bio: "Texto de ejemplo: presentación de la profesional." },
+    { staffId: ana.id, locale: "en", role: "Brow specialist", bio: "Sample text: the professional's introduction." },
+    { staffId: lucia.id, locale: "es", role: "Especialista en pestañas", bio: "Texto de ejemplo: presentación de la profesional." },
+    { staffId: lucia.id, locale: "en", role: "Lash specialist", bio: "Sample text: the professional's introduction." },
+  ]);
 
   // Centro ofrece todo; Sur no ofrece el lifting
   await db.insert(locationService).values([

@@ -176,3 +176,97 @@ describe("applyEnvOverrides", () => {
     expect(applyEnvOverrides(raw, { SALON_WHATSAPP: "  " })).toBe(raw);
   });
 });
+
+describe("portada", () => {
+  const bilingual = { ...valid, locales: ["es", "en"] };
+  const alt = { es: "El equipo", en: "The team" };
+
+  it("sin portada no hay hero (se usa la portada de texto)", () => {
+    expect(salonConfigSchema.parse(valid).hero).toBeUndefined();
+  });
+
+  it("acepta una portada sin src (marcador gris)", () => {
+    const c = salonConfigSchema.parse({ ...bilingual, hero: { width: 1920, height: 1080, alt } });
+    expect(c.hero?.src).toBeUndefined();
+  });
+
+  it("acepta una portada con src", () => {
+    const c = salonConfigSchema.parse({
+      ...bilingual,
+      hero: { src: "/salons/the-room/hero.webp", width: 1920, height: 1080, alt },
+    });
+    expect(c.hero?.src).toBe("/salons/the-room/hero.webp");
+  });
+
+  it("rechaza una portada sin texto alternativo en algún idioma", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...bilingual, hero: { width: 1920, height: 1080, alt: { es: "El equipo" } } }),
+    ).toThrow();
+    expect(() =>
+      salonConfigSchema.parse({ ...bilingual, hero: { width: 1920, height: 1080, alt: { es: "El equipo", en: " " } } }),
+    ).toThrow();
+  });
+
+  it("rechaza medidas que no son positivas", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...bilingual, hero: { width: 0, height: 1080, alt } }),
+    ).toThrow();
+  });
+});
+
+describe("enfoque de la portada", () => {
+  const base = {
+    ...valid,
+    hero: { width: 1536, height: 1024, alt: { es: "El equipo" } },
+  };
+
+  it("sin focus no hay enfoque (recorte centrado)", () => {
+    expect(salonConfigSchema.parse(base).hero?.focus).toBeUndefined();
+  });
+
+  it("acepta valores válidos de object-position", () => {
+    for (const focus of ["center 15%", "left top", "50% 20%", "right bottom"]) {
+      const c = salonConfigSchema.parse({ ...base, hero: { ...base.hero, focus } });
+      expect(c.hero?.focus).toBe(focus);
+    }
+  });
+
+  it("rechaza valores que no son object-position", () => {
+    for (const focus of ["up", "center", "center; background:red", "150% 5%x", "", "center 15% extra"]) {
+      expect(() =>
+        salonConfigSchema.parse({ ...base, hero: { ...base.hero, focus } }),
+      ).toThrow();
+    }
+  });
+});
+
+describe("imagen de portada para móvil", () => {
+  const base = {
+    ...valid,
+    hero: { src: "/h.webp", width: 1536, height: 1024, alt: { es: "El equipo" } },
+  };
+
+  it("sin mobile no hay imagen alternativa", () => {
+    expect(salonConfigSchema.parse(base).hero?.mobile).toBeUndefined();
+  });
+
+  it("acepta una imagen de móvil con medidas", () => {
+    const c = salonConfigSchema.parse({
+      ...base,
+      hero: { ...base.hero, mobile: { src: "/m.webp", width: 900, height: 1350 } },
+    });
+    expect(c.hero?.mobile).toEqual({ src: "/m.webp", width: 900, height: 1350 });
+  });
+
+  it("rechaza una imagen de móvil sin medidas o con medidas no positivas", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...base, hero: { ...base.hero, mobile: { src: "/m.webp" } } }),
+    ).toThrow();
+    expect(() =>
+      salonConfigSchema.parse({
+        ...base,
+        hero: { ...base.hero, mobile: { src: "/m.webp", width: 0, height: 1350 } },
+      }),
+    ).toThrow();
+  });
+});

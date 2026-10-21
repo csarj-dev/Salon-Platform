@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { Menu, X } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -42,7 +42,9 @@ export function SiteNav({ links, navLabel, openLabel, closeLabel }: Props) {
           </ul>
         </nav>
 
-        <LocaleSwitcher />
+        <Suspense>
+          <LocaleSwitcher />
+        </Suspense>
 
         <button
           type="button"

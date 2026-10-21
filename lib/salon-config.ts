@@ -67,6 +67,32 @@ const galleryItemSchema = z.object({
   alt: z.record(z.string(), z.string()), // texto alternativo por idioma
 });
 
+// Portada. Sin `src` se pinta un bloque gris (marcador de posición)
+const heroSchema = z.object({
+  src: z.string().min(1).optional(), // ruta dentro de /public o URL del bucket
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  // Punto de enfoque del recorte, p. ej. "center 15%". Sin esto, el recorte es centrado.
+  // Solo se admiten valores de object-position (no CSS libre).
+  focus: z
+    .string()
+    .regex(
+      /^(left|center|right|\d{1,3}%) (top|center|bottom|\d{1,3}%)$/,
+      'Dos valores, por ejemplo "center 15%" o "left top"',
+    )
+    .optional(),
+      // Imagen alternativa para pantallas de móvil (menos de 768 px), p. ej. un encuadre vertical.
+  // Sin esto, se usa la misma imagen en todas las pantallas.
+  mobile: z
+    .object({
+      src: z.string().min(1),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .optional(),
+  alt: z.record(z.string(), z.string()), // texto alternativo por idioma
+});
+
 export const salonConfigSchema = z
   .object({
     name: z.string().min(1),
@@ -78,6 +104,7 @@ export const salonConfigSchema = z
     theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
     contact: contactSchema.default({}),
     gallery: z.array(galleryItemSchema).default([]),
+    hero: heroSchema.optional(),
     // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos
     initialLocations: z.array(initialLocation).default([]),
     booking: z.object({
@@ -112,10 +139,23 @@ export const salonConfigSchema = z
         }
       }
     });
+
+    if (c.hero) {
+      for (const locale of c.locales) {
+        if (!c.hero.alt[locale]?.trim()) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["hero", "alt", locale],
+            message: `Falta el texto alternativo de la portada en "${locale}"`,
+          });
+        }
+      }
+    }
   });
 
 export type SalonConfig = z.infer<typeof salonConfigSchema>;
 export type GalleryItem = SalonConfig["gallery"][number];
+export type HeroConfig = NonNullable<SalonConfig["hero"]>;
 
 // Variables de entorno que pisan valores del archivo de config.
 // Hoy solo SALON_WHATSAPP; así un número personal de pruebas no se sube al repo.

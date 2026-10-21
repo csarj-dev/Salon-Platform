@@ -1,9 +1,9 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   location, locationHours, locationService, schedule, service,
   serviceCategory, serviceCategoryTranslation, serviceTranslation,
-  staff, staffService,
+  staff, staffService, locationPhoto, staffTranslation
 } from "../db/schema";
 import { pickTranslation } from "./pick-translation";
 import type { HoursRow } from "./opening-hours";
@@ -16,6 +16,8 @@ export async function listActiveLocations() {
       address: location.address,
       phone: location.phone,
       mapsUrl: location.mapsUrl,
+      photoId: location.photoId,
+      slug: location.slug,
     })
     .from(location)
     .where(eq(location.active, true))
@@ -54,6 +56,7 @@ export type CatalogService = {
   priceCents: number;
   categoryId: number | null;
   requiresConsultation: boolean;
+  photoId: number | null;
 };
 
 // Servicios que ofrece un local, con nombre en el idioma pedido
@@ -73,6 +76,7 @@ export async function listServicesForLocation(
       categoryId: service.categoryId,
       sortOrder: service.sortOrder,
       requiresConsultation: service.requiresConsultation,
+      photoId: service.photoId,
     })
     .from(locationService)
     .innerJoin(service, eq(service.id, locationService.serviceId))
@@ -105,6 +109,7 @@ export async function listServicesForLocation(
         priceCents: r.override ?? r.basePrice,
         categoryId: r.categoryId,
         requiresConsultation: r.requiresConsultation,
+        photoId: r.photoId,
       },
     }))
     .sort(
@@ -182,7 +187,7 @@ export async function listServicesByCategory(
 // Profesionales activas que hacen el servicio y trabajan en ese local
 export async function listStaffForService(locationId: number, serviceId: number) {
   return db
-    .selectDistinct({ id: staff.id, name: staff.name })
+    .selectDistinct({ id: staff.id, name: staff.name, photoId: staff.photoId })
     .from(staff)
     .innerJoin(staffService, eq(staffService.staffId, staff.id))
     .innerJoin(schedule, eq(schedule.staffId, staff.id))
@@ -239,4 +244,129 @@ export async function listFeaturedServices(
       r.name,
     ),
   }));
+}
+
+// Un local activo por su slug, con su horario de apertura (sin agrupar).
+// null si no existe o está inactivo.
+export async function getLocationBySlug(slug: string) {
+  const [row] = await db
+    .select({
+      id: location.id,
+      slug: location.slug,
+      name: location.name,
+      address: location.address,
+      phone: location.phone,
+      mapsUrl: location.mapsUrl,
+      photoId: location.photoId,
+    })
+    .from(location)
+    .where(and(eq(location.slug, slug), eq(location.active, true)));
+  if (!row) return null;
+
+  const hours = await db
+    .select({
+      weekday: locationHours.weekday,
+      openTime: locationHours.openTime,
+      closeTime: locationHours.closeTime,
+    })
+    .from(locationHours)
+    .where(eq(locationHours.locationId, row.id))
+    .orderBy(asc(locationHours.weekday), asc(locationHours.openTime));
+
+  return {
+    ...row,
+    hours: hours.map(({ weekday, openTime, closeTime }): HoursRow => ({ weekday, openTime, closeTime })),
+  };
+}
+
+// Ids de las fotos de la galería de un local, en el orden elegido
+export async function listLocationGalleryPhotoIds(locationId: number): Promise<number[]> {
+  const rows = await db
+    .select({ photoId: locationPhoto.photoId })
+    .from(locationPhoto)
+    .where(eq(locationPhoto.locationId, locationId))
+    .orderBy(asc(locationPhoto.sortOrder), asc(locationPhoto.photoId));
+  return rows.map((r) => r.photoId);
+}
+
+export type TeamMember = {
+  id: number;
+  name: string;
+  photoId: number | null;
+  role: string | null;
+  bio: string | null;
+  locations: { id: number; name: string; slug: string | null }[];
+};
+
+// Profesionales publicadas en la web: activas y con `listed_on_team_at`, en el orden en que
+// se publicaron. Cargo y bio en el idioma pedido (o el idioma por defecto si falta).
+// Con `locationId`, solo las que trabajan en ese local.
+export async function listTeam(
+  locale: string,
+  defaultLocale: string,
+  options: { locationId?: number } = {},
+): Promise<TeamMember[]> {
+  const members = await db
+    .select({ id: staff.id, name: staff.name, photoId: staff.photoId })
+    .from(staff)
+    .where(and(eq(staff.active, true), isNotNull(staff.listedOnTeamAt)))
+    .orderBy(asc(staff.listedOnTeamAt), asc(staff.name), asc(staff.id));
+  if (members.length === 0) return [];
+
+  const ids = members.map((m) => m.id);
+  const [translations, places] = await Promise.all([
+    db
+      .select()
+      .from(staffTranslation)
+      .where(
+        and(
+          inArray(staffTranslation.staffId, ids),
+          inArray(staffTranslation.locale, [...new Set([locale, defaultLocale])]),
+        ),
+      ),
+    db
+      .selectDistinct({
+        staffId: schedule.staffId,
+        id: location.id,
+        name: location.name,
+        slug: location.slug,
+      })
+      .from(schedule)
+      .innerJoin(location, eq(location.id, schedule.locationId))
+      .where(and(inArray(schedule.staffId, ids), eq(location.active, true)))
+      .orderBy(asc(location.name)),
+  ]);
+
+  const team = members.map((m): TeamMember => {
+    const picked = pickTranslation(
+      translations
+        .filter((t) => t.staffId === m.id)
+        .map((t) => ({ locale: t.locale, name: t.role ?? "", description: t.bio })),
+      locale,
+      defaultLocale,
+      "",
+    );
+    return {
+      ...m,
+      role: picked.name || null,
+      bio: picked.description,
+      locations: places
+        .filter((p) => p.staffId === m.id)
+        .map(({ id, name, slug }) => ({ id, name, slug })),
+    };
+  });
+
+  return options.locationId === undefined
+    ? team
+    : team.filter((m) => m.locations.some((l) => l.id === options.locationId));
+}
+
+// ¿Hay al menos una profesional publicada? (para mostrar o no el enlace "Equipo")
+export async function hasListedTeam(): Promise<boolean> {
+  const [row] = await db
+    .select({ id: staff.id })
+    .from(staff)
+    .where(and(eq(staff.active, true), isNotNull(staff.listedOnTeamAt)))
+    .limit(1);
+  return row !== undefined;
 }

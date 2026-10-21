@@ -1,7 +1,10 @@
 import { Clock, MapPin, Phone } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Photo } from "@/components/photo";
+import type { PhotoView } from "@/lib/photos";
 import type { HoursLine } from "@/lib/opening-hours";
 
 type Props = {
@@ -11,15 +14,32 @@ type Props = {
   mapsUrl: string | null;
   hours: HoursLine[]; // vacío = no mostrar horario
   whatsappHref: string | null;
+  /** Foto del local; sin foto, la tarjeta no reserva hueco */
+  photo?: PhotoView | null;
+  /** Enlace "Ver local"; sin enlace, no se muestra el botón */
+  detailsHref?: string;
+  /** En la página del propio local el título ya está en el h1 */
+  hideHeading?: boolean;
 };
 
-export async function LocationCard({ name, address, phone, mapsUrl, hours, whatsappHref }: Props) {
+export async function LocationCard({
+  name, address, phone, mapsUrl, hours, whatsappHref, photo, detailsHref, hideHeading,
+}: Props) {
   const t = await getTranslations("Showcase");
 
   return (
     <Card>
       <CardContent className="space-y-4">
-        <h3 className="text-lg font-medium">{name}</h3>
+        {photo && (
+          <Photo
+            photo={photo}
+            ratio="16 / 10"
+            sizes="(min-width: 768px) 50vw, 100vw"
+            className="rounded-lg"
+          />
+        )}
+
+        {!hideHeading && <h3 className="text-lg font-medium">{name}</h3>}
 
         {address && (
           <p className="flex items-start gap-2 text-sm">
@@ -57,6 +77,14 @@ export async function LocationCard({ name, address, phone, mapsUrl, hours, whats
         )}
 
         <div className="flex flex-wrap gap-2">
+          {detailsHref && (
+            <Link
+              href={detailsHref}
+              className="inline-flex h-11 items-center rounded-lg border px-5 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {t("viewLocation")}
+            </Link>
+          )}
           {mapsUrl && (
             <a
               href={mapsUrl}
