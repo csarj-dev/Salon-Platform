@@ -5,9 +5,9 @@ const config = {
   defaultLocale: "es",
   branding: {
     logoText: "The Broom",
-    logo: "/salons/the-room/logo.ico", // cuando tengas el archivo en public/salons/the-room/
-    logoWidth: 1254,
-    logoHeight: 1254,
+    logo: "/salons/the-room/logo.webp",
+    logoWidth: 512,
+    logoHeight: 512,
   },
   initialLocations: [
     { name: "The Room Centro", address: "Dirección de ejemplo 1" },
