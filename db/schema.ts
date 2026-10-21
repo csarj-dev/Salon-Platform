@@ -11,12 +11,43 @@ export const appointmentSource = pgEnum("appointment_source", [
   "web", "phone", "whatsapp",
 ]);
 
+// Una foto es un archivo en el almacenamiento (la clave) más sus medidas.
+// El texto alternativo vive aparte, uno por idioma y obligatorio.
+export const photo = pgTable(
+  "photo",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    storageKey: text("storage_key").notNull().unique(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("photo_size_positive", sql`${t.width} > 0 AND ${t.height} > 0`)],
+);
+
+export const photoTranslation = pgTable(
+  "photo_translation",
+  {
+    photoId: integer("photo_id")
+      .notNull()
+      .references(() => photo.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    alt: text("alt").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.photoId, t.locale] }),
+    check("photo_translation_alt_not_blank", sql`length(btrim(${t.alt})) > 0`),
+  ],
+);
+
 export const location = pgTable("location", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
   address: text("address"),
   phone: text("phone"),
-  mapsUrl: text("maps_url"), // enlace "Cómo llegar"
+  mapsUrl: text("maps_url"), // enlace "Cómo llegar",
+  // Si se borra la foto, la entidad se queda sin foto (no se borra)
+  photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
   active: boolean("active").notNull().default(true),
 });
 
@@ -72,6 +103,8 @@ export const service = pgTable("service", {
   requiresConsultation: boolean("requires_consultation").notNull().default(false),
   // true = aparece en "Nuestros servicios" de la portada
   featured: boolean("featured").notNull().default(false),
+  // Si se borra la foto, la entidad se queda sin foto (no se borra)
+  photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
 });
 
 export const serviceTranslation = pgTable(
@@ -91,6 +124,8 @@ export const staff = pgTable("staff", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
   active: boolean("active").notNull().default(true),
+  // Si se borra la foto, la entidad se queda sin foto (no se borra)
+  photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
 });
 
 // Qué servicios ofrece cada local (precio propio opcional)

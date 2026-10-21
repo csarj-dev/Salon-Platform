@@ -3,7 +3,7 @@ import { db } from "./index";
 import {
   location, locationHours, locationService, service, serviceCategory,
   serviceCategoryTranslation, serviceTranslation, staff, staffService,
-  client, appointment, schedule, timeOff,
+  client, appointment, schedule, timeOff, photo
 } from "./schema";
 
 type Shift = [string, string];
@@ -41,6 +41,7 @@ async function main() {
   await db.delete(serviceCategory);
   await db.delete(locationHours);
   await db.delete(location);
+  await db.delete(photo);
 
   const [centro, sur] = await db
     .insert(location)
