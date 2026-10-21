@@ -2,9 +2,30 @@
   "Metadata": {
     "description": "Reserva tu cita online."
   },
-  "Home": {
-    "tagline": "Reserva tu cita online",
-    "book": "Reservar cita"
+    "Home": {
+    "tagline": "Cuidado de cejas y pestañas con atención personalizada",
+    "book": "Reservar cita",
+    "featuredTitle": "Nuestros servicios",
+    "aboutTitle": "El estudio",
+    "aboutText": "Un espacio dedicado al cuidado de cejas y pestañas, con atención personalizada y productos de calidad. Cuéntanos qué buscas y te recomendamos el tratamiento que mejor encaja contigo.",
+    "galleryTitle": "Nuestros trabajos",
+    "locationsTitle": "Dónde encontrarnos"
+  },
+  "Nav": {
+    "label": "Principal",
+    "services": "Servicios",
+    "locations": "Locales",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú"
+  },
+  "Footer": {
+    "contact": "Contacto"
+  },
+  "Services": {
+    "title": "Servicios y precios",
+    "empty": "No hay locales disponibles ahora mismo.",
+    "noServices": "Este local no tiene servicios disponibles.",
+    "locationPicker": "Elige un local"
   },
   "Booking": {
     "back": "Volver",
@@ -20,5 +41,23 @@
     "noServices": "Este local no tiene servicios disponibles.",
     "noStaff": "No hay profesionales disponibles para este servicio.",
     "nextStep": "Siguiente paso: elegir día y hora (próximamente)"
+  },
+    "Showcase": {
+    "book": "Reservar cita",
+    "whatsappBook": "Reservar por WhatsApp",
+    "whatsappConsult": "Consultar por WhatsApp",
+    "whatsappChat": "Escríbenos por WhatsApp",
+    "messageBook": "Hola, quiero reservar {service} en {location}.",
+    "messageConsult": "Hola, me gustaría información sobre {service} en {location}.",
+    "messageGeneric": "Hola, me gustaría pedir información.",
+    "consultationBadge": "Con consulta previa",
+    "minutes": "{count} min",
+    "otherServices": "Otros servicios",
+    "closed": "Cerrado",
+    "hours": "Horario",
+    "directions": "Cómo llegar",
+    "call": "Llamar",
+    "viewMenu": "Ver carta y precios",
+    "messageLocation": "Hola, me gustaría información sobre {location}."
   }
 }

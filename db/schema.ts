@@ -11,19 +11,100 @@ export const appointmentSource = pgEnum("appointment_source", [
   "web", "phone", "whatsapp",
 ]);
 
+// Una foto es un archivo en el almacenamiento (la clave) más sus medidas.
+// El texto alternativo vive aparte, uno por idioma y obligatorio.
+export const photo = pgTable(
+  "photo",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    storageKey: text("storage_key").notNull().unique(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("photo_size_positive", sql`${t.width} > 0 AND ${t.height} > 0`)],
+);
+
+export const photoTranslation = pgTable(
+  "photo_translation",
+  {
+    photoId: integer("photo_id")
+      .notNull()
+      .references(() => photo.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    alt: text("alt").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.photoId, t.locale] }),
+    check("photo_translation_alt_not_blank", sql`length(btrim(${t.alt})) > 0`),
+  ],
+);
+
 export const location = pgTable("location", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
   address: text("address"),
   phone: text("phone"),
+  mapsUrl: text("maps_url"), // enlace "Cómo llegar",
+  // Si se borra la foto, la entidad se queda sin foto (no se borra)
+  photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
   active: boolean("active").notNull().default(true),
 });
+
+// Horario de apertura al público de cada local (no el de las profesionales).
+// Un día con turno partido = dos filas, igual que en `schedule`.
+export const locationHours = pgTable(
+  "location_hours",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    locationId: integer("location_id")
+      .notNull()
+      .references(() => location.id, { onDelete: "cascade" }),
+    weekday: smallint("weekday").notNull(), // 1 = lunes ... 7 = domingo
+    openTime: time("open_time").notNull(),
+    closeTime: time("close_time").notNull(),
+  },
+  (t) => [
+    check("location_hours_weekday_range", sql`${t.weekday} BETWEEN 1 AND 7`),
+    check("location_hours_close_after_open", sql`${t.closeTime} > ${t.openTime}`),
+  ],
+);
+
+// Categorías de la carta: Cejas, Pestañas, Micropigmentación...
+export const serviceCategory = pgTable("service_category", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(), // nombre interno, de reserva
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const serviceCategoryTranslation = pgTable(
+  "service_category_translation",
+  {
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => serviceCategory.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    name: text("name").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.categoryId, t.locale] })],
+);
 
 export const service = pgTable("service", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
   durationMin: integer("duration_min").notNull(),
   priceCents: integer("price_cents").notNull(),
+  // Si se borra la categoría, el servicio queda sin categoría (no se borra)
+  categoryId: integer("category_id").references(() => serviceCategory.id, {
+    onDelete: "set null",
+  }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  // true = se reserva hablando antes (no por la web)
+  requiresConsultation: boolean("requires_consultation").notNull().default(false),
+  // true = aparece en "Nuestros servicios" de la portada
+  featured: boolean("featured").notNull().default(false),
+  // Si se borra la foto, la entidad se queda sin foto (no se borra)
+  photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
 });
 
 export const serviceTranslation = pgTable(
@@ -43,6 +124,8 @@ export const staff = pgTable("staff", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),
   active: boolean("active").notNull().default(true),
+  // Si se borra la foto, la entidad se queda sin foto (no se borra)
+  photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
 });
 
 // Qué servicios ofrece cada local (precio propio opcional)

@@ -2,9 +2,30 @@
   "Metadata": {
     "description": "Book your appointment online."
   },
-  "Home": {
-    "tagline": "Book your appointment online",
-    "book": "Book now"
+    "Home": {
+    "tagline": "Brow and lash care with personal attention",
+    "book": "Book now",
+    "featuredTitle": "Our services",
+    "aboutTitle": "The studio",
+    "aboutText": "A space dedicated to brow and lash care, with personal attention and quality products. Tell us what you are after and we will recommend the treatment that suits you best.",
+    "galleryTitle": "Our work",
+    "locationsTitle": "Find us"
+  },
+  "Nav": {
+    "label": "Main",
+    "services": "Services",
+    "locations": "Locations",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "Footer": {
+    "contact": "Contact"
+  },
+  "Services": {
+    "title": "Services and prices",
+    "empty": "No locations are available right now.",
+    "noServices": "This location has no services available.",
+    "locationPicker": "Choose a location"
   },
   "Booking": {
     "back": "Back",
@@ -20,5 +41,23 @@
     "noServices": "This location has no services available.",
     "noStaff": "No professionals are available for this service.",
     "nextStep": "Next step: choose a day and time (coming soon)"
+  },
+    "Showcase": {
+    "book": "Book now",
+    "whatsappBook": "Book on WhatsApp",
+    "whatsappConsult": "Ask on WhatsApp",
+    "whatsappChat": "Message us on WhatsApp",
+    "messageBook": "Hi, I'd like to book {service} at {location}.",
+    "messageConsult": "Hi, I'd like some information about {service} at {location}.",
+    "messageGeneric": "Hi, I'd like some information.",
+    "consultationBadge": "Consultation first",
+    "minutes": "{count} min",
+    "otherServices": "Other services",
+    "closed": "Closed",
+    "hours": "Opening hours",
+    "directions": "Get directions",
+    "call": "Call",
+    "viewMenu": "View menu and prices",
+    "messageLocation": "Hi, I'd like some information about {location}."
   }
 }
