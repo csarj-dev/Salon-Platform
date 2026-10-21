@@ -80,7 +80,9 @@ export async function BookingSteps({ locale, searchParams }: Props) {
   }
 
   // Paso 2: servicio
-  const services = await listServicesForLocation(location.id, locale, config.defaultLocale);
+  const services = (
+    await listServicesForLocation(location.id, locale, config.defaultLocale)
+  ).filter((s) => !s.requiresConsultation);
   const service = services.find((s) => s.id === flow.service);
 
   if (!service) {

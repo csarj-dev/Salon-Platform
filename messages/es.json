@@ -2,9 +2,30 @@
   "Metadata": {
     "description": "Reserva tu cita online."
   },
-  "Home": {
-    "tagline": "Reserva tu cita online",
-    "book": "Reservar cita"
+    "Home": {
+    "tagline": "Cuidado de cejas y pestañas con atención personalizada",
+    "book": "Reservar cita",
+    "featuredTitle": "Nuestros servicios",
+    "aboutTitle": "El estudio",
+    "aboutText": "Un espacio dedicado al cuidado de cejas y pestañas, con atención personalizada y productos de calidad. Cuéntanos qué buscas y te recomendamos el tratamiento que mejor encaja contigo.",
+    "galleryTitle": "Nuestros trabajos",
+    "locationsTitle": "Dónde encontrarnos"
+  },
+  "Nav": {
+    "label": "Principal",
+    "services": "Servicios",
+    "locations": "Locales",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú"
+  },
+  "Footer": {
+    "contact": "Contacto"
+  },
+  "Services": {
+    "title": "Servicios y precios",
+    "empty": "No hay locales disponibles ahora mismo.",
+    "noServices": "Este local no tiene servicios disponibles.",
+    "locationPicker": "Elige un local"
   },
   "Booking": {
     "back": "Volver",
@@ -35,6 +56,8 @@
     "closed": "Cerrado",
     "hours": "Horario",
     "directions": "Cómo llegar",
-    "call": "Llamar"
+    "call": "Llamar",
+    "viewMenu": "Ver carta y precios",
+    "messageLocation": "Hola, me gustaría información sobre {location}."
   }
 }
