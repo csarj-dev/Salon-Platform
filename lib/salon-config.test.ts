@@ -176,3 +176,40 @@ describe("applyEnvOverrides", () => {
     expect(applyEnvOverrides(raw, { SALON_WHATSAPP: "  " })).toBe(raw);
   });
 });
+
+describe("portada", () => {
+  const bilingual = { ...valid, locales: ["es", "en"] };
+  const alt = { es: "El equipo", en: "The team" };
+
+  it("sin portada no hay hero (se usa la portada de texto)", () => {
+    expect(salonConfigSchema.parse(valid).hero).toBeUndefined();
+  });
+
+  it("acepta una portada sin src (marcador gris)", () => {
+    const c = salonConfigSchema.parse({ ...bilingual, hero: { width: 1920, height: 1080, alt } });
+    expect(c.hero?.src).toBeUndefined();
+  });
+
+  it("acepta una portada con src", () => {
+    const c = salonConfigSchema.parse({
+      ...bilingual,
+      hero: { src: "/salons/the-room/hero.webp", width: 1920, height: 1080, alt },
+    });
+    expect(c.hero?.src).toBe("/salons/the-room/hero.webp");
+  });
+
+  it("rechaza una portada sin texto alternativo en algún idioma", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...bilingual, hero: { width: 1920, height: 1080, alt: { es: "El equipo" } } }),
+    ).toThrow();
+    expect(() =>
+      salonConfigSchema.parse({ ...bilingual, hero: { width: 1920, height: 1080, alt: { es: "El equipo", en: " " } } }),
+    ).toThrow();
+  });
+
+  it("rechaza medidas que no son positivas", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...bilingual, hero: { width: 0, height: 1080, alt } }),
+    ).toThrow();
+  });
+});

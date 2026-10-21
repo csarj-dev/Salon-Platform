@@ -17,7 +17,8 @@
     "test:unit": "vitest run lib",
     "test:db": "vitest run tests --no-file-parallelism",
     "db:try": "tsx db/try-availability.ts",
-    "db:provision": "tsx db/provision.ts"
+    "db:provision": "tsx db/provision.ts",
+    "db:photo": "tsx db/attach-photo.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
@@ -28,6 +29,7 @@
     "cn": "^0.5.0",
     "dotenv": "^18.0.8",
     "drizzle-orm": "^0.45.4",
+    "image-size": "^2.0.4",
     "lucide-react": "^1.60.0",
     "luxon": "^3.7.2",
     "next": "16.4.2",

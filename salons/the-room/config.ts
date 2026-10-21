@@ -38,6 +38,15 @@ const config = {
     whatsapp: "34600000000", // provisional; tu número real va en SALON_WHATSAPP
     instagram: "theroom.estudio",
   },
+  // Portada. Sin `src` se pinta gris; con foto: src: "/salons/the-room/hero.webp"
+  hero: {
+    width: 1920,
+    height: 1080,
+    alt: {
+      es: "El equipo de The Room en el estudio",
+      en: "The Room team at the studio",
+    },
+  },
   // Fotos de ejemplo en gris: sin `src` se pinta un bloque con esa proporción.
   // Cuando haya fotos reales, se añade `src: "/salons/the-room/gallery/foto-1.jpg"`.
   gallery: [

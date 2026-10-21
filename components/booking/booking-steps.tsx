@@ -6,6 +6,8 @@ import {
 } from "@/lib/catalog";
 import { flowQuery, parseFlowParams, type Flow } from "@/lib/booking-flow";
 import { formatPrice } from "@/lib/format";
+import { initialsOf } from "@/lib/initials";
+import { getPhotoViews } from "@/lib/photos";
 import { loadSalonConfig } from "@/lib/salon-config";
 
 type Props = {
@@ -55,6 +57,11 @@ export async function BookingSteps({ locale, searchParams }: Props) {
     locations.length === 1 ? locations[0] : locations.find((l) => l.id === flow.location);
 
   if (!location) {
+    const photos = await getPhotoViews(
+      locations.map((l) => l.photoId),
+      locale,
+      config.defaultLocale,
+    );
     return (
       <section>
         <Heading>{t("stepLocation")}</Heading>
@@ -65,6 +72,7 @@ export async function BookingSteps({ locale, searchParams }: Props) {
               href={href({ location: l.id })}
               title={l.name}
               description={l.address}
+              photo={l.photoId === null ? undefined : photos.get(l.photoId)}
             />
           ))}
         </div>
@@ -86,6 +94,11 @@ export async function BookingSteps({ locale, searchParams }: Props) {
   const service = services.find((s) => s.id === flow.service);
 
   if (!service) {
+    const photos = await getPhotoViews(
+      services.map((s) => s.photoId),
+      locale,
+      config.defaultLocale,
+    );
     return (
       <div className="space-y-6">
         <div className="space-y-2">{summary}</div>
@@ -106,6 +119,7 @@ export async function BookingSteps({ locale, searchParams }: Props) {
                     locale,
                     config.currency,
                   )}`}
+                  photo={s.photoId === null ? undefined : photos.get(s.photoId)}
                 />
               ))}
             </div>
@@ -129,6 +143,11 @@ export async function BookingSteps({ locale, searchParams }: Props) {
   const member = flow.staff === "any" ? "any" : team.find((m) => m.id === flow.staff);
 
   if (!member) {
+    const photos = await getPhotoViews(
+      team.map((m) => m.photoId),
+      locale,
+      config.defaultLocale,
+    );
     return (
       <div className="space-y-6">
         <div className="space-y-2">{summary}</div>
@@ -148,6 +167,9 @@ export async function BookingSteps({ locale, searchParams }: Props) {
                   key={m.id}
                   href={href({ location: location.id, service: service.id, staff: m.id })}
                   title={m.name}
+                  photo={m.photoId === null ? undefined : photos.get(m.photoId)}
+                  initials={initialsOf(m.name)}
+                  round
                 />
               ))}
             </div>

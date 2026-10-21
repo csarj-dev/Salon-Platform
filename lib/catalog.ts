@@ -16,6 +16,7 @@ export async function listActiveLocations() {
       address: location.address,
       phone: location.phone,
       mapsUrl: location.mapsUrl,
+      photoId: location.photoId,
     })
     .from(location)
     .where(eq(location.active, true))
@@ -54,6 +55,7 @@ export type CatalogService = {
   priceCents: number;
   categoryId: number | null;
   requiresConsultation: boolean;
+  photoId: number | null;
 };
 
 // Servicios que ofrece un local, con nombre en el idioma pedido
@@ -73,6 +75,7 @@ export async function listServicesForLocation(
       categoryId: service.categoryId,
       sortOrder: service.sortOrder,
       requiresConsultation: service.requiresConsultation,
+      photoId: service.photoId,
     })
     .from(locationService)
     .innerJoin(service, eq(service.id, locationService.serviceId))
@@ -105,6 +108,7 @@ export async function listServicesForLocation(
         priceCents: r.override ?? r.basePrice,
         categoryId: r.categoryId,
         requiresConsultation: r.requiresConsultation,
+        photoId: r.photoId,
       },
     }))
     .sort(
@@ -182,7 +186,7 @@ export async function listServicesByCategory(
 // Profesionales activas que hacen el servicio y trabajan en ese local
 export async function listStaffForService(locationId: number, serviceId: number) {
   return db
-    .selectDistinct({ id: staff.id, name: staff.name })
+    .selectDistinct({ id: staff.id, name: staff.name, photoId: staff.photoId })
     .from(staff)
     .innerJoin(staffService, eq(staffService.staffId, staff.id))
     .innerJoin(schedule, eq(schedule.staffId, staff.id))
