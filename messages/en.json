@@ -65,7 +65,8 @@
     "Location": {
     "back": "All locations",
     "galleryTitle": "Photos of the location",
-    "servicesTitle": "Services and prices"
+    "servicesTitle": "Services and prices",
+    "teamTitle": "Team at this location"
   },
     "Team": {
     "title": "Our team",

@@ -65,7 +65,8 @@
   "Location": {
     "back": "Todos los locales",
     "galleryTitle": "Fotos del local",
-    "servicesTitle": "Servicios y precios"
+    "servicesTitle": "Servicios y precios",
+    "teamTitle": "Equipo del local"
   },
     "Team": {
     "title": "Nuestro equipo",
