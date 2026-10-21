@@ -57,7 +57,7 @@ describe("contacto", () => {
   it("limpia el WhatsApp y lo deja solo con dígitos", () => {
     const c = salonConfigSchema.parse({
       ...valid,
-      contact: { whatsapp: "+34 600 000-000" },
+      contact: { whatsapp: "+34 600-000 000" },
     });
     expect(c.contact.whatsapp).toBe("34600000000");
   });
@@ -74,6 +74,40 @@ describe("contacto", () => {
   it("rechaza un email mal formado", () => {
     expect(() =>
       salonConfigSchema.parse({ ...valid, contact: { email: "no-es-un-email" } }),
+    ).toThrow();
+  });
+});
+
+describe("canales de reserva", () => {
+  it("por defecto el único canal de reserva es online", () => {
+    expect(salonConfigSchema.parse(valid).booking.channels).toEqual(["online"]);
+  });
+
+  it("rechaza el canal whatsapp si no hay número", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...valid, booking: { channels: ["whatsapp"] } }),
+    ).toThrow();
+  });
+
+  it("acepta el canal whatsapp con número", () => {
+    expect(() =>
+      salonConfigSchema.parse({
+        ...valid,
+        contact: { whatsapp: "34600000000" },
+        booking: { channels: ["online", "whatsapp"] },
+      }),
+    ).not.toThrow();
+  });
+
+  it("acepta una lista vacía de canales (solo carta informativa)", () => {
+    expect(
+      salonConfigSchema.parse({ ...valid, booking: { channels: [] } }).booking.channels,
+    ).toEqual([]);
+  });
+
+  it("rechaza un canal que no existe", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...valid, booking: { channels: ["telegram"] } }),
     ).toThrow();
   });
 });

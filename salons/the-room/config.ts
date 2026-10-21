@@ -47,6 +47,7 @@ const config = {
     { width: 1080, height: 1350, alt: { es: "Interior del estudio", en: "Inside the studio" } },
     { width: 1080, height: 1080, alt: { es: "Zona de recepción", en: "Reception area" } },
   ],
+  channels: ["whatsapp"],
 };
 
 export default config;

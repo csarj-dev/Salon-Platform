@@ -81,6 +81,8 @@ export const salonConfigSchema = z
     // Solo se usa en el alta del salón; después los locales se gestionan en la base de datos
     initialLocations: z.array(initialLocation).default([]),
     booking: z.object({
+      // Canales por los que se puede reservar; vacío = solo carta informativa
+      channels: z.array(z.enum(["online", "whatsapp"])).default(["online"]),
       slotStepMin: z.number().int().positive().default(30),
       bufferMin: z.number().int().min(0).default(0),
       minNoticeHours: z.number().min(0).default(2),
@@ -89,6 +91,15 @@ export const salonConfigSchema = z
     }),
   })
   .superRefine((c, ctx) => {
+    // Un canal de WhatsApp sin número no tiene sentido
+    if (c.booking.channels.includes("whatsapp") && !c.contact.whatsapp) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["contact", "whatsapp"],
+        message: 'El canal "whatsapp" está activo pero falta contact.whatsapp (o SALON_WHATSAPP)',
+      });
+    }
+
     // Accesibilidad: toda foto necesita texto alternativo en todos los idiomas del salón
     c.gallery.forEach((item, i) => {
       for (const locale of c.locales) {
