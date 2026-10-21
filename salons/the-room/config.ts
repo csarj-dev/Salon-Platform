@@ -19,7 +19,7 @@ const config = {
     minNoticeHours: 2,
     maxDaysAhead: 60,
     cancellationNoticeHours: 24,
-    channels: ["online"],
+    channels: ["online", "whatsapp"],
   },
   theme: {
     background: "#f7f1ea",
