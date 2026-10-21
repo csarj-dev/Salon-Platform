@@ -40,8 +40,10 @@ const config = {
   },
   // Portada. Sin `src` se pinta gris; con foto: src: "/salons/the-room/hero.webp"
   hero: {
-    width: 1920,
-    height: 1080,
+    src: "/salons/the-room/hero.webp",
+    width: 1536,
+    height: 1024,
+    focus: "center 15%",
     alt: {
       es: "El equipo de The Room en el estudio",
       en: "The Room team at the studio",

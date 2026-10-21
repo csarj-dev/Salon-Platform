@@ -213,3 +213,29 @@ describe("portada", () => {
     ).toThrow();
   });
 });
+
+describe("enfoque de la portada", () => {
+  const base = {
+    ...valid,
+    hero: { width: 1536, height: 1024, alt: { es: "El equipo" } },
+  };
+
+  it("sin focus no hay enfoque (recorte centrado)", () => {
+    expect(salonConfigSchema.parse(base).hero?.focus).toBeUndefined();
+  });
+
+  it("acepta valores válidos de object-position", () => {
+    for (const focus of ["center 15%", "left top", "50% 20%", "right bottom"]) {
+      const c = salonConfigSchema.parse({ ...base, hero: { ...base.hero, focus } });
+      expect(c.hero?.focus).toBe(focus);
+    }
+  });
+
+  it("rechaza valores que no son object-position", () => {
+    for (const focus of ["up", "center", "center; background:red", "150% 5%x", "", "center 15% extra"]) {
+      expect(() =>
+        salonConfigSchema.parse({ ...base, hero: { ...base.hero, focus } }),
+      ).toThrow();
+    }
+  });
+});

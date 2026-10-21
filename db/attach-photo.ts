@@ -10,6 +10,9 @@ import { buildPhotoKey, validatePhotoUpload, type PhotoScope } from "../lib/phot
 import { missingAltLocales, parseAttachArgs, type AttachEntity } from "../lib/photo-cli";
 import { getStorage } from "../lib/storage";
 
+// Ejecutar con (npm run rompe las opciones --alt-* y las comillas en Windows):
+//   npx tsx db/attach-photo.ts staff 1 "C:\ruta\foto.webp" --alt-es "Retrato de Ana" --alt-en "Portrait of Ana"
+
 // image-size detecta el formato por el contenido del archivo, no por su extensión
 const CONTENT_TYPES: Record<string, string> = {
   jpg: "image/jpeg",

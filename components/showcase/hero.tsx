@@ -26,12 +26,13 @@ export function Hero({ title, tagline, hero, locale, defaultLocale, children }: 
     >
       {hero?.src ? (
         <>
-          <Image
+         <Image
             src={hero.src}
             alt={alt}
             fill
             priority
             sizes="100vw"
+            style={{ objectPosition: hero.focus }}
             className="-z-10 object-cover"
           />
           {/* Degradado oscuro abajo para que el texto blanco se lea sobre cualquier foto */}

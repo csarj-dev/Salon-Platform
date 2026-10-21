@@ -72,6 +72,15 @@ const heroSchema = z.object({
   src: z.string().min(1).optional(), // ruta dentro de /public o URL del bucket
   width: z.number().int().positive(),
   height: z.number().int().positive(),
+  // Punto de enfoque del recorte, p. ej. "center 15%". Sin esto, el recorte es centrado.
+  // Solo se admiten valores de object-position (no CSS libre).
+  focus: z
+    .string()
+    .regex(
+      /^(left|center|right|\d{1,3}%) (top|center|bottom|\d{1,3}%)$/,
+      'Dos valores, por ejemplo "center 15%" o "left top"',
+    )
+    .optional(),
   alt: z.record(z.string(), z.string()), // texto alternativo por idioma
 });
 
