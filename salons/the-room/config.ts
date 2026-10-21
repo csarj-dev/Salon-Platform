@@ -44,6 +44,7 @@ const config = {
     width: 1536,
     height: 1024,
     focus: "center 15%",
+    mobile: { src: "/salons/the-room/hero-mobile.webp", width: 900, height: 1350 },
     alt: {
       es: "El equipo de The Room en el estudio",
       en: "The Room team at the studio",

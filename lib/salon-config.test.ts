@@ -239,3 +239,34 @@ describe("enfoque de la portada", () => {
     }
   });
 });
+
+describe("imagen de portada para móvil", () => {
+  const base = {
+    ...valid,
+    hero: { src: "/h.webp", width: 1536, height: 1024, alt: { es: "El equipo" } },
+  };
+
+  it("sin mobile no hay imagen alternativa", () => {
+    expect(salonConfigSchema.parse(base).hero?.mobile).toBeUndefined();
+  });
+
+  it("acepta una imagen de móvil con medidas", () => {
+    const c = salonConfigSchema.parse({
+      ...base,
+      hero: { ...base.hero, mobile: { src: "/m.webp", width: 900, height: 1350 } },
+    });
+    expect(c.hero?.mobile).toEqual({ src: "/m.webp", width: 900, height: 1350 });
+  });
+
+  it("rechaza una imagen de móvil sin medidas o con medidas no positivas", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...base, hero: { ...base.hero, mobile: { src: "/m.webp" } } }),
+    ).toThrow();
+    expect(() =>
+      salonConfigSchema.parse({
+        ...base,
+        hero: { ...base.hero, mobile: { src: "/m.webp", width: 0, height: 1350 } },
+      }),
+    ).toThrow();
+  });
+});

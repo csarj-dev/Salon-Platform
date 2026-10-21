@@ -81,6 +81,15 @@ const heroSchema = z.object({
       'Dos valores, por ejemplo "center 15%" o "left top"',
     )
     .optional(),
+      // Imagen alternativa para pantallas de móvil (menos de 768 px), p. ej. un encuadre vertical.
+  // Sin esto, se usa la misma imagen en todas las pantallas.
+  mobile: z
+    .object({
+      src: z.string().min(1),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .optional(),
   alt: z.record(z.string(), z.string()), // texto alternativo por idioma
 });
 

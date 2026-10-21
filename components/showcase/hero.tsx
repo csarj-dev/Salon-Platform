@@ -1,5 +1,5 @@
-import Image from "next/image";
-import type { ReactNode } from "react";
+import { getImageProps } from "next/image";
+import type { CSSProperties, ReactNode } from "react";
 import type { HeroConfig } from "@/lib/salon-config";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,36 @@ type Props = {
   defaultLocale: string;
   children: ReactNode; // el botón principal
 };
+
+// Imagen de portada con una versión distinta para móvil (art direction, ver docs de next/image)
+function HeroPicture({ hero, src, alt }: { hero: HeroConfig; src: string; alt: string }) {
+  const common = { alt, sizes: "100vw", priority: true } as const;
+
+  const desktop = getImageProps({ ...common, src, width: hero.width, height: hero.height });
+  const mobile = hero.mobile
+    ? getImageProps({
+        ...common,
+        src: hero.mobile.src,
+        width: hero.mobile.width,
+        height: hero.mobile.height,
+      })
+    : null;
+
+  const { srcSet: desktopSrcSet, ...desktopRest } = desktop.props;
+
+  return (
+    <picture>
+      {mobile && <source media="(max-width: 767px)" srcSet={mobile.props.srcSet} />}
+      <img
+        {...desktopRest}
+        srcSet={desktopSrcSet}
+        alt={alt}
+        style={{ "--hero-focus": hero.focus } as CSSProperties}
+        className="absolute inset-0 -z-10 h-full w-full object-cover object-top md:[object-position:var(--hero-focus,center)]"
+      />
+    </picture>
+  );
+}
 
 export function Hero({ title, tagline, hero, locale, defaultLocale, children }: Props) {
   const alt = hero ? (hero.alt[locale] ?? hero.alt[defaultLocale] ?? "") : "";
@@ -26,15 +56,7 @@ export function Hero({ title, tagline, hero, locale, defaultLocale, children }: 
     >
       {hero?.src ? (
         <>
-         <Image
-            src={hero.src}
-            alt={alt}
-            fill
-            priority
-            sizes="100vw"
-            style={{ objectPosition: hero.focus }}
-            className="-z-10 object-cover"
-          />
+          <HeroPicture hero={hero} src={hero.src} alt={alt} />
           {/* Degradado oscuro abajo para que el texto blanco se lea sobre cualquier foto */}
           <div
             aria-hidden="true"

@@ -18,7 +18,7 @@
     "test:db": "vitest run tests --no-file-parallelism",
     "db:try": "tsx db/try-availability.ts",
     "db:provision": "tsx db/provision.ts",
-    "db:photo": "tsx db/attach-photo.ts"
+    "db:photo": "echo Usa: npx tsx db/attach-photo.ts <location|service|staff> <id> <archivo> --alt-es \"texto\" --alt-en \"texto\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1154.0",
