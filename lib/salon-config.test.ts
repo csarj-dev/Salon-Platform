@@ -305,3 +305,30 @@ describe("depósitos en la configuración", () => {
     ).not.toThrow();
   });
 });
+
+describe("modo de pago del depósito", () => {
+  it("por defecto se paga con instrucciones", () => {
+    expect(salonConfigSchema.parse(valid).booking.deposit.mode).toBe("instructions");
+  });
+
+  it("admite pedir el enlace de pago por WhatsApp si hay número", () => {
+    const c = salonConfigSchema.parse({
+      ...valid,
+      contact: { whatsapp: "34600000000" },
+      booking: { deposit: { mode: "whatsapp" } },
+    });
+    expect(c.booking.deposit.mode).toBe("whatsapp");
+  });
+
+  it("el modo whatsapp sin número de WhatsApp es un error", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...valid, booking: { deposit: { mode: "whatsapp" } } }),
+    ).toThrow(/falta contact\.whatsapp/);
+  });
+
+  it("rechaza un modo que no existe", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...valid, booking: { deposit: { mode: "paypal" } } }),
+    ).toThrow();
+  });
+});

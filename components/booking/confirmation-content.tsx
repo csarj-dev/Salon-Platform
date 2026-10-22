@@ -57,6 +57,11 @@ export async function ConfirmationContent({ params }: Props) {
   const { instructions, policy } = config.booking.deposit;
   const proofHref = whatsapp(t("proofMessage", { id: view.id, service: view.serviceName, when }));
   const contactHref = whatsapp(t("contactMessage", { id: view.id, service: view.serviceName, when }));
+  // Con depósito por WhatsApp, se pide el enlace de cobro por chat en vez de seguir instrucciones
+  const viaWhatsApp = config.booking.deposit.mode === "whatsapp";
+  const payLinkHref = whatsapp(
+    t("payLinkMessage", { id: view.id, service: view.serviceName, when, amount: deposit ?? "" }),
+  );
 
   return (
     <div className="mx-auto max-w-xl px-6 py-8">
@@ -84,12 +89,16 @@ export async function ConfirmationContent({ params }: Props) {
           <p className="text-sm">
             {t("depositDue", { date: formatDateTime(view.depositDueAt, locale, zone) })}
           </p>
-          <div>
-            <h3 className="text-sm font-medium">{t("howToPay")}</h3>
-            <p className="mt-1 whitespace-pre-line text-sm">
-              {instructions?.[locale] ?? instructions?.[config.defaultLocale] ?? t("payNoInstructions")}
-            </p>
-          </div>
+          {viaWhatsApp ? (
+            <p className="text-sm">{t("payLinkInfo")}</p>
+          ) : (
+            <div>
+              <h3 className="text-sm font-medium">{t("howToPay")}</h3>
+              <p className="mt-1 whitespace-pre-line text-sm">
+                {instructions?.[locale] ?? instructions?.[config.defaultLocale] ?? t("payNoInstructions")}
+              </p>
+            </div>
+          )}
           {policy && (
             <div>
               <h3 className="text-sm font-medium">{t("policy")}</h3>
@@ -98,7 +107,9 @@ export async function ConfirmationContent({ params }: Props) {
               </p>
             </div>
           )}
-          {proofHref && <WhatsAppButton href={proofHref}>{t("sendProof")}</WhatsAppButton>}
+          {viaWhatsApp
+            ? payLinkHref && <WhatsAppButton href={payLinkHref}>{t("payLinkButton")}</WhatsAppButton>
+            : proofHref && <WhatsAppButton href={proofHref}>{t("sendProof")}</WhatsAppButton>}
         </section>
       )}
 

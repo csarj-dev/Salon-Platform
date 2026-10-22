@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { depositDueAt, isDepositOverdue } from "./deposit";
+import { depositDueAt, isDepositOverdue, paysThroughWhatsApp  } from "./deposit";
 
 const NOW = new Date("2026-11-02T10:00:00Z");
 
@@ -42,5 +42,14 @@ describe("isDepositOverdue", () => {
 
   it("sin plazo no vence", () => {
     expect(isDepositOverdue(pending(null), NOW)).toBe(false);
+  });
+});
+
+describe("paysThroughWhatsApp", () => {
+  it("solo manda a WhatsApp con ese modo y una cita pendiente de depósito", () => {
+    expect(paysThroughWhatsApp("whatsapp", "pending_deposit")).toBe(true);
+    expect(paysThroughWhatsApp("whatsapp", "booked")).toBe(false);
+    expect(paysThroughWhatsApp("instructions", "pending_deposit")).toBe(false);
+    expect(paysThroughWhatsApp("instructions", "booked")).toBe(false);
   });
 });

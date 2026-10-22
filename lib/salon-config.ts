@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IANAZone } from "luxon";
 import type { AvailabilityOptions } from "./availability-db";
+import { DEPOSIT_MODES } from "./deposit";
 
 const timezone = z.string().refine(
   (zone) => IANAZone.isValidZone(zone),
@@ -98,6 +99,8 @@ const localizedText = z.record(z.string(), z.string());
 
 // Depósitos: el importe va en cada servicio (base de datos); esto es lo común a todo el salón
 const depositSchema = z.object({
+    // Cómo se paga: con instrucciones (Bizum, transferencia) o pidiendo un enlace de cobro por WhatsApp
+  mode: z.enum(DEPOSIT_MODES).default("instructions"),
   // Horas que se guarda el hueco esperando el pago
   holdHours: z.number().positive().default(24),
   // Cómo pagar (Bizum, transferencia...), por idioma
@@ -138,6 +141,15 @@ export const salonConfigSchema = z
         code: "custom",
         path: ["contact", "whatsapp"],
         message: 'El canal "whatsapp" está activo pero falta contact.whatsapp (o SALON_WHATSAPP)',
+      });
+    }
+
+    // Pedir el enlace de pago por WhatsApp exige un número al que escribir
+    if (c.booking.deposit.mode === "whatsapp" && !c.contact.whatsapp) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["booking", "deposit", "mode"],
+        message: 'El depósito se paga por "whatsapp" pero falta contact.whatsapp (o SALON_WHATSAPP)',
       });
     }
 

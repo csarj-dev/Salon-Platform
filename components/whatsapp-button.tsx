@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { MessageCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FaWhatsapp } from "@/components/brand-icons";

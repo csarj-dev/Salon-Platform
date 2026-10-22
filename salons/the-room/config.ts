@@ -23,6 +23,8 @@ const config = {
     // Depósitos: el importe se pone en cada servicio (npx tsx db/service-deposit.ts)
     // Los textos de abajo son de ejemplo hasta que el salón confirme los suyos.
     deposit: {
+      // "whatsapp": la clienta pide por chat el enlace de cobro del TPV; "instructions": Bizum/transferencia
+      mode: "whatsapp",
       holdHours: 24,
       instructions: {
         es: "Haz un Bizum al 600 000 000 indicando tu nombre y la fecha de la cita. Cuando lo recibamos, tu cita queda confirmada.",

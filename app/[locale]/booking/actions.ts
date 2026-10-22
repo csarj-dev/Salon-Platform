@@ -1,14 +1,20 @@
 "use server";
 
 import { DateTime } from "luxon";
+import { redirect as redirectExternal } from "next/navigation";
 import { hasLocale } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { getConfirmation } from "@/lib/appointment-view";
 import { getAvailabilityForService } from "@/lib/availability-service";
 import { parseFlowParams } from "@/lib/booking-flow";
 import { clientFormSchema } from "@/lib/booking-schema";
 import { createAppointment, toBookingOptions } from "@/lib/booking";
+import { paysThroughWhatsApp } from "@/lib/deposit";
+import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig, toAvailabilityOptions } from "@/lib/salon-config";
+import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 
 export type BookingFormState = {
   error?: "invalid" | "slot_taken" | "slot_unavailable" | "server";
@@ -65,6 +71,8 @@ export async function submitBooking(
   }
 
   let publicToken: string;
+  // Si el salón cobra el depósito con enlace por WhatsApp: el chat al que mandar a la clienta
+  let whatsappHref: string | null = null;
   try {
     const config = await loadSalonConfig();
     const bookingOptions = toBookingOptions(config);
@@ -110,11 +118,35 @@ export async function submitBooking(
       return { error: "slot_unavailable", values };
     }
     publicToken = result.publicToken;
+    // La cita ya existe. Preparar el WhatsApp no puede hacer que la clienta vea un error:
+    // si algo falla aquí, simplemente va a la página de confirmación, que tiene el mismo botón.
+    try {
+      const phone = config.contact.whatsapp;
+      if (phone && result.deposit && paysThroughWhatsApp(config.booking.deposit.mode, result.status)) {
+        const view = await getConfirmation(publicToken, locale, config.defaultLocale, now);
+        if (view) {
+          const t = await getTranslations({ locale, namespace: "Confirmation" });
+          whatsappHref = buildWhatsAppLink(
+            phone,
+            t("payLinkMessage", {
+              id: view.id,
+              service: view.serviceName,
+              when: formatDateTime(view.startsAt, locale, config.timezone),
+              amount: formatPrice(result.deposit.cents, locale, config.currency),
+            }),
+          );
+        }
+      }
+    } catch (error) {
+      console.error("No se pudo preparar el enlace de WhatsApp del depósito", error);
+    }
   } catch (error) {
     console.error("No se pudo crear la reserva", error);
     return { error: "server", values };
   }
 
+  // Con depósito por WhatsApp, la clienta va directa al chat para pedir el enlace de pago
+  if (whatsappHref) redirectExternal(whatsappHref);
   // redirect lanza una excepción propia de Next: tiene que ir fuera del try/catch
   redirect({ href: `/booking/confirmed/${publicToken}`, locale });
 

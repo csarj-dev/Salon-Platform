@@ -130,6 +130,9 @@
     "expiredHelp": "El plazo para pagar el depósito terminó y el hueco se ha liberado. Puedes reservar de nuevo.",
     "cancelledHelp": "Si fue un error, puedes reservar de nuevo.",
     "bookAgain": "Reservar de nuevo",
-    "home": "Volver al inicio"
+    "home": "Volver al inicio",
+    "payLinkInfo": "Para confirmar la cita, pídenos el enlace de pago por WhatsApp. Cuando recibamos el pago, tu cita queda confirmada.",
+    "payLinkButton": "Pedir el enlace de pago por WhatsApp",
+    "payLinkMessage": "Hola, acabo de reservar la cita #{id} ({service}, {when}) y tiene un depósito de {amount}. ¿Me enviáis el enlace de pago?"
   }
 }

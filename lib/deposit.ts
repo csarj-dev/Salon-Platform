@@ -18,3 +18,15 @@ export function isDepositOverdue(
     appointment.depositDueAt.getTime() <= now.getTime()
   );
 }
+
+// Cómo se paga el depósito, según lo que elija el salón:
+// - "instructions": la clienta ve las instrucciones (Bizum, transferencia...) y manda el comprobante
+// - "whatsapp": al reservar pasa a WhatsApp a pedir el enlace de cobro, y el salón lo valida al recibir el pago
+export const DEPOSIT_MODES = ["instructions", "whatsapp"] as const;
+export type DepositMode = (typeof DEPOSIT_MODES)[number];
+
+// ¿Hay que mandar a la clienta a WhatsApp a pedir el enlace de pago?
+// Solo si el salón usa ese modo y la cita está esperando el depósito.
+export function paysThroughWhatsApp(mode: DepositMode, status: string): boolean {
+  return mode === "whatsapp" && status === "pending_deposit";
+}

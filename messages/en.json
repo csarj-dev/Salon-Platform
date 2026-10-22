@@ -130,6 +130,9 @@
     "expiredHelp": "The deadline to pay the deposit has passed and the slot was released. You can book again.",
     "cancelledHelp": "If this was a mistake, you can book again.",
     "bookAgain": "Book again",
-    "home": "Back to home"
+    "home": "Back to home",
+    "payLinkInfo": "To confirm your appointment, ask us for the payment link on WhatsApp. Once we receive the payment, your appointment is confirmed.",
+    "payLinkButton": "Ask for the payment link on WhatsApp",
+    "payLinkMessage": "Hi, I've just booked appointment #{id} ({service}, {when}) with a {amount} deposit. Could you send me the payment link?"
   }
 }
