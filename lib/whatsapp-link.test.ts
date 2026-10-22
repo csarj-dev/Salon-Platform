@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWhatsAppLink } from "./whatsapp-link";
+import { buildWhatsAppLink, toWhatsAppNumber } from "./whatsapp-link";
 
 describe("buildWhatsAppLink", () => {
   it("sin mensaje devuelve solo el chat", () => {
@@ -27,5 +27,23 @@ describe("buildWhatsAppLink", () => {
 
   it("lanza un error si el teléfono no tiene dígitos", () => {
     expect(() => buildWhatsAppLink("abc")).toThrow();
+  });
+});
+
+describe("toWhatsAppNumber", () => {
+  it("un móvil nacional recibe el prefijo del país", () => {
+    expect(toWhatsAppNumber("600 111 222", "34")).toBe("34600111222");
+    expect(toWhatsAppNumber("600-111-222", "34")).toBe("34600111222");
+  });
+  it("con + o 00 ya trae el prefijo", () => {
+    expect(toWhatsAppNumber("+34 600 111 222", "34")).toBe("34600111222");
+    expect(toWhatsAppNumber("+49 151 2345 6789", "34")).toBe("4915123456789");
+    expect(toWhatsAppNumber("0034600111222", "34")).toBe("34600111222");
+  });
+  it("con 11 o más dígitos sin + se da por completo", () => {
+    expect(toWhatsAppNumber("34600111222", "34")).toBe("34600111222");
+  });
+  it("sin dígitos falla", () => {
+    expect(() => toWhatsAppNumber("abc", "34")).toThrow();
   });
 });

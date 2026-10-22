@@ -151,10 +151,84 @@
     "signOut": "Salir",
     "welcome": "Hola, {name}",
     "role": "Tu rol: {role}",
-    "soon": "Aquí aparecerán las citas y los depósitos pendientes."
+    "soon": "Usa el menú para ver las citas y validar depósitos."
   },
   "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
-  "nav": { "home": "Inicio", "users": "Usuarios" },
+  "nav": {
+  "home": "Inicio",
+  "appointments": "Citas",
+  "deposits": "Depósitos",
+  "users": "Usuarios",
+  "pendingCount": "{count} depósitos pendientes"
+  },
+  "status": {
+    "booked": "Confirmada",
+    "pending_deposit": "Falta el depósito",
+    "completed": "Realizada",
+    "cancelled": "Cancelada",
+    "no_show": "No vino",
+    "expired": "Caducada"
+  },
+  "actions": {
+    "validate": "Validar depósito",
+    "validating": "Validando…",
+    "confirmValidate": "¿Confirmas que has recibido el depósito de esta cita?",
+    "cancel": "Cancelar cita",
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "Ej.: la clienta no puede venir",
+    "confirmCancel": "Confirmar cancelación",
+    "cancelling": "Cancelando…",
+    "back": "Volver",
+    "errors": {
+      "invalid": "Datos no válidos.",
+      "notFound": "No se encontró la cita.",
+      "notPending": "Esta cita ya no espera depósito. Recarga la página: puede que otra persona la haya gestionado.",
+      "notChangeable": "Esta cita ya no se puede cancelar. Recarga la página.",
+      "expired": "La reserva ya caducó y su hueco pudo ocuparse. Habla con la clienta y busca otra hora.",
+      "server": "No se pudo completar la acción. Inténtalo de nuevo."
+    }
+  },
+  "card": {
+    "with": "con {staff}",
+    "reference": "cita #{id}",
+    "deposit": "Depósito: {amount}",
+    "dueUntil": "plazo hasta {date}",
+    "urgent": "vence pronto",
+    "expiredOn": "caducó el {date}",
+    "validatedBy": "Depósito validado por {name}",
+    "cancelledBy": "Cancelada por {name} el {date}",
+    "cancelledNoAuthor": "Cancelada el {date} (por la clienta o sin registro)",
+    "reason": "Motivo: {reason}",
+    "whatsapp": "Escribir por WhatsApp"
+  },
+  "deposits": {
+    "title": "Depósitos",
+    "intro": "Citas que esperan el pago del depósito. Cuando recibas el pago, valídalo para confirmar la cita.",
+    "pendingTitle": "Esperando depósito",
+    "pendingEmpty": "No hay depósitos pendientes.",
+    "expiredTitle": "Caducadas (últimos 14 días)",
+    "expiredIntro": "El hueco ya se liberó. Escribe a la clienta por si quiere otra hora; si ya había pagado, habla con ella antes de volver a reservar.",
+    "expiredEmpty": "No hay reservas caducadas recientes."
+  },
+  "appointments": {
+    "title": "Citas",
+    "tabsLabel": "Filtro de citas",
+    "tabs": {
+      "upcoming": "Próximas",
+      "past": "Pasadas (30 días)",
+      "cancelled": "Canceladas y caducadas (30 días)"
+    },
+    "empty": {
+      "upcoming": "No hay citas próximas.",
+      "past": "No hay citas en los últimos 30 días.",
+      "cancelled": "No hay citas canceladas ni caducadas."
+    }
+  },
+  "whatsapp": {
+    "contactPending": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when}).",
+    "contactExpired": "Hola {name}, te escribimos de {salon}. Tu reserva #{id} ({service}, {when}) ha caducado porque no recibimos el depósito a tiempo. ¿Quieres que busquemos otra hora?",
+    "contactGeneric": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when})."
+  },
   "users": {
     "title": "Usuarios",
     "intro": "Quién puede entrar al panel y con qué rol. Solo el administrador ve esta página.",

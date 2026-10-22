@@ -151,10 +151,84 @@
     "signOut": "Sign out",
     "welcome": "Hello, {name}",
     "role": "Your role: {role}",
-    "soon": "Appointments and pending deposits will appear here."
+    "soon": "Use the menu to see appointments and validate deposits."
   },
   "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
-  "nav": { "home": "Home", "users": "Users" },
+  "nav": {
+    "home": "Home",
+    "appointments": "Appointments",
+    "deposits": "Deposits",
+    "users": "Users",
+    "pendingCount": "{count} pending deposits"
+  },
+  "status": {
+    "booked": "Confirmed",
+    "pending_deposit": "Deposit due",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "no_show": "No-show",
+    "expired": "Expired"
+  },
+  "actions": {
+    "validate": "Validate deposit",
+    "validating": "Validating…",
+    "confirmValidate": "Confirm that you have received the deposit for this appointment?",
+    "cancel": "Cancel appointment",
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "E.g. the client cannot make it",
+    "confirmCancel": "Confirm cancellation",
+    "cancelling": "Cancelling…",
+    "back": "Back",
+    "errors": {
+      "invalid": "Invalid data.",
+      "notFound": "Appointment not found.",
+      "notPending": "This appointment no longer awaits a deposit. Reload the page: someone else may have handled it.",
+      "notChangeable": "This appointment can no longer be cancelled. Reload the page.",
+      "expired": "The booking expired and its slot may have been taken. Talk to the client and find another time.",
+      "server": "The action could not be completed. Try again."
+    }
+  },
+  "card": {
+    "with": "with {staff}",
+    "reference": "appointment #{id}",
+    "deposit": "Deposit: {amount}",
+    "dueUntil": "due by {date}",
+    "urgent": "expires soon",
+    "expiredOn": "expired on {date}",
+    "validatedBy": "Deposit validated by {name}",
+    "cancelledBy": "Cancelled by {name} on {date}",
+    "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
+    "reason": "Reason: {reason}",
+    "whatsapp": "Message on WhatsApp"
+  },
+  "deposits": {
+    "title": "Deposits",
+    "intro": "Appointments waiting for the deposit payment. Once you receive the payment, validate it to confirm the appointment.",
+    "pendingTitle": "Waiting for deposit",
+    "pendingEmpty": "No pending deposits.",
+    "expiredTitle": "Expired (last 14 days)",
+    "expiredIntro": "The slot has already been released. Message the client in case she wants another time; if she had already paid, talk to her before booking again.",
+    "expiredEmpty": "No recently expired bookings."
+  },
+  "appointments": {
+    "title": "Appointments",
+    "tabsLabel": "Appointment filter",
+    "tabs": {
+      "upcoming": "Upcoming",
+      "past": "Past (30 days)",
+      "cancelled": "Cancelled and expired (30 days)"
+    },
+    "empty": {
+      "upcoming": "No upcoming appointments.",
+      "past": "No appointments in the last 30 days.",
+      "cancelled": "No cancelled or expired appointments."
+    }
+  },
+  "whatsapp": {
+    "contactPending": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
+    "contactExpired": "Hello {name}, this is {salon}. Your booking #{id} ({service}, {when}) has expired because we did not receive the deposit in time. Would you like us to find another time?",
+    "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when})."
+  },
   "users": {
     "title": "Users",
     "intro": "Who can sign in to the panel and with which role. Only the administrator sees this page.",

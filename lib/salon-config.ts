@@ -116,6 +116,11 @@ export const salonConfigSchema = z
     locales: z.array(z.string()).min(1),
     defaultLocale: z.string(),
     currency: z.string().length(3).default("EUR"),
+    // Prefijo telefónico del país del salón (sin "+"): completa los teléfonos sin prefijo
+    phoneCountryCode: z
+      .string()
+      .regex(/^\d{1,3}$/, "Prefijo sin +, por ejemplo 34")
+      .default("34"),
     branding: brandingSchema.optional(),
     theme: themeSchema.optional().transform((v) => themeSchema.parse(v ?? {})),
     contact: contactSchema.default({}),

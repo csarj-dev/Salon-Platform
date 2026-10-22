@@ -17,6 +17,7 @@ export type AppointmentListRow = {
   locationName: string;
   staffName: string;
   depositCents: number | null;
+  depositDueAt: Date | null;
   cancelledAt: Date | null;
   cancelReason: string | null;
   // Quién del equipo canceló / validó el depósito (null si no consta)
@@ -57,6 +58,7 @@ export async function listAppointments(
       locationName: location.name,
       staffName: staff.name,
       depositCents: appointment.depositCents,
+      depositDueAt: appointment.depositDueAt,
       cancelledAt: appointment.cancelledAt,
       cancelReason: appointment.cancelReason,
       cancelledByName: canceller.name,
