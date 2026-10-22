@@ -91,17 +91,17 @@ async function main() {
   const [lam, dis, lif, mb] = await db
     .insert(service)
     .values([
-      { name: "Laminado de cejas", durationMin: 60, priceCents: 4500, categoryId: cejas.id, sortOrder: 1, featured: true },
-      { name: "Diseño de cejas", durationMin: 30, priceCents: 1800, categoryId: cejas.id, sortOrder: 2 },
-      { name: "Lifting de pestañas", durationMin: 75, priceCents: 5500, categoryId: pestanas.id, sortOrder: 1, featured: true },
+            { name: "Laminado de cejas", slug: slugify("Laminado de cejas"), durationMin: 60, priceCents: 4500, categoryId: cejas.id, sortOrder: 1, featured: true },
+      { name: "Diseño de cejas", slug: slugify("Diseño de cejas"), durationMin: 30, priceCents: 1800, categoryId: cejas.id, sortOrder: 2 },
+      { name: "Lifting de pestañas", slug: slugify("Lifting de pestañas"), durationMin: 75, priceCents: 5500, categoryId: pestanas.id, sortOrder: 1, featured: true },
       // Se reserva hablando antes: no tiene profesionales asignadas a propósito
-      { name: "Microblading", durationMin: 150, priceCents: 25000, categoryId: micro.id, sortOrder: 1, requiresConsultation: true, featured: true },
+      { name: "Microblading", slug: slugify("Microblading"), durationMin: 150, priceCents: 25000, categoryId: micro.id, sortOrder: 1, requiresConsultation: true, featured: true },
     ])
     .returning();
 
   await db.insert(serviceTranslation).values([
-    { serviceId: lam.id, locale: "es", name: "Laminado de cejas", description: "Cejas peinadas y con volumen durante semanas." },
-    { serviceId: lam.id, locale: "en", name: "Brow lamination", description: "Brushed-up, fuller-looking brows for weeks." },
+        { serviceId: lam.id, locale: "es", name: "Laminado de cejas", description: "Cejas peinadas y con volumen durante semanas.", longDescription: "Texto de ejemplo: en qué consiste el tratamiento.\n\nTexto de ejemplo: cuidados posteriores y duración del resultado." },
+    { serviceId: lam.id, locale: "en", name: "Brow lamination", description: "Brushed-up, fuller-looking brows for weeks.", longDescription: "Sample text: what the treatment involves.\n\nSample text: aftercare and how long the result lasts." },
     { serviceId: dis.id, locale: "es", name: "Diseño de cejas", description: "Forma y perfilado a medida de tu rostro." },
     { serviceId: dis.id, locale: "en", name: "Brow shaping", description: "Shape and definition tailored to your face." },
     { serviceId: lif.id, locale: "es", name: "Lifting de pestañas", description: "Curvatura y mirada abierta sin extensiones." },

@@ -66,6 +66,7 @@ export async function ServicesContent({ locale, searchParams }: Props) {
         <PriceList
           groups={groups}
           locale={locale}
+          defaultLocale={config.defaultLocale}
           currency={config.currency}
           ctaFor={(s) =>
             resolveBookingCta({

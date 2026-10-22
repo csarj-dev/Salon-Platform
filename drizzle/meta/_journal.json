@@ -78,6 +78,13 @@
       "when": 1792614706159,
       "tag": "0010_brief_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792658973236,
+      "tag": "0011_quick_master_chief",
+      "breakpoints": true
     }
   ]
 }

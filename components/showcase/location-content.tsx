@@ -118,6 +118,7 @@ export async function LocationContent({ params }: Props) {
           <PriceList
             groups={groups}
             locale={locale}
+            defaultLocale={config.defaultLocale}
             currency={config.currency}
             ctaFor={(s) =>
               resolveBookingCta({

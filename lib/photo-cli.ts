@@ -1,4 +1,6 @@
-export const ATTACH_ENTITIES = ["location", "location-gallery", "service", "staff"] as const;
+export const ATTACH_ENTITIES = [
+  "location", "location-gallery", "service", "service-gallery", "staff",
+] as const;
 export type AttachEntity = (typeof ATTACH_ENTITIES)[number];
 
 export type AttachArgs = {
@@ -9,7 +11,7 @@ export type AttachArgs = {
 };
 
 export const ATTACH_USAGE =
-  'Uso: npx tsx db/attach-photo.ts <location|location-gallery|service|staff> <id> <archivo> --alt-es "texto" --alt-en "texto"';
+  'Uso: npx tsx db/attach-photo.ts <location|location-gallery|service|service-gallery|staff> <id> <archivo> --alt-es "texto" --alt-en "texto"';
 
 export function parseAttachArgs(argv: string[]): AttachArgs {
   const positional: string[] = [];

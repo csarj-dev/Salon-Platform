@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { MessageCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FaWhatsapp } from "@/components/brand-icons";
 
 type ButtonProps = {
   href: string;
@@ -9,6 +10,8 @@ type ButtonProps = {
   variant?: "default" | "outline" | "ghost";
   className?: string;
 };
+
+const iconClass = "size-4 shrink-0";
 
 // Botón de WhatsApp para usar dentro de la página (altura de 44 px: cómodo con el pulgar)
 export function WhatsAppButton({ href, children, variant = "default", className }: ButtonProps) {
@@ -19,7 +22,7 @@ export function WhatsAppButton({ href, children, variant = "default", className 
       rel="noopener noreferrer"
       className={cn(buttonVariants({ variant, size: "lg" }), "h-11 px-5", className)}
     >
-      <MessageCircle aria-hidden="true" />
+      <FaWhatsapp className={iconClass} aria-hidden="true" />
       {children}
     </a>
   );

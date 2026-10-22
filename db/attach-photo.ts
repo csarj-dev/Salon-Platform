@@ -1,13 +1,16 @@
 // Ejecutar con (npm run rompe las opciones --alt-* y las comillas en Windows):
 //   npx tsx db/attach-photo.ts staff 1 "C:\ruta\foto.webp" --alt-es "Retrato de Ana" --alt-en "Portrait of Ana"
 //   npx tsx db/attach-photo.ts location-gallery 1 "C:\ruta\sala.webp" --alt-es "Sala" --alt-en "Main room"
+//   npx tsx db/attach-photo.ts service-gallery 26 "C:\ruta\resultado.webp" --alt-es "Resultado" --alt-en "Result"
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { eq, sql } from "drizzle-orm";
 import { imageSize } from "image-size";
 import { db, pgClient } from "./index";
-import { location, locationPhoto, photo, photoTranslation, service, staff } from "./schema";
+import {
+  location, locationPhoto, photo, photoTranslation, service, servicePhoto, staff,
+} from "./schema";
 import { loadSalonConfig } from "../lib/salon-config";
 import { buildPhotoKey, validatePhotoUpload, type PhotoScope } from "../lib/photo-upload";
 import { missingAltLocales, parseAttachArgs, type AttachEntity } from "../lib/photo-cli";
@@ -25,7 +28,7 @@ async function findEntity(entity: AttachEntity, id: number) {
   const rows =
     entity === "location" || entity === "location-gallery"
       ? await db.select({ photoId: location.photoId }).from(location).where(eq(location.id, id))
-      : entity === "service"
+      : entity === "service" || entity === "service-gallery"
         ? await db.select({ photoId: service.photoId }).from(service).where(eq(service.id, id))
         : await db.select({ photoId: staff.photoId }).from(staff).where(eq(staff.id, id));
   return rows[0];
@@ -59,7 +62,10 @@ async function main() {
   }
 
   const salonId = process.env.SALON_ID!;
-  const scope: PhotoScope = args.entity === "location-gallery" ? "gallery" : args.entity;
+  const scope: PhotoScope =
+    args.entity === "location-gallery" || args.entity === "service-gallery"
+      ? "gallery"
+      : args.entity;
   const key = buildPhotoKey({
     salonId,
     scope,
@@ -88,7 +94,7 @@ async function main() {
         await tx.update(service).set({ photoId: p.id }).where(eq(service.id, args.id));
       } else if (args.entity === "staff") {
         await tx.update(staff).set({ photoId: p.id }).where(eq(staff.id, args.id));
-      } else {
+      } else if (args.entity === "location-gallery") {
         // Galería del local: se añade al final
         const [last] = await tx
           .select({ max: sql<number>`coalesce(max(${locationPhoto.sortOrder}), 0)` })
@@ -97,6 +103,15 @@ async function main() {
         await tx
           .insert(locationPhoto)
           .values({ locationId: args.id, photoId: p.id, sortOrder: Number(last.max) + 1 });
+      } else {
+        // Galería del servicio: se añade al final
+        const [last] = await tx
+          .select({ max: sql<number>`coalesce(max(${servicePhoto.sortOrder}), 0)` })
+          .from(servicePhoto)
+          .where(eq(servicePhoto.serviceId, args.id));
+        await tx
+          .insert(servicePhoto)
+          .values({ serviceId: args.id, photoId: p.id, sortOrder: Number(last.max) + 1 });
       }
       return p.id;
     });
@@ -106,7 +121,8 @@ async function main() {
   }
 
   // Si la entidad ya tenía otra foto de portada o de perfil, se borra la anterior (fila y archivo)
-  if (args.entity !== "location-gallery" && current.photoId !== null) {
+  const isGallery = args.entity === "location-gallery" || args.entity === "service-gallery";
+  if (!isGallery && current.photoId !== null) {
     const [old] = await db.select().from(photo).where(eq(photo.id, current.photoId));
     if (old) {
       await db.delete(photo).where(eq(photo.id, old.id));
@@ -114,7 +130,12 @@ async function main() {
     }
   }
 
-  const where = args.entity === "location-gallery" ? "la galería del local" : args.entity;
+  const where =
+    args.entity === "location-gallery"
+      ? "la galería del local"
+      : args.entity === "service-gallery"
+        ? "la galería del servicio"
+        : args.entity;
   console.log(`Foto ${newPhotoId} asociada a ${where} ${args.id}: ${storage.publicUrl(key)}`);
 }
 

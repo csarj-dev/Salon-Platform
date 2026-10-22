@@ -53,3 +53,10 @@ describe("location-gallery", () => {
     expect(a.entity).toBe("location-gallery");
   });
 });
+
+describe("service-gallery", () => {
+  it("se acepta como entidad", () => {
+    const a = parseAttachArgs(["service-gallery", "26", "a.webp", "--alt-es", "Resultado"]);
+    expect(a.entity).toBe("service-gallery");
+  });
+});
