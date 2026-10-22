@@ -43,3 +43,39 @@ describe("flowQuery", () => {
     });
   });
 });
+
+describe("día y hora en la URL", () => {
+  it("lee el día, la semana y la hora", () => {
+    const r = parseFlowParams({
+      from: "2026-11-02",
+      date: "2026-11-04",
+      at: "2026-11-04T10:30:00.000Z",
+    });
+    expect(r).toMatchObject({
+      from: "2026-11-02",
+      date: "2026-11-04",
+      at: "2026-11-04T10:30:00.000Z",
+    });
+  });
+
+  it("ignora fechas con mal formato o que no existen", () => {
+    const r = parseFlowParams({ from: "02/11/2026", date: "2026-02-31" });
+    expect(r.from).toBeUndefined();
+    expect(r.date).toBeUndefined();
+  });
+
+  it("ignora una hora que no es un instante UTC exacto", () => {
+    expect(parseFlowParams({ at: "2026-11-04T10:30:00Z" }).at).toBeUndefined();
+    expect(parseFlowParams({ at: "ayer" }).at).toBeUndefined();
+    expect(parseFlowParams({ at: "2026-13-04T10:30:00.000Z" }).at).toBeUndefined();
+  });
+
+  it("flowQuery las devuelve tal cual, en el mismo formato", () => {
+    const flow = {
+      location: 1, service: 2, staff: "any" as const,
+      from: "2026-11-02", date: "2026-11-04", at: "2026-11-04T10:30:00.000Z",
+    };
+    expect(parseFlowParams(flowQuery(flow))).toEqual(flow);
+  });
+});
+

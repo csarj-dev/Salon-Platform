@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
 import { appointment, service } from "../db/schema";
@@ -41,9 +41,17 @@ export async function cancelAppointment(
 ): Promise<ChangeResult> {
   const [appt] = await db.select().from(appointment).where(eq(appointment.id, appointmentId));
   if (!appt) return { ok: false, reason: "not_found" };
-  if (appt.status !== "booked") return { ok: false, reason: "not_changeable" };
+  if (appt.status !== "booked" && appt.status !== "pending_deposit") {
+    return { ok: false, reason: "not_changeable" };
+  }
 
-  if (actor === "client" && withinNoticeWindow(appt.startsAt, now, opts.cancellationNoticeHours)) {
+  // El plazo de cancelación protege al salón de huecos perdidos. Una cita que aún espera
+  // el depósito no ha pagado nada, así que la clienta puede soltarla en cualquier momento.
+  if (
+    actor === "client" &&
+    appt.status === "booked" &&
+    withinNoticeWindow(appt.startsAt, now, opts.cancellationNoticeHours)
+  ) {
     return { ok: false, reason: "too_late" };
   }
 
@@ -51,7 +59,12 @@ export async function cancelAppointment(
   const updated = await db
     .update(appointment)
     .set({ status: "cancelled", cancelledAt: now })
-    .where(and(eq(appointment.id, appointmentId), eq(appointment.status, "booked")))
+    .where(
+      and(
+        eq(appointment.id, appointmentId),
+        inArray(appointment.status, ["booked", "pending_deposit"]),
+      ),
+    )
     .returning({ id: appointment.id });
 
   if (updated.length === 0) return { ok: false, reason: "not_changeable" };
