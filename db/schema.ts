@@ -1,11 +1,15 @@
 import {
   pgTable, pgEnum, integer, smallint, text, boolean, timestamp, time,
-  primaryKey, check,
+  primaryKey, check, uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const appointmentStatus = pgEnum("appointment_status", [
   "booked", "completed", "cancelled", "no_show",
+  // Reservada por la web, a la espera de que se pague el depósito
+  "pending_deposit",
+  // El plazo para pagar el depósito venció: el hueco se liberó
+  "expired",
 ]);
 export const appointmentSource = pgEnum("appointment_source", [
   "web", "phone", "whatsapp",
@@ -124,7 +128,15 @@ export const service = pgTable("service", {
   photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
   // Dirección web (/services/<slug>). Opcional: sin slug no hay página propia.
   slug: text("slug").unique(),
-});
+  // Depósito (en céntimos) que se pide al reservar por la web. Vacío = sin depósito.
+  depositCents: integer("deposit_cents"),
+},
+(t) => [
+  check(
+    "service_deposit_positive",
+    sql`${t.depositCents} IS NULL OR ${t.depositCents} > 0`,
+  ),
+]);
 
 export const serviceTranslation = pgTable(
   "service_translation",
@@ -255,6 +267,24 @@ export const appointment = pgTable(
     source: appointmentSource("source").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    // Depósito pedido al reservar: copia del importe del servicio en ese momento
+    depositCents: integer("deposit_cents"),
+    // Hasta cuándo se guarda el hueco esperando el pago (solo citas pendientes)
+    depositDueAt: timestamp("deposit_due_at", { withTimezone: true }),
+    depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
+    // Identificador secreto para la página de confirmación (/booking/confirmed/<token>)
+    publicToken: uuid("public_token").notNull().defaultRandom().unique(),
   },
-  (t) => [check("ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`)],
+  (t) => [
+    check("ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`),
+    check(
+      "appointment_deposit_positive",
+      sql`${t.depositCents} IS NULL OR ${t.depositCents} > 0`,
+    ),
+    // Una cita pendiente de depósito siempre sabe cuánto y hasta cuándo
+    check(
+      "appointment_pending_has_deposit",
+      sql`${t.status} <> 'pending_deposit' OR (${t.depositCents} IS NOT NULL AND ${t.depositDueAt} IS NOT NULL)`,
+    ),
+  ],
 );

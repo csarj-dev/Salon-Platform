@@ -12,6 +12,13 @@ const email = z
   .optional()
   .transform((v) => (v ? v : undefined));
 
+// Datos de la clienta tal y como llegan del formulario
+export const clientFormSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  phone,
+  email,
+});
+
 export const bookingInputSchema = z
   .object({
     locationId: z.number().int().positive(),
@@ -19,11 +26,7 @@ export const bookingInputSchema = z
     staffId: z.number().int().positive(),
     startsAt: z.coerce.date(),
     source: z.enum(["web", "phone", "whatsapp"]).default("web"),
-    client: z.object({
-      name: z.string().trim().min(2).max(100),
-      phone,
-      email,
-    }),
+    client: clientFormSchema,
     consent: z.boolean().default(false),
   })
   .refine((d) => d.source !== "web" || d.consent, {

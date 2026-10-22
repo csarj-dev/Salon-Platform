@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IANAZone } from "luxon";
 import type { AvailabilityOptions } from "./availability-db";
+import { DEPOSIT_MODES } from "./deposit";
 
 const timezone = z.string().refine(
   (zone) => IANAZone.isValidZone(zone),
@@ -93,6 +94,21 @@ const heroSchema = z.object({
   alt: z.record(z.string(), z.string()), // texto alternativo por idioma
 });
 
+// Texto por idioma (instrucciones de pago, política de cancelación...)
+const localizedText = z.record(z.string(), z.string());
+
+// Depósitos: el importe va en cada servicio (base de datos); esto es lo común a todo el salón
+const depositSchema = z.object({
+    // Cómo se paga: con instrucciones (Bizum, transferencia) o pidiendo un enlace de cobro por WhatsApp
+  mode: z.enum(DEPOSIT_MODES).default("instructions"),
+  // Horas que se guarda el hueco esperando el pago
+  holdHours: z.number().positive().default(24),
+  // Cómo pagar (Bizum, transferencia...), por idioma
+  instructions: localizedText.optional(),
+  // Política de cancelación y devolución del depósito, por idioma
+  policy: localizedText.optional(),
+});
+
 export const salonConfigSchema = z
   .object({
     name: z.string().min(1),
@@ -115,6 +131,7 @@ export const salonConfigSchema = z
       minNoticeHours: z.number().min(0).default(2),
       maxDaysAhead: z.number().int().positive().default(60),
       cancellationNoticeHours: z.number().min(0).default(24),
+      deposit: depositSchema.prefault({}),
     }),
   })
   .superRefine((c, ctx) => {
@@ -124,6 +141,15 @@ export const salonConfigSchema = z
         code: "custom",
         path: ["contact", "whatsapp"],
         message: 'El canal "whatsapp" está activo pero falta contact.whatsapp (o SALON_WHATSAPP)',
+      });
+    }
+
+    // Pedir el enlace de pago por WhatsApp exige un número al que escribir
+    if (c.booking.deposit.mode === "whatsapp" && !c.contact.whatsapp) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["booking", "deposit", "mode"],
+        message: 'El depósito se paga por "whatsapp" pero falta contact.whatsapp (o SALON_WHATSAPP)',
       });
     }
 
@@ -139,6 +165,21 @@ export const salonConfigSchema = z
         }
       }
     });
+
+    // Los textos del depósito, si existen, tienen que estar en todos los idiomas del salón
+    for (const field of ["instructions", "policy"] as const) {
+      const texts = c.booking.deposit[field];
+      if (!texts) continue;
+      for (const locale of c.locales) {
+        if (!texts[locale]?.trim()) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["booking", "deposit", field, locale],
+            message: `Falta el texto en "${locale}"`,
+          });
+        }
+      }
+    }
 
     if (c.hero) {
       for (const locale of c.locales) {

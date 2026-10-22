@@ -23,8 +23,14 @@ function storageImagePatterns(): RemotePattern[] {
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
+  allowedDevOrigins: ["**.devtunnels.ms"],
+    experimental: {
     agentFeedback: true,
+    serverActions: {
+      // Solo en desarrollo: el túnel de VS Code reescribe Origin a localhost:3000
+      allowedOrigins:
+        process.env.NODE_ENV === "development" ? ["localhost:3000"] : [],
+    },
   },
   cacheComponents: true,
   partialPrefetching: true,

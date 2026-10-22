@@ -1,4 +1,4 @@
-import { and, eq, ne, lt, gt } from "drizzle-orm";
+import { and, eq, ne, lt, gt, or, notInArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   service, staffService, locationService, schedule, appointment, timeOff,
@@ -66,7 +66,10 @@ export async function getAvailabilityForDay(
     .where(
       and(
         eq(appointment.staffId, staffId),
-        ne(appointment.status, "cancelled"),
+        // Canceladas y caducadas no ocupan hueco
+        notInArray(appointment.status, ["cancelled", "expired"]),
+        // Una pendiente de depósito ocupa el hueco solo mientras no venza su plazo
+        or(ne(appointment.status, "pending_deposit"), gt(appointment.depositDueAt, now)),
         lt(appointment.startsAt, range.end),
         gt(appointment.endsAt, range.start),
         ignoreAppointmentId !== undefined

@@ -43,3 +43,40 @@ describe("flowQuery", () => {
     });
   });
 });
+
+describe("día y hora en la URL", () => {
+  it("lee el mes, el día y la hora", () => {
+    const r = parseFlowParams({
+      month: "2026-11",
+      date: "2026-11-04",
+      at: "2026-11-04T10:30:00.000Z",
+    });
+    expect(r).toMatchObject({
+      month: "2026-11",
+      date: "2026-11-04",
+      at: "2026-11-04T10:30:00.000Z",
+    });
+  });
+
+  it("ignora fechas con mal formato o que no existen", () => {
+    const r = parseFlowParams({ month: "2026-13", date: "2026-02-31" });
+    expect(r.month).toBeUndefined();
+    expect(r.date).toBeUndefined();
+    expect(parseFlowParams({ month: "noviembre" }).month).toBeUndefined();
+    expect(parseFlowParams({ date: "02/11/2026" }).date).toBeUndefined();
+  });
+
+  it("ignora una hora que no es un instante UTC exacto", () => {
+    expect(parseFlowParams({ at: "2026-11-04T10:30:00Z" }).at).toBeUndefined();
+    expect(parseFlowParams({ at: "ayer" }).at).toBeUndefined();
+    expect(parseFlowParams({ at: "2026-13-04T10:30:00.000Z" }).at).toBeUndefined();
+  });
+
+  it("flowQuery las devuelve tal cual, en el mismo formato", () => {
+    const flow = {
+      location: 1, service: 2, staff: "any" as const,
+      month: "2026-11", date: "2026-11-04", at: "2026-11-04T10:30:00.000Z",
+    };
+    expect(parseFlowParams(flowQuery(flow))).toEqual(flow);
+  });
+});

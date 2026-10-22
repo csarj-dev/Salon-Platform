@@ -2,7 +2,7 @@
   "Metadata": {
     "description": "Book your appointment online."
   },
-    "Home": {
+  "Home": {
     "tagline": "Brow and lash care with personal attention",
     "book": "Book now",
     "featuredTitle": "Our services",
@@ -41,9 +41,35 @@
     "noLocations": "No locations are available right now.",
     "noServices": "This location has no services available.",
     "noStaff": "No professionals are available for this service.",
-    "nextStep": "Next step: choose a day and time (coming soon)"
+    "stepDate": "Choose a day and time",
+    "calendarLabel": "Calendar",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "dayUnavailable": "no availability",
+    "noSlotsMonth": "No slots this month. Try another month.",
+    "noSlotsAtAll": "There are no slots available for this service right now.",
+    "nextAvailable": "Next available: {day}",
+    "timesFor": "Available times · {day}",
+    "stepDetails": "Your details",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email (optional)",
+    "consent": "I agree to my details being stored to manage my appointment.",
+    "submit": "Book appointment",
+    "submitting": "Booking…",
+    "depositNotice": "This service requires a {amount} deposit. When you book, we hold your slot for {hours, plural, one {# hour} other {# hours}} so you can pay it; until then the appointment stays pending.",
+    "depositBadge": "Deposit {amount}",
+    "errorInvalid": "Please check the highlighted fields.",
+    "errorTaken": "That slot was just taken. Please choose another.",
+    "errorUnavailable": "That slot is no longer available. Please choose another.",
+    "errorServer": "We couldn't complete the booking. Try again or message us on WhatsApp.",
+    "errorName": "Enter your name.",
+    "errorPhone": "Enter a valid phone number (9 to 15 digits).",
+    "errorEmail": "That email isn't valid.",
+    "errorConsent": "We need your consent to book.",
+    "pickAnother": "Choose another time"
   },
-    "Showcase": {
+  "Showcase": {
     "book": "Book now",
     "whatsappBook": "Book on WhatsApp",
     "whatsappConsult": "Ask on WhatsApp",
@@ -61,21 +87,52 @@
     "viewMenu": "View menu and prices",
     "messageLocation": "Hi, I'd like some information about {location}.",
     "viewLocation": "View location",
-    "viewDetails": "Learn more"
+    "viewDetails": "Learn more",
+    "depositBadge": "Deposit {amount}"
   },
-    "Location": {
+  "Location": {
     "back": "All locations",
     "galleryTitle": "Photos of the location",
     "servicesTitle": "Services and prices",
     "teamTitle": "Team at this location"
   },
-    "Team": {
+  "Team": {
     "title": "Our team",
     "worksAt": "Works at"
   },
-    "Service": {
+  "Service": {
     "back": "All services",
     "galleryTitle": "Photos",
     "offersTitle": "Where and how much"
+  },
+  "Confirmation": {
+    "titleBooked": "Appointment confirmed!",
+    "titlePending": "Booked: deposit pending",
+    "titleExpired": "This booking has expired",
+    "titleCancelled": "This appointment was cancelled",
+    "titleOther": "Your appointment",
+    "reference": "Reference #{id}",
+    "service": "Service",
+    "when": "When",
+    "where": "Where",
+    "with": "With",
+    "price": "Price",
+    "depositTitle": "Deposit: {amount}",
+    "depositDue": "You have until {date} to pay it. After that, the slot is released.",
+    "howToPay": "How to pay",
+    "payNoInstructions": "The salon will message you with the payment instructions.",
+    "policy": "Cancellation and refunds",
+    "sendProof": "Send proof of payment on WhatsApp",
+    "proofMessage": "Hi, I've paid the deposit for my appointment #{id} ({service}, {when}). Here is the proof of payment.",
+    "bookedHelp": "If you need to change or cancel, let us know at least {hours, plural, one {# hour} other {# hours}} in advance.",
+    "contact": "Message us on WhatsApp",
+    "contactMessage": "Hi, I'm writing about my appointment #{id} ({service}, {when}).",
+    "expiredHelp": "The deadline to pay the deposit has passed and the slot was released. You can book again.",
+    "cancelledHelp": "If this was a mistake, you can book again.",
+    "bookAgain": "Book again",
+    "home": "Back to home",
+    "payLinkInfo": "To confirm your appointment, ask us for the payment link on WhatsApp. Once we receive the payment, your appointment is confirmed.",
+    "payLinkButton": "Ask for the payment link on WhatsApp",
+    "payLinkMessage": "Hi, I've just booked appointment #{id} ({service}, {when}) with a {amount} deposit. Could you send me the payment link?"
   }
 }

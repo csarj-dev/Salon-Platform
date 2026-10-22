@@ -1,44 +1,23 @@
 import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
 import { ChoiceCard } from "@/components/booking/choice-card";
+import { DateTimeStep } from "@/components/booking/date-time-step";
+import { Chosen, Heading, bookingHref } from "@/components/booking/step-ui";
 import {
   listActiveLocations, listServicesForLocation, listStaffForService,
 } from "@/lib/catalog";
-import { flowQuery, parseFlowParams, type Flow } from "@/lib/booking-flow";
+import { parseFlowParams } from "@/lib/booking-flow";
 import { formatPrice } from "@/lib/format";
 import { initialsOf } from "@/lib/initials";
 import { getPhotoViews } from "@/lib/photos";
 import { loadSalonConfig } from "@/lib/salon-config";
+import { io } from "next/cache";
 
 type Props = {
   locale: string;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const href = (flow: Flow) => ({ pathname: "/booking", query: flowQuery(flow) });
-
-function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-3 text-lg font-medium">{children}</h2>;
-}
-
-function Chosen({
-  label,
-  changeHref,
-  changeText,
-}: {
-  label: string;
-  changeHref: ReturnType<typeof href>;
-  changeText: string;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-      <span>{label}</span>
-      <Link href={changeHref} className="text-muted-foreground underline underline-offset-4">
-        {changeText}
-      </Link>
-    </div>
-  );
-}
+const href = bookingHref;
 
 export async function BookingSteps({ locale, searchParams }: Props) {
   const [raw, config, t] = await Promise.all([
@@ -47,6 +26,11 @@ export async function BookingSteps({ locale, searchParams }: Props) {
     getTranslations("Booking"),
   ]);
   const flow = parseFlowParams(raw);
+  // La hora actual se lee después de la URL (dato de la petición): así no se intenta prerenderizar
+  // Next prerenderiza lo que puede; la hora actual cambia en cada visita, así que se excluye
+  // del prerenderizado con io() antes de leerla
+  await io();
+  const now = new Date();
 
   // Paso 1: local (se omite si solo hay uno)
   const locations = await listActiveLocations();
@@ -114,11 +98,17 @@ export async function BookingSteps({ locale, searchParams }: Props) {
                   href={href({ location: location.id, service: s.id })}
                   title={s.name}
                   description={s.description}
-                  meta={`${t("minutes", { count: s.durationMin })} · ${formatPrice(
-                    s.priceCents,
-                    locale,
-                    config.currency,
-                  )}`}
+                  meta={[
+                    t("minutes", { count: s.durationMin }),
+                    formatPrice(s.priceCents, locale, config.currency),
+                    s.depositCents
+                      ? t("depositBadge", {
+                          amount: formatPrice(s.depositCents, locale, config.currency),
+                        })
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                   photo={s.photoId === null ? undefined : photos.get(s.photoId)}
                 />
               ))}
@@ -188,11 +178,17 @@ export async function BookingSteps({ locale, searchParams }: Props) {
     />,
   );
 
-  // Paso 4 (siguiente): día y hora
+  // Pasos 4 y 5: día y hora, y datos de la clienta
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">{summary}</div>
-      <p className="text-muted-foreground">{t("nextStep")}</p>
-    </div>
+    <DateTimeStep
+      locale={locale}
+      config={config}
+      now={now}
+      flow={flow}
+      location={location}
+      service={service}
+      member={member === "any" ? "any" : { id: member.id, name: member.name }}
+      summary={summary}
+    />
   );
 }

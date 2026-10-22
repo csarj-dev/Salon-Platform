@@ -1,19 +1,36 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, client, locationService, service } from "../db/schema";
+import { appointment, client, location, locationService, service } from "../db/schema";
 import { bookingInputSchema } from "./booking-schema";
 import { getAvailabilityForDay, type AvailabilityOptions } from "./availability-db";
+import { depositDueAt } from "./deposit";
 import { toAvailabilityOptions, type SalonConfig } from "./salon-config";
 
-export type BookingOptions = AvailabilityOptions & { maxDaysAhead: number };
+export type BookingOptions = AvailabilityOptions & {
+  maxDaysAhead: number;
+  // Horas que se guarda el hueco esperando el depósito (por defecto, 24)
+  depositHoldHours?: number;
+};
 
 export function toBookingOptions(c: SalonConfig): BookingOptions {
-  return { ...toAvailabilityOptions(c), maxDaysAhead: c.booking.maxDaysAhead };
+  return {
+    ...toAvailabilityOptions(c),
+    maxDaysAhead: c.booking.maxDaysAhead,
+    depositHoldHours: c.booking.deposit.holdHours,
+  };
 }
 
 export type BookingResult =
-  | { ok: true; appointmentId: number }
+  | {
+      ok: true;
+      appointmentId: number;
+      // Enlace secreto de la página de confirmación
+      publicToken: string;
+      // "pending_deposit" si hay que pagar un depósito para confirmarla
+      status: "booked" | "pending_deposit";
+      deposit: { cents: number; dueAt: Date } | null;
+    }
   | { ok: false; reason: "invalid_input"; issues: string[] }
   | { ok: false; reason: "slot_unavailable" | "slot_taken" };
 
@@ -54,6 +71,18 @@ export async function createAppointment(
     return { ok: false, reason: "slot_unavailable" };
   }
 
+  // 2b. Lo que se reserva hablando antes, o en un local cerrado, no se reserva por la web
+  if (input.source === "web") {
+    const [rules] = await db
+      .select({ requiresConsultation: service.requiresConsultation, active: location.active })
+      .from(service)
+      .innerJoin(location, eq(location.id, input.locationId))
+      .where(eq(service.id, input.serviceId));
+    if (!rules || rules.requiresConsultation || !rules.active) {
+      return { ok: false, reason: "slot_unavailable" };
+    }
+  }
+
   // 3. Comprobación previa: el hueco debe estar entre los disponibles.
   //    Cubre servicio ofrecido en el local, profesional que lo hace,
   //    turnos, bloqueos y antelación mínima. Sirve para dar un error claro.
@@ -75,9 +104,13 @@ export async function createAppointment(
   // 4. Transacción: cliente y cita se crean juntos o no se crea nada.
   //    La comprobación definitiva la hace la restricción anti-solape de Postgres.
   try {
-    const appointmentId = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [svc] = await tx
-        .select({ durationMin: service.durationMin, priceCents: service.priceCents })
+        .select({
+          durationMin: service.durationMin,
+          priceCents: service.priceCents,
+          depositCents: service.depositCents,
+        })
         .from(service)
         .where(eq(service.id, input.serviceId));
       if (!svc) throw new Error(`Servicio ${input.serviceId} no existe`);
@@ -121,6 +154,25 @@ export async function createAppointment(
 
       const endsAt = new Date(input.startsAt.getTime() + svc.durationMin * 60_000);
 
+      // Depósito: solo en reservas hechas por la web. Recepción o WhatsApp lo gestionan a mano.
+      const depositCents = input.source === "web" ? svc.depositCents : null;
+      const deposit =
+        depositCents === null
+          ? null
+          : {
+              cents: depositCents,
+              dueAt: depositDueAt(now, input.startsAt, opts.depositHoldHours ?? 24),
+            };
+
+      // Las pendientes cuyo plazo venció se marcan como caducadas antes de insertar:
+      // si no, la restricción anti-solape de Postgres seguiría viendo su hueco ocupado
+      await tx
+        .update(appointment)
+        .set({ status: "expired" })
+        .where(
+          and(eq(appointment.status, "pending_deposit"), lte(appointment.depositDueAt, now)),
+        );
+
       const [created] = await tx
         .insert(appointment)
         .values({
@@ -132,13 +184,22 @@ export async function createAppointment(
           endsAt,
           priceAppliedCents,
           source: input.source,
+          status: deposit ? "pending_deposit" : "booked",
+          depositCents: deposit?.cents ?? null,
+          depositDueAt: deposit?.dueAt ?? null,
         })
-        .returning({ id: appointment.id });
+        .returning({ id: appointment.id, publicToken: appointment.publicToken });
 
-      return created.id;
+      return { created, deposit };
     });
 
-    return { ok: true, appointmentId };
+    return {
+      ok: true,
+      appointmentId: result.created.id,
+      publicToken: result.created.publicToken,
+      status: result.deposit ? "pending_deposit" : "booked",
+      deposit: result.deposit,
+    };
   } catch (e) {
     // 23P01 = exclusion_violation: otra reserva se quedó el hueco un instante antes
     if (pgErrorCode(e) === "23P01") return { ok: false, reason: "slot_taken" };

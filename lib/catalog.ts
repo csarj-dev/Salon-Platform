@@ -60,6 +60,7 @@ export type CatalogService = {
   photoId: number | null;
   slug: string | null;
   hasDetail: boolean; // ¿tiene página propia con contenido?
+  depositCents: number | null; // depósito que se pide al reservar por la web
 };
 
 // ¿Qué servicios tienen contenido para una página propia?
@@ -109,6 +110,7 @@ export async function listServicesForLocation(
       categoryId: service.categoryId,
       sortOrder: service.sortOrder,
       requiresConsultation: service.requiresConsultation,
+      depositCents: service.depositCents,
       photoId: service.photoId,
       slug: service.slug,
     })
@@ -145,6 +147,7 @@ export async function listServicesForLocation(
         priceCents: r.override ?? r.basePrice,
         categoryId: r.categoryId,
         requiresConsultation: r.requiresConsultation,
+        depositCents: r.depositCents,
         photoId: r.photoId,
         slug: r.slug,
         hasDetail: detail.get(r.id) ?? false,

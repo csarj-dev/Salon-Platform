@@ -85,6 +85,13 @@
       "when": 1792658973236,
       "tag": "0011_quick_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792666506211,
+      "tag": "0012_booking_deposits",
+      "breakpoints": true
     }
   ]
 }
