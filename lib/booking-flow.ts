@@ -1,4 +1,3 @@
-import { DateTime } from "luxon";
 
 export type Flow = {
   location?: number;
@@ -22,11 +21,21 @@ function toId(v?: string | string[]): number | undefined {
   return n > 0 ? n : undefined;
 }
 
-// "2026-11-02" y que sea un día real (no "2026-02-31")
+// "2026-11-02" y que sea un día real (no "2026-02-31").
+// Se comprueba a mano, sin luxon: luxon lee la hora actual al crear fechas y Next
+// no deja leerla mientras prerenderiza (esta función corre antes de poder esperar a la petición).
 function toDay(v?: string | string[]): string | undefined {
   const s = first(v);
-  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return undefined;
-  return DateTime.fromISO(s, { zone: "utc" }).isValid ? s : undefined;
+  const m = s ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(s) : null;
+  if (!s || !m) return undefined;
+  const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  // "2026-02-31" se desbordaría a marzo y ya no coincidiría con lo escrito
+  const same =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+  return same ? s : undefined;
 }
 
 // Instante en UTC con el formato exacto que genera toISOString()

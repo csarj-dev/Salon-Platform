@@ -31,7 +31,7 @@ export async function getConfirmation(
   token: string,
   locale: string,
   defaultLocale: string,
-  now: Date = new Date(),
+  now: Date, // la pasa quien llama, después de esperar a la petición (ver ConfirmationContent)
 ): Promise<ConfirmationView | null> {
   // Si no tiene forma de UUID, Postgres daría error al compararlo: ni se pregunta
   if (!UUID.test(token)) return null;

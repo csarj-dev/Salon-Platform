@@ -336,9 +336,9 @@ describe("página de confirmación", () => {
   });
 
   it("un token que no existe o no es un UUID da null", async () => {
-    expect(await getConfirmation("00000000-0000-4000-8000-000000000000", "es", "es")).toBeNull();
-    expect(await getConfirmation("1", "es", "es")).toBeNull();
-    expect(await getConfirmation("' OR 1=1 --", "es", "es")).toBeNull();
+    expect(await getConfirmation("00000000-0000-4000-8000-000000000000", "es", "es", NOW)).toBeNull();
+    expect(await getConfirmation("1", "es", "es", NOW)).toBeNull();
+    expect(await getConfirmation("' OR 1=1 --", "es", "es", NOW)).toBeNull();
   });
 
   it("un depósito vencido se muestra como caducado aunque nadie haya liberado el hueco", async () => {

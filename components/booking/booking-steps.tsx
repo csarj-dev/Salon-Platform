@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/format";
 import { initialsOf } from "@/lib/initials";
 import { getPhotoViews } from "@/lib/photos";
 import { loadSalonConfig } from "@/lib/salon-config";
+import { io } from "next/cache";
 
 type Props = {
   locale: string;
@@ -26,6 +27,9 @@ export async function BookingSteps({ locale, searchParams }: Props) {
   ]);
   const flow = parseFlowParams(raw);
   // La hora actual se lee después de la URL (dato de la petición): así no se intenta prerenderizar
+  // Next prerenderiza lo que puede; la hora actual cambia en cada visita, así que se excluye
+  // del prerenderizado con io() antes de leerla
+  await io();
   const now = new Date();
 
   // Paso 1: local (se omite si solo hay uno)

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { io } from "next/cache";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
@@ -33,7 +34,9 @@ export async function ConfirmationContent({ params }: Props) {
   ]);
   if (!config.booking.channels.includes("online")) notFound();
 
-  const view = await getConfirmation(token, locale, config.defaultLocale);
+    // La hora actual cambia en cada visita: se excluye del prerenderizado con io() antes de leerla
+  await io();
+  const view = await getConfirmation(token, locale, config.defaultLocale, new Date());
   if (!view) notFound();
 
   const zone = config.timezone;
