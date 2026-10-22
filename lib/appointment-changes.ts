@@ -33,11 +33,15 @@ function withinNoticeWindow(startsAt: Date, now: Date, hours: number): boolean {
   return startsAt.getTime() - now.getTime() < hours * 3_600_000;
 }
 
+// Quién cancela y por qué (solo lo rellena el equipo desde el panel)
+export type CancelAudit = { userId?: string | null; reason?: string | null };
+
 export async function cancelAppointment(
   appointmentId: number,
   opts: ChangeOptions,
   actor: Actor = "client",
   now: Date = new Date(),
+  audit: CancelAudit = {},
 ): Promise<ChangeResult> {
   const [appt] = await db.select().from(appointment).where(eq(appointment.id, appointmentId));
   if (!appt) return { ok: false, reason: "not_found" };
@@ -58,7 +62,12 @@ export async function cancelAppointment(
   // La condición sobre el estado evita cancelar dos veces si hay dos peticiones a la vez
   const updated = await db
     .update(appointment)
-    .set({ status: "cancelled", cancelledAt: now })
+    .set({
+      status: "cancelled",
+      cancelledAt: now,
+      cancelledBy: audit.userId ?? null,
+      cancelReason: audit.reason?.trim() || null,
+    })
     .where(
       and(
         eq(appointment.id, appointmentId),
