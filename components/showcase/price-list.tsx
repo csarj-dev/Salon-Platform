@@ -36,7 +36,13 @@ export async function PriceList({ groups, locale, defaultLocale, currency, ctaFo
             description={s.description}
             duration={t("minutes", { count: s.durationMin })}
             price={formatPrice(s.priceCents, locale, currency)}
-            badge={s.requiresConsultation ? t("consultationBadge") : undefined}
+            badge={
+              s.requiresConsultation
+                ? t("consultationBadge")
+                : s.depositCents
+                  ? t("depositBadge", { amount: formatPrice(s.depositCents, locale, currency) })
+                  : undefined
+            }
             action={ctas.length > 0 ? <BookingActions ctas={ctas} /> : undefined}
             photo={s.photoId === null ? undefined : photos.get(s.photoId)}
             detailHref={s.hasDetail && s.slug ? `/services/${s.slug}` : undefined}

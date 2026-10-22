@@ -2,7 +2,7 @@
   "Metadata": {
     "description": "Reserva tu cita online."
   },
-    "Home": {
+  "Home": {
     "tagline": "Cuidado de cejas y pestañas con atención personalizada",
     "book": "Reservar cita",
     "featuredTitle": "Nuestros servicios",
@@ -41,9 +41,32 @@
     "noLocations": "No hay locales disponibles ahora mismo.",
     "noServices": "Este local no tiene servicios disponibles.",
     "noStaff": "No hay profesionales disponibles para este servicio.",
-    "nextStep": "Siguiente paso: elegir día y hora (próximamente)"
+    "stepDate": "Elige día y hora",
+    "prevWeek": "Semana anterior",
+    "nextWeek": "Semana siguiente",
+    "noSlotsWeek": "No hay huecos esta semana. Prueba con la siguiente.",
+    "timesFor": "Horas disponibles · {day}",
+    "daysLabel": "Días",
+    "stepDetails": "Tus datos",
+    "name": "Nombre",
+    "phone": "Teléfono",
+    "email": "Email (opcional)",
+    "consent": "Acepto que guarden mis datos para gestionar mi cita.",
+    "submit": "Reservar cita",
+    "submitting": "Reservando…",
+    "depositNotice": "Este servicio requiere un depósito de {amount}. Al reservar te guardamos el hueco {hours, plural, one {# hora} other {# horas}} para que lo pagues; hasta entonces la cita queda pendiente.",
+    "depositBadge": "Depósito {amount}",
+    "errorInvalid": "Revisa los datos marcados.",
+    "errorTaken": "Ese hueco acaba de ocuparse. Elige otro.",
+    "errorUnavailable": "Ese hueco ya no está disponible. Elige otro.",
+    "errorServer": "No hemos podido reservar. Inténtalo de nuevo o escríbenos por WhatsApp.",
+    "errorName": "Escribe tu nombre.",
+    "errorPhone": "Escribe un teléfono válido (entre 9 y 15 cifras).",
+    "errorEmail": "Ese email no es válido.",
+    "errorConsent": "Necesitamos tu consentimiento para reservar.",
+    "pickAnother": "Elegir otra hora"
   },
-    "Showcase": {
+  "Showcase": {
     "book": "Reservar cita",
     "whatsappBook": "Reservar por WhatsApp",
     "whatsappConsult": "Consultar por WhatsApp",
@@ -61,7 +84,8 @@
     "viewMenu": "Ver carta y precios",
     "messageLocation": "Hola, me gustaría información sobre {location}.",
     "viewLocation": "Ver local",
-    "viewDetails": "Ver más"
+    "viewDetails": "Ver más",
+    "depositBadge": "Depósito {amount}"
   },
   "Location": {
     "back": "Todos los locales",
@@ -69,13 +93,40 @@
     "servicesTitle": "Servicios y precios",
     "teamTitle": "Equipo del local"
   },
-    "Team": {
+  "Team": {
     "title": "Nuestro equipo",
     "worksAt": "Trabaja en"
   },
-    "Service": {
+  "Service": {
     "back": "Todos los servicios",
     "galleryTitle": "Fotos",
     "offersTitle": "Dónde y cuánto"
+  },
+  "Confirmation": {
+    "titleBooked": "¡Cita confirmada!",
+    "titlePending": "Cita reservada: falta el depósito",
+    "titleExpired": "Esta reserva ha caducado",
+    "titleCancelled": "Esta cita está cancelada",
+    "titleOther": "Detalles de tu cita",
+    "reference": "Referencia #{id}",
+    "service": "Servicio",
+    "when": "Cuándo",
+    "where": "Dónde",
+    "with": "Con",
+    "price": "Precio",
+    "depositTitle": "Depósito: {amount}",
+    "depositDue": "Tienes hasta el {date} para pagarlo. Si no, el hueco se libera.",
+    "howToPay": "Cómo pagar",
+    "payNoInstructions": "El salón te escribirá con las instrucciones de pago.",
+    "policy": "Cancelación y devolución",
+    "sendProof": "Enviar comprobante por WhatsApp",
+    "proofMessage": "Hola, ya he pagado el depósito de mi cita #{id} ({service}, {when}). Te envío el comprobante.",
+    "bookedHelp": "Si necesitas cambiar o cancelar la cita, avísanos con al menos {hours, plural, one {# hora} other {# horas}} de antelación.",
+    "contact": "Escribir por WhatsApp",
+    "contactMessage": "Hola, te escribo por mi cita #{id} ({service}, {when}).",
+    "expiredHelp": "El plazo para pagar el depósito terminó y el hueco se ha liberado. Puedes reservar de nuevo.",
+    "cancelledHelp": "Si fue un error, puedes reservar de nuevo.",
+    "bookAgain": "Reservar de nuevo",
+    "home": "Volver al inicio"
   }
 }

@@ -20,6 +20,19 @@ const config = {
     maxDaysAhead: 60,
     cancellationNoticeHours: 24,
     channels: ["online", "whatsapp"],
+    // Depósitos: el importe se pone en cada servicio (npx tsx db/service-deposit.ts)
+    // Los textos de abajo son de ejemplo hasta que el salón confirme los suyos.
+    deposit: {
+      holdHours: 24,
+      instructions: {
+        es: "Haz un Bizum al 600 000 000 indicando tu nombre y la fecha de la cita. Cuando lo recibamos, tu cita queda confirmada.",
+        en: "Send a Bizum payment to 600 000 000 with your name and the appointment date. Once we receive it, your appointment is confirmed.",
+      },
+      policy: {
+        es: "El depósito se descuenta del precio del servicio. Si cancelas con 24 horas o más de antelación, te lo devolvemos.",
+        en: "The deposit is deducted from the service price. If you cancel at least 24 hours in advance, we refund it.",
+      },
+    },
   },
   theme: {
     background: "#f7f1ea",
