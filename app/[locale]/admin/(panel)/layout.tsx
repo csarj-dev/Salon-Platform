@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { loadSalonConfig } from "@/lib/salon-config";
-import { parseRoles } from "@/lib/permissions";
+import { can, parseRoles } from "@/lib/permissions";
 import { requireStaff } from "@/lib/session";
 
 type Props = {
@@ -27,6 +27,7 @@ export default async function PanelLayout({ children, params }: Props) {
         salonName={config.name}
         userName={user.name}
         roleLabel={firstRole ? t(`roles.${firstRole}`) : ""}
+        showUsers={can(role, "users.manage")}
       />
       <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>
     </>

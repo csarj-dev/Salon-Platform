@@ -153,6 +153,44 @@
     "role": "Tu rol: {role}",
     "soon": "Aquí aparecerán las citas y los depósitos pendientes."
   },
-  "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" }
+  "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
+  "nav": { "home": "Inicio", "users": "Usuarios" },
+  "users": {
+    "title": "Usuarios",
+    "intro": "Quién puede entrar al panel y con qué rol. Solo el administrador ve esta página.",
+    "createTitle": "Nuevo usuario",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "password": "Contraseña inicial",
+    "passwordHint": "Mínimo 10 caracteres. Entrégasela en persona; luego puede cambiarse aquí.",
+    "role": "Rol",
+    "create": "Crear usuario",
+    "creating": "Creando…",
+    "created": "Usuario creado.",
+    "you": "(tú)",
+    "active": "Activo",
+    "inactive": "Desactivado",
+    "saveRole": "Guardar rol",
+    "roleChanged": "Rol actualizado.",
+    "deactivate": "Desactivar",
+    "reactivate": "Reactivar",
+    "confirmDeactivate": "¿Desactivar a {name}? No podrá entrar y se cerrarán sus sesiones.",
+    "deactivated": "Usuario desactivado.",
+    "reactivated": "Usuario reactivado.",
+    "resetPassword": "Cambiar contraseña",
+    "newPassword": "Nueva contraseña (mín. 10)",
+    "setPassword": "Guardar contraseña",
+    "passwordChanged": "Contraseña cambiada.",
+    "errors": {
+      "invalid": "Revisa los datos: la contraseña necesita al menos 10 caracteres.",
+      "emailTaken": "Ya existe un usuario con ese correo.",
+      "invalidRole": "Rol no válido.",
+      "selfRole": "No puedes cambiar tu propio rol.",
+      "selfDeactivate": "No puedes desactivarte a ti mismo.",
+      "lastAdmin": "Debe quedar al menos un administrador activo.",
+      "notFound": "No se encontró el usuario.",
+      "server": "No se pudo completar la acción. Inténtalo de nuevo."
+    }
+  }
 }
 }

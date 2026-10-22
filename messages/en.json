@@ -153,6 +153,44 @@
     "role": "Your role: {role}",
     "soon": "Appointments and pending deposits will appear here."
   },
-  "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" }
+  "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
+  "nav": { "home": "Home", "users": "Users" },
+  "users": {
+    "title": "Users",
+    "intro": "Who can sign in to the panel and with which role. Only the administrator sees this page.",
+    "createTitle": "New user",
+    "name": "Name",
+    "email": "Email",
+    "password": "Initial password",
+    "passwordHint": "At least 10 characters. Hand it over in person; it can be changed here later.",
+    "role": "Role",
+    "create": "Create user",
+    "creating": "Creating…",
+    "created": "User created.",
+    "you": "(you)",
+    "active": "Active",
+    "inactive": "Disabled",
+    "saveRole": "Save role",
+    "roleChanged": "Role updated.",
+    "deactivate": "Disable",
+    "reactivate": "Re-enable",
+    "confirmDeactivate": "Disable {name}? They will not be able to sign in and their sessions will end.",
+    "deactivated": "User disabled.",
+    "reactivated": "User re-enabled.",
+    "resetPassword": "Change password",
+    "newPassword": "New password (min. 10)",
+    "setPassword": "Save password",
+    "passwordChanged": "Password changed.",
+    "errors": {
+      "invalid": "Check the data: the password needs at least 10 characters.",
+      "emailTaken": "A user with that email already exists.",
+      "invalidRole": "Invalid role.",
+      "selfRole": "You cannot change your own role.",
+      "selfDeactivate": "You cannot disable yourself.",
+      "lastAdmin": "At least one active administrator must remain.",
+      "notFound": "User not found.",
+      "server": "The action could not be completed. Try again."
+    }
+  }
 }
 }
