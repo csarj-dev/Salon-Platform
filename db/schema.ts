@@ -122,6 +122,8 @@ export const service = pgTable("service", {
   featured: boolean("featured").notNull().default(false),
   // Si se borra la foto, la entidad se queda sin foto (no se borra)
   photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
+  // Dirección web (/services/<slug>). Opcional: sin slug no hay página propia.
+  slug: text("slug").unique(),
 });
 
 export const serviceTranslation = pgTable(
@@ -133,8 +135,25 @@ export const serviceTranslation = pgTable(
     locale: text("locale").notNull(), // "es", "en"...
     name: text("name").notNull(),
     description: text("description"),
+    // Texto largo de la página del servicio (párrafos separados por una línea en blanco)
+    longDescription: text("long_description"),
   },
   (t) => [primaryKey({ columns: [t.serviceId, t.locale] })],
+);
+
+// Galería de fotos de cada servicio, en orden. La foto principal es `service.photoId`.
+export const servicePhoto = pgTable(
+  "service_photo",
+  {
+    serviceId: integer("service_id")
+      .notNull()
+      .references(() => service.id, { onDelete: "cascade" }),
+    photoId: integer("photo_id")
+      .notNull()
+      .references(() => photo.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.serviceId, t.photoId] })],
 );
 
 export const staff = pgTable("staff", {

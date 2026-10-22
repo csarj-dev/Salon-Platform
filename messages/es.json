@@ -60,7 +60,8 @@
     "call": "Llamar",
     "viewMenu": "Ver carta y precios",
     "messageLocation": "Hola, me gustaría información sobre {location}.",
-    "viewLocation": "Ver local"
+    "viewLocation": "Ver local",
+    "viewDetails": "Ver más"
   },
   "Location": {
     "back": "Todos los locales",
@@ -71,5 +72,10 @@
     "Team": {
     "title": "Nuestro equipo",
     "worksAt": "Trabaja en"
+  },
+    "Service": {
+    "back": "Todos los servicios",
+    "galleryTitle": "Fotos",
+    "offersTitle": "Dónde y cuánto"
   }
 }

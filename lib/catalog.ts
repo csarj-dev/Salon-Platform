@@ -1,11 +1,12 @@
-import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   location, locationHours, locationService, schedule, service,
-  serviceCategory, serviceCategoryTranslation, serviceTranslation,
+  serviceCategory, serviceCategoryTranslation, servicePhoto, serviceTranslation,
   staff, staffService, locationPhoto, staffTranslation
 } from "../db/schema";
 import { pickTranslation } from "./pick-translation";
+import { hasServiceDetail, pickLongDescription } from "./service-detail";
 import type { HoursRow } from "./opening-hours";
 
 export async function listActiveLocations() {
@@ -57,7 +58,39 @@ export type CatalogService = {
   categoryId: number | null;
   requiresConsultation: boolean;
   photoId: number | null;
+  slug: string | null;
+  hasDetail: boolean; // ¿tiene página propia con contenido?
 };
+
+// ¿Qué servicios tienen contenido para una página propia?
+// (slug + descripción larga o al menos una foto en la galería)
+async function detailFlags(
+  rows: { id: number; slug: string | null }[],
+  translations: { serviceId: number; locale: string; longDescription: string | null }[],
+  locale: string,
+  defaultLocale: string,
+): Promise<Map<number, boolean>> {
+  const galleryCounts = await db
+    .select({ serviceId: servicePhoto.serviceId, total: count() })
+    .from(servicePhoto)
+    .where(inArray(servicePhoto.serviceId, rows.map((r) => r.id)))
+    .groupBy(servicePhoto.serviceId);
+
+  return new Map(
+    rows.map((r): [number, boolean] => [
+      r.id,
+      hasServiceDetail({
+        slug: r.slug,
+        longDescription: pickLongDescription(
+          translations.filter((t) => t.serviceId === r.id),
+          locale,
+          defaultLocale,
+        ),
+        galleryCount: galleryCounts.find((g) => g.serviceId === r.id)?.total ?? 0,
+      }),
+    ]),
+  );
+}
 
 // Servicios que ofrece un local, con nombre en el idioma pedido
 // y el precio propio del local si lo tiene
@@ -77,6 +110,7 @@ export async function listServicesForLocation(
       sortOrder: service.sortOrder,
       requiresConsultation: service.requiresConsultation,
       photoId: service.photoId,
+      slug: service.slug,
     })
     .from(locationService)
     .innerJoin(service, eq(service.id, locationService.serviceId))
@@ -94,6 +128,8 @@ export async function listServicesForLocation(
       ),
     );
 
+  const detail = await detailFlags(rows, translations, locale, defaultLocale);
+
   return rows
     .map((r) => ({
       sortOrder: r.sortOrder,
@@ -110,6 +146,8 @@ export async function listServicesForLocation(
         categoryId: r.categoryId,
         requiresConsultation: r.requiresConsultation,
         photoId: r.photoId,
+        slug: r.slug,
+        hasDetail: detail.get(r.id) ?? false,
       },
     }))
     .sort(
@@ -205,6 +243,9 @@ export type FeaturedService = {
   id: number;
   name: string;
   description: string | null;
+  photoId: number | null;
+  slug: string | null;
+  hasDetail: boolean;
 };
 
 // Servicios destacados de la portada: marcados como `featured` y ofrecidos en algún
@@ -215,7 +256,13 @@ export async function listFeaturedServices(
   limit = 6,
 ): Promise<FeaturedService[]> {
   const rows = await db
-    .selectDistinct({ id: service.id, name: service.name, sortOrder: service.sortOrder })
+    .selectDistinct({
+      id: service.id,
+      name: service.name,
+      sortOrder: service.sortOrder,
+      photoId: service.photoId,
+      slug: service.slug,
+    })
     .from(service)
     .innerJoin(locationService, eq(locationService.serviceId, service.id))
     .innerJoin(location, eq(location.id, locationService.locationId))
@@ -234,6 +281,7 @@ export async function listFeaturedServices(
         inArray(serviceTranslation.locale, [...new Set([locale, defaultLocale])]),
       ),
     );
+  const detail = await detailFlags(rows, translations, locale, defaultLocale);
 
   return rows.map((r) => ({
     id: r.id,
@@ -243,6 +291,9 @@ export async function listFeaturedServices(
       defaultLocale,
       r.name,
     ),
+    photoId: r.photoId,
+    slug: r.slug,
+    hasDetail: detail.get(r.id) ?? false,
   }));
 }
 
@@ -369,4 +420,95 @@ export async function hasListedTeam(): Promise<boolean> {
     .where(and(eq(staff.active, true), isNotNull(staff.listedOnTeamAt)))
     .limit(1);
   return row !== undefined;
+}
+
+export type ServiceOffer = {
+  location: { id: number; name: string; slug: string | null };
+  durationMin: number;
+  priceCents: number;
+};
+
+export type ServiceDetail = {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  longDescription: string | null;
+  photoId: number | null;
+  requiresConsultation: boolean;
+  galleryPhotoIds: number[];
+  offers: ServiceOffer[]; // un elemento por local activo que lo ofrece
+};
+
+// Un servicio por su slug. Devuelve null si no existe, si no se ofrece en ningún local
+// activo o si no tiene contenido que mostrar (descripción larga o galería): sin datos, sin página.
+export async function getServiceBySlug(
+  slug: string,
+  locale: string,
+  defaultLocale: string,
+): Promise<ServiceDetail | null> {
+  const [row] = await db
+    .select({
+      id: service.id,
+      name: service.name,
+      durationMin: service.durationMin,
+      basePrice: service.priceCents,
+      photoId: service.photoId,
+      requiresConsultation: service.requiresConsultation,
+    })
+    .from(service)
+    .where(eq(service.slug, slug));
+  if (!row) return null;
+
+  const [translations, gallery, offerRows] = await Promise.all([
+    db
+      .select()
+      .from(serviceTranslation)
+      .where(
+        and(
+          eq(serviceTranslation.serviceId, row.id),
+          inArray(serviceTranslation.locale, [...new Set([locale, defaultLocale])]),
+        ),
+      ),
+    db
+      .select({ photoId: servicePhoto.photoId })
+      .from(servicePhoto)
+      .where(eq(servicePhoto.serviceId, row.id))
+      .orderBy(asc(servicePhoto.sortOrder), asc(servicePhoto.photoId)),
+    db
+      .select({
+        id: location.id,
+        name: location.name,
+        slug: location.slug,
+        override: locationService.priceCents,
+      })
+      .from(locationService)
+      .innerJoin(location, eq(location.id, locationService.locationId))
+      .where(and(eq(locationService.serviceId, row.id), eq(location.active, true)))
+      .orderBy(asc(location.name)),
+  ]);
+  if (offerRows.length === 0) return null;
+
+  const longDescription = pickLongDescription(translations, locale, defaultLocale);
+  const galleryPhotoIds = gallery.map((g) => g.photoId);
+  if (!hasServiceDetail({ slug, longDescription, galleryCount: galleryPhotoIds.length })) {
+    return null;
+  }
+
+  const picked = pickTranslation(translations, locale, defaultLocale, row.name);
+  return {
+    id: row.id,
+    slug,
+    name: picked.name,
+    description: picked.description,
+    longDescription,
+    photoId: row.photoId,
+    requiresConsultation: row.requiresConsultation,
+    galleryPhotoIds,
+    offers: offerRows.map((o) => ({
+      location: { id: o.id, name: o.name, slug: o.slug },
+      durationMin: row.durationMin,
+      priceCents: o.override ?? row.basePrice,
+    })),
+  };
 }
