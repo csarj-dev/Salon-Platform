@@ -5,13 +5,16 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { db, pgClient } from "../db";
 import {
   appointment, client, location, locationService, schedule,
-  service, staff, staffService, timeOff,
+  service, staff, staffService, timeOff, user
 } from "../db/schema";
+import { listAppointments } from "../lib/appointment-list";
 import { getAvailabilityForDay } from "../lib/availability-db";
 import { cancelAppointment } from "../lib/appointment-changes";
 import { getConfirmation } from "../lib/appointment-view";
 import { createAppointment, type BookingOptions } from "../lib/booking";
-import { expireOverdueDeposits, listDeposits, markDepositPaid } from "../lib/deposit-db";
+import {
+  countPendingDeposits, expireOverdueDeposits, listDeposits, markDepositPaid,
+} from "../lib/deposit-db";
 
 const opts: BookingOptions = {
   zone: "Atlantic/Canary",
@@ -22,6 +25,7 @@ const opts: BookingOptions = {
   depositHoldHours: 24,
 };
 
+const RECEPTION = "test-user-reception";
 const NOW = new Date("2026-10-19T10:00:00Z");
 const LATER = new Date("2026-10-20T11:00:00Z"); // 25 h después: el plazo de 24 h ya venció
 // Lunes 2 de noviembre de 2026: en Canarias es hora de invierno (UTC+0)
@@ -72,6 +76,10 @@ async function bookDeposit(startsAt = at("10:00"), now = NOW, phone = "600111222
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "./drizzle" });
   await wipe();
+  await db
+    .insert(user)
+    .values({ id: RECEPTION, name: "Recepción Test", email: "recepcion.test@example.com" })
+    .onConflictDoNothing();
 
   const [l] = await db.insert(location).values({ name: "Local de prueba" }).returning();
   const [a, b, c] = await db
@@ -111,6 +119,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await db.delete(user).where(eq(user.id, RECEPTION));
   await pgClient.end();
 });
 
@@ -344,5 +353,136 @@ describe("página de confirmación", () => {
   it("un depósito vencido se muestra como caducado aunque nadie haya liberado el hueco", async () => {
     const r = await bookDeposit();
     expect((await getConfirmation(r.publicToken, "es", "es", LATER))?.status).toBe("expired");
+  });
+});
+
+
+describe("auditoría: quién validó y quién canceló", () => {
+  const changeOpts = { cancellationNoticeHours: 24 };
+
+  it("al validar el depósito queda el usuario que lo hizo", async () => {
+    const r = await bookDeposit();
+    expect(await markDepositPaid(r.appointmentId, NOW, RECEPTION)).toEqual({ ok: true });
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.depositValidatedBy).toBe(RECEPTION);
+  });
+
+  it("sin usuario (script) el campo queda vacío", async () => {
+    const r = await bookDeposit();
+    await markDepositPaid(r.appointmentId, NOW);
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.depositValidatedBy).toBeNull();
+  });
+
+  it("al cancelar desde el panel quedan el usuario y el motivo (recortado)", async () => {
+    const r = await bookDeposit();
+    const res = await cancelAppointment(r.appointmentId, changeOpts, "staff", NOW, {
+      userId: RECEPTION,
+      reason: "  La clienta no puede venir  ",
+    });
+    expect(res).toEqual({ ok: true });
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.cancelledBy).toBe(RECEPTION);
+    expect(row.cancelReason).toBe("La clienta no puede venir");
+    expect(row.cancelledAt).toEqual(NOW);
+  });
+
+  it("un motivo vacío se guarda como nulo, y la clienta no deja usuario", async () => {
+    const r = await bookDeposit();
+    await cancelAppointment(r.appointmentId, changeOpts, "client", NOW, { reason: "   " });
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.status).toBe("cancelled");
+    expect(row.cancelledBy).toBeNull();
+    expect(row.cancelReason).toBeNull();
+  });
+
+  it("la base rechaza un motivo de más de 300 caracteres", async () => {
+    const r = await bookDeposit();
+    await expect(
+      db
+        .update(appointment)
+        .set({ cancelReason: "x".repeat(301) })
+        .where(eq(appointment.id, r.appointmentId)),
+    ).rejects.toThrow();
+  });
+
+  it("si se borra al usuario, la cita se conserva sin autor", async () => {
+    await db
+      .insert(user)
+      .values({ id: "test-user-temp", name: "Temporal", email: "temporal.test@example.com" });
+    const r = await bookDeposit();
+    await markDepositPaid(r.appointmentId, NOW, "test-user-temp");
+    await db.delete(user).where(eq(user.id, "test-user-temp"));
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.status).toBe("booked");
+    expect(row.depositValidatedBy).toBeNull();
+  });
+});
+
+describe("listados del panel", () => {
+  const changeOpts = { cancellationNoticeHours: 24 };
+
+  it("lista las citas por hora, con los nombres de quién validó y quién canceló", async () => {
+    const a = await bookDeposit(at("10:00"), NOW, "600111222");
+    const b = await bookDeposit(at("12:00"), NOW, "600222333");
+    const c = await createAppointment(input(plain, at("13:00"), {}, "600333444"), opts, NOW);
+    if (!c.ok) throw new Error("no se pudo reservar");
+    await markDepositPaid(a.appointmentId, NOW, RECEPTION);
+    await cancelAppointment(b.appointmentId, changeOpts, "staff", NOW, {
+      userId: RECEPTION,
+      reason: "Cambio de planes",
+    });
+
+    const active = await listAppointments({
+      statuses: ["booked", "pending_deposit"],
+      order: "asc",
+      from: at("00:00"),
+    });
+    expect(active.map((r) => r.id)).toEqual([a.appointmentId, c.appointmentId]);
+    expect(active[0]).toMatchObject({
+      status: "booked",
+      clientName: "Clienta Test",
+      serviceName: "Con depósito",
+      validatedByName: "Recepción Test",
+      cancelledByName: null,
+    });
+
+    const cancelled = await listAppointments({ statuses: ["cancelled"], order: "desc" });
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0]).toMatchObject({
+      id: b.appointmentId,
+      cancelledByName: "Recepción Test",
+      cancelReason: "Cambio de planes",
+    });
+  });
+
+  it("filtra por rango de fechas (desde incluido, hasta excluido) y ordena", async () => {
+    const a = await bookDeposit(at("10:00"), NOW, "600111222");
+    const b = await bookDeposit(at("12:00"), NOW, "600222333");
+    const range = { statuses: ["pending_deposit" as const] };
+
+    const first = await listAppointments({ ...range, order: "asc", from: at("10:00"), to: at("12:00") });
+    expect(first.map((r) => r.id)).toEqual([a.appointmentId]);
+
+    const desc = await listAppointments({ ...range, order: "desc" });
+    expect(desc.map((r) => r.id)).toEqual([b.appointmentId, a.appointmentId]);
+  });
+
+  it("las caducadas se pueden limitar a los últimos días", async () => {
+    await bookDeposit();
+    await expireOverdueDeposits(LATER);
+    const recent = await listDeposits("expired", { sinceDays: 7, now: LATER });
+    expect(recent).toHaveLength(1);
+    const muchLater = new Date("2026-11-30T10:00:00Z");
+    expect(await listDeposits("expired", { sinceDays: 7, now: muchLater })).toEqual([]);
+    expect(await listDeposits("expired")).toHaveLength(1);
+  });
+
+  it("cuenta solo los depósitos pendientes con plazo vigente", async () => {
+    await bookDeposit(at("10:00"), NOW, "600111222");
+    await bookDeposit(at("12:00"), new Date("2026-10-19T13:00:00Z"), "600222333");
+    // Plazos: día 20 a las 10:00 y a las 13:00
+    expect(await countPendingDeposits(NOW)).toBe(2);
+    expect(await countPendingDeposits(LATER)).toBe(1);
   });
 });

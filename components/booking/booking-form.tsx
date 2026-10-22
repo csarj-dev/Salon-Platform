@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
-import { submitBooking, type BookingFormState } from "@/app/[locale]/booking/actions";
+import { submitBooking, type BookingFormState } from "@/app/[locale]/(site)/booking/actions";
 import type { BookingHref } from "@/components/booking/step-ui";
 import { cn } from "@/lib/utils";
 

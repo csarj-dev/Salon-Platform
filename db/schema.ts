@@ -3,6 +3,7 @@ import {
   primaryKey, check, uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { user } from "./auth-schema";
 
 export const appointmentStatus = pgEnum("appointment_status", [
   "booked", "completed", "cancelled", "no_show",
@@ -272,6 +273,14 @@ export const appointment = pgTable(
     // Hasta cuándo se guarda el hueco esperando el pago (solo citas pendientes)
     depositDueAt: timestamp("deposit_due_at", { withTimezone: true }),
     depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
+    // Auditoría: quién del equipo validó el depósito / canceló la cita.
+    // null = lo hizo la clienta, un script, o es anterior a esta auditoría.
+    depositValidatedBy: text("deposit_validated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
+    // Motivo opcional al cancelar (texto libre, corto)
+    cancelReason: text("cancel_reason"),
     // Identificador secreto para la página de confirmación (/booking/confirmed/<token>)
     publicToken: uuid("public_token").notNull().defaultRandom().unique(),
   },
@@ -281,6 +290,10 @@ export const appointment = pgTable(
       "appointment_deposit_positive",
       sql`${t.depositCents} IS NULL OR ${t.depositCents} > 0`,
     ),
+    check(
+      "appointment_cancel_reason_length",
+      sql`${t.cancelReason} IS NULL OR char_length(${t.cancelReason}) <= 300`,
+    ),
     // Una cita pendiente de depósito siempre sabe cuánto y hasta cuándo
     check(
       "appointment_pending_has_deposit",
@@ -288,3 +301,5 @@ export const appointment = pgTable(
     ),
   ],
 );
+
+export * from "./auth-schema";

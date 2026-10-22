@@ -332,3 +332,14 @@ describe("modo de pago del depósito", () => {
     ).toThrow();
   });
 });
+
+describe("prefijo telefónico", () => {
+  it("por defecto es 34 y acepta otro", () => {
+    expect(salonConfigSchema.parse(valid).phoneCountryCode).toBe("34");
+    expect(salonConfigSchema.parse({ ...valid, phoneCountryCode: "351" }).phoneCountryCode).toBe("351");
+  });
+  it("rechaza un prefijo con + o letras", () => {
+    expect(() => salonConfigSchema.parse({ ...valid, phoneCountryCode: "+34" })).toThrow();
+    expect(() => salonConfigSchema.parse({ ...valid, phoneCountryCode: "es" })).toThrow();
+  });
+});
