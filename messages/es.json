@@ -134,5 +134,25 @@
     "payLinkInfo": "Para confirmar la cita, pídenos el enlace de pago por WhatsApp. Cuando recibamos el pago, tu cita queda confirmada.",
     "payLinkButton": "Pedir el enlace de pago por WhatsApp",
     "payLinkMessage": "Hola, acabo de reservar la cita #{id} ({service}, {when}) y tiene un depósito de {amount}. ¿Me enviáis el enlace de pago?"
-  }
+  },
+  "Admin": {
+  "title": "Panel",
+  "login": {
+    "title": "Acceso al panel",
+    "intro": "Solo para el equipo del salón.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "invalid": "Correo o contraseña incorrectos, o cuenta desactivada."
+  },
+  "panel": {
+    "label": "Panel de gestión",
+    "signOut": "Salir",
+    "welcome": "Hola, {name}",
+    "role": "Tu rol: {role}",
+    "soon": "Aquí aparecerán las citas y los depósitos pendientes."
+  },
+  "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" }
+}
 }

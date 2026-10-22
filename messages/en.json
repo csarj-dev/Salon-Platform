@@ -134,5 +134,25 @@
     "payLinkInfo": "To confirm your appointment, ask us for the payment link on WhatsApp. Once we receive the payment, your appointment is confirmed.",
     "payLinkButton": "Ask for the payment link on WhatsApp",
     "payLinkMessage": "Hi, I've just booked appointment #{id} ({service}, {when}) with a {amount} deposit. Could you send me the payment link?"
-  }
+  },
+  "Admin": {
+  "title": "Dashboard",
+  "login": {
+    "title": "Staff sign-in",
+    "intro": "For the salon team only.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "invalid": "Wrong email or password, or the account is disabled."
+  },
+  "panel": {
+    "label": "Management panel",
+    "signOut": "Sign out",
+    "welcome": "Hello, {name}",
+    "role": "Your role: {role}",
+    "soon": "Appointments and pending deposits will appear here."
+  },
+  "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" }
+}
 }
