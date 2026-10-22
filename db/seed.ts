@@ -93,7 +93,7 @@ async function main() {
     .values([
             { name: "Laminado de cejas", slug: slugify("Laminado de cejas"), durationMin: 60, priceCents: 4500, categoryId: cejas.id, sortOrder: 1, featured: true },
       { name: "Diseño de cejas", slug: slugify("Diseño de cejas"), durationMin: 30, priceCents: 1800, categoryId: cejas.id, sortOrder: 2 },
-      { name: "Lifting de pestañas", slug: slugify("Lifting de pestañas"), durationMin: 75, priceCents: 5500, categoryId: pestanas.id, sortOrder: 1, featured: true },
+      { name: "Lifting de pestañas", slug: slugify("Lifting de pestañas"), durationMin: 75, priceCents: 5500, categoryId: pestanas.id, sortOrder: 1, featured: true, depositCents: 1500 },
       // Se reserva hablando antes: no tiene profesionales asignadas a propósito
       { name: "Microblading", slug: slugify("Microblading"), durationMin: 150, priceCents: 25000, categoryId: micro.id, sortOrder: 1, requiresConsultation: true, featured: true },
     ])

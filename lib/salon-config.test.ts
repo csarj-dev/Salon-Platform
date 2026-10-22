@@ -270,3 +270,38 @@ describe("imagen de portada para móvil", () => {
     ).toThrow();
   });
 });
+
+describe("depósitos en la configuración", () => {
+  it("el depósito guarda el hueco 24 horas por defecto y sin textos", () => {
+    const c = salonConfigSchema.parse(valid);
+    expect(c.booking.deposit.holdHours).toBe(24);
+    expect(c.booking.deposit.instructions).toBeUndefined();
+  });
+
+  it("acepta un plazo de depósito propio", () => {
+    const c = salonConfigSchema.parse({ ...valid, booking: { deposit: { holdHours: 12 } } });
+    expect(c.booking.deposit.holdHours).toBe(12);
+  });
+
+  it("rechaza un plazo de depósito de cero horas", () => {
+    expect(() =>
+      salonConfigSchema.parse({ ...valid, booking: { deposit: { holdHours: 0 } } }),
+    ).toThrow();
+  });
+
+  it("las instrucciones de pago tienen que estar en todos los idiomas", () => {
+    const two = { ...valid, locales: ["es", "en"] };
+    expect(() =>
+      salonConfigSchema.parse({
+        ...two,
+        booking: { deposit: { instructions: { es: "Haz un Bizum" } } },
+      }),
+    ).toThrow(/Falta el texto en/);
+    expect(() =>
+      salonConfigSchema.parse({
+        ...two,
+        booking: { deposit: { instructions: { es: "Haz un Bizum", en: "Send a Bizum" } } },
+      }),
+    ).not.toThrow();
+  });
+});
