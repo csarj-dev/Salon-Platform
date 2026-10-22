@@ -288,3 +288,5 @@ export const appointment = pgTable(
     ),
   ],
 );
+
+export * from "./auth-schema";

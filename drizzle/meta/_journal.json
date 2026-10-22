@@ -92,6 +92,13 @@
       "when": 1792666506211,
       "tag": "0012_booking_deposits",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792690203820,
+      "tag": "0013_handy_stryfe",
+      "breakpoints": true
     }
   ]
 }
