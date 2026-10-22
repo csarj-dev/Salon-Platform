@@ -38,7 +38,7 @@ export function WhatsAppFloating({ href, label }: { href: string; label: string 
       rel="noopener noreferrer"
       className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <MessageCircle className="size-5" aria-hidden="true" />
+      <FaWhatsapp className={iconClass} aria-hidden="true" />
       {label}
     </a>
   );
