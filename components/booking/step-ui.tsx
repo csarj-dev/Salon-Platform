@@ -3,7 +3,13 @@ import { Link } from "@/i18n/navigation";
 import { flowQuery, type Flow } from "@/lib/booking-flow";
 
 // Enlace a /booking con la selección indicada
-export const bookingHref = (flow: Flow) => ({ pathname: "/booking", query: flowQuery(flow) });
+// Enlace a /booking con la selección indicada. Con `hash`, la página baja a ese elemento
+// (p. ej. "times": las horas del día elegido).
+export const bookingHref = (flow: Flow, hash?: string) => ({
+  pathname: "/booking",
+  query: flowQuery(flow),
+  ...(hash ? { hash } : {}),
+});
 
 export type BookingHref = ComponentProps<typeof Link>["href"];
 

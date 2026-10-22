@@ -1,9 +1,10 @@
+import { isMonthKey } from "./calendar";
 
 export type Flow = {
   location?: number;
   service?: number;
   staff?: number | "any";
-  from?: string; // primer día de la semana que se muestra, "2026-11-02"
+  month?: string; // mes del calendario, "2026-11"
   date?: string; // día elegido, "2026-11-02" (fecha local del salón)
   at?: string;   // hora elegida, instante en UTC: "2026-11-02T10:30:00.000Z"
 };
@@ -38,6 +39,12 @@ function toDay(v?: string | string[]): string | undefined {
   return same ? s : undefined;
 }
 
+// "2026-11" (mes del 01 al 12)
+function toMonth(v?: string | string[]): string | undefined {
+  const s = first(v);
+  return isMonthKey(s) ? s : undefined;
+}
+
 // Instante en UTC con el formato exacto que genera toISOString()
 function toInstant(v?: string | string[]): string | undefined {
   const s = first(v);
@@ -53,7 +60,7 @@ export function parseFlowParams(raw: RawParams): Flow {
     location: toId(raw.location),
     service: toId(raw.service),
     staff: staffRaw === "any" ? "any" : toId(raw.staff),
-    from: toDay(raw.from),
+    month: toMonth(raw.month),
     date: toDay(raw.date),
     at: toInstant(raw.at),
   };
@@ -65,7 +72,7 @@ export function flowQuery(flow: Flow): Record<string, string> {
   if (flow.location !== undefined) q.location = String(flow.location);
   if (flow.service !== undefined) q.service = String(flow.service);
   if (flow.staff !== undefined) q.staff = String(flow.staff);
-  if (flow.from !== undefined) q.from = flow.from;
+  if (flow.month !== undefined) q.month = flow.month;
   if (flow.date !== undefined) q.date = flow.date;
   if (flow.at !== undefined) q.at = flow.at;
   return q;
