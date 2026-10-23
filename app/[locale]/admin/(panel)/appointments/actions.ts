@@ -1,12 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { appointment } from "@/db/schema";
+import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
+import { sendAppointmentEmail } from "@/lib/email/appointment-email";
 
 export type StaffActionResult =
   | { ok: true }
@@ -41,6 +47,8 @@ export async function validateDepositAction(appointmentId: number): Promise<Staf
     console.error("[appointments] validate", error);
     return { ok: false, error: "server" };
   }
+  // La cita queda confirmada: se avisa a la clienta por correo después de responder
+  after(() => sendAppointmentEmail(appointmentId, "confirmation"));
   refresh(locale);
   return { ok: true };
 }
@@ -73,6 +81,35 @@ export async function cancelAppointmentAction(
     console.error("[appointments] cancel", error);
     return { ok: false, error: "server" };
   }
+  after(() => sendAppointmentEmail(appointmentId, "cancellation"));
   refresh(locale);
   return { ok: true };
+}
+
+export type ResendResult =
+  | { ok: true }
+  | { ok: false; error: "invalid" | "notFound" | "notResendable" | "noEmail" | "sendFailed" };
+
+// Reenvía el correo que corresponde al estado de la cita (confirmación o cancelación).
+// Se espera a que termine para decirle a quien lo pulsa si salió bien.
+export async function resendEmailAction(appointmentId: number): Promise<ResendResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (!idSchema.safeParse(appointmentId).success) return { ok: false, error: "invalid" };
+
+  const [row] = await db
+    .select({ status: appointment.status })
+    .from(appointment)
+    .where(eq(appointment.id, appointmentId));
+  if (!row) return { ok: false, error: "notFound" };
+
+  const kind = resendKind(row.status);
+  if (!kind) return { ok: false, error: "notResendable" };
+
+  const outcome = await sendAppointmentEmail(appointmentId, kind);
+  refresh(locale);
+  if (outcome.ok) return { ok: true };
+  if (outcome.reason === "not_found") return { ok: false, error: "notFound" };
+  if (outcome.reason === "no_email") return { ok: false, error: "noEmail" };
+  return { ok: false, error: "sendFailed" };
 }

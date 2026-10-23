@@ -114,6 +114,7 @@ export function BookingForm({ locale, locationId, serviceId, staff, at, backHref
           name="email"
           type="email"
           autoComplete="email"
+          required
           defaultValue={state.values?.email}
           aria-invalid={state.fields?.email ? true : undefined}
           aria-describedby={state.fields?.email ? "email-error" : undefined}

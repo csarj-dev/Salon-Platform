@@ -1,6 +1,7 @@
 "use server";
 
 import { DateTime } from "luxon";
+import { after } from "next/server";
 import { redirect as redirectExternal } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -15,6 +16,7 @@ import { paysThroughWhatsApp } from "@/lib/deposit";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig, toAvailabilityOptions } from "@/lib/salon-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
+import { sendAppointmentEmail } from "@/lib/email/appointment-email";
 
 export type BookingFormState = {
   error?: "invalid" | "slot_taken" | "slot_unavailable" | "server";
@@ -106,6 +108,7 @@ export async function submitBooking(
         startsAt,
         source: "web",
         client: client.data,
+        locale,
         consent,
       },
       bookingOptions,
@@ -118,6 +121,12 @@ export async function submitBooking(
       return { error: "slot_unavailable", values };
     }
     publicToken = result.publicToken;
+    // Sin depósito, la cita ya está confirmada: se avisa por correo después de responder.
+    // Con depósito, el correo sale cuando recepción valida el pago.
+    if (result.status === "booked") {
+      const appointmentId = result.appointmentId;
+      after(() => sendAppointmentEmail(appointmentId, "confirmation"));
+    }
     // La cita ya existe. Preparar el WhatsApp no puede hacer que la clienta vea un error:
     // si algo falla aquí, simplemente va a la página de confirmación, que tiene el mismo botón.
     try {

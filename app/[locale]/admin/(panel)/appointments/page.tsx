@@ -10,6 +10,7 @@ import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { latestEmailByAppointment } from "@/lib/email/email-status";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -62,7 +63,11 @@ export default async function AppointmentsPage({ params, searchParams }: Props) 
   };
 
   const rows = await listAppointments(query[tab]);
-  const groups = groupByDay(rows, config.timezone);
+  const emails = await latestEmailByAppointment(rows.map((r) => r.id));
+  const groups = groupByDay(
+    rows.map((r) => ({ ...r, email: emails.get(r.id) ?? null })),
+    config.timezone,
+  );
 
   return (
     <section className="space-y-6">
@@ -107,6 +112,7 @@ export default async function AppointmentsPage({ params, searchParams }: Props) 
                   actionable={tab === "upcoming"}
                   canValidate={can(role, "deposits.manage")}
                   canCancel={can(role, "appointments.manage")}
+                  canResend={can(role, "appointments.manage")}
                 />
               ))}
             </ul>

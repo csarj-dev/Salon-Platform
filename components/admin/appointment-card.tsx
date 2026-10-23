@@ -2,6 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { buttonVariants } from "@/components/ui/button";
 import { CancelButton } from "@/components/admin/cancel-button";
 import { ValidateButton } from "@/components/admin/validate-button";
+import { ResendEmailButton } from "@/components/admin/resend-email-button";
+import type { EmailStatusInfo } from "@/lib/email/email-status";
 import { formatDateTime, formatPrice, formatTime } from "@/lib/format";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,9 @@ export type AppointmentCardData = {
   cancelReason?: string | null;
   cancelledByName?: string | null;
   validatedByName?: string | null;
+  // Solo en la lista de citas: la clienta tiene email y cómo fue el último correo
+  hasEmail?: boolean;
+  email?: EmailStatusInfo | null;
 };
 
 type Props = {
@@ -39,6 +44,8 @@ type Props = {
   actionable: boolean;
   canValidate: boolean;
   canCancel: boolean;
+  /** Mostrar "Reenviar correo" */
+  canResend?: boolean;
 };
 
 const URGENT_MS = 3 * 3_600_000;
@@ -64,6 +71,7 @@ export async function AppointmentCard({
   actionable,
   canValidate,
   canCancel,
+  canResend = false,
 }: Props) {
   const [t, tStatus, tWa] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.card" }),
@@ -100,9 +108,34 @@ export async function AppointmentCard({
     actionable &&
     canCancel &&
     (data.status === "pending_deposit" || (data.status === "booked" && data.startsAt.getTime() > now));
+  const showResend =
+    canResend &&
+    data.hasEmail === true &&
+    (data.status === "cancelled" || (data.status === "booked" && data.startsAt.getTime() > now));
+  const showNoEmail =
+    data.hasEmail === false && (data.status === "booked" || data.status === "cancelled");
 
   return (
     <li className="space-y-2 rounded-lg border p-4">
+      {data.email && (
+        <p
+          className={cn(
+            "text-sm",
+            data.email.status === "failed" ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {data.email.status === "sent" &&
+            t("email.sent", { kind: t(`email.kinds.${data.email.kind}`), date: fmt(data.email.at) })}
+          {data.email.status === "pending" &&
+            t("email.pending", { kind: t(`email.kinds.${data.email.kind}`) })}
+          {data.email.status === "failed" &&
+            t("email.failed", {
+              kind: t(`email.kinds.${data.email.kind}`),
+              error: data.email.error ?? "—",
+            })}
+        </p>
+      )}
+      {showNoEmail && <p className="text-sm text-muted-foreground">{t("email.none")}</p>}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium">
@@ -164,6 +197,7 @@ export async function AppointmentCard({
           {t("whatsapp")}
         </a>
         {showValidate && <ValidateButton appointmentId={data.id} />}
+        {showResend && <ResendEmailButton appointmentId={data.id} />}
         {showCancel && <CancelButton appointmentId={data.id} />}
       </div>
     </li>

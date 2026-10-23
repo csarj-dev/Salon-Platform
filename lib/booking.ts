@@ -139,6 +139,10 @@ export async function createAppointment(
         if (input.consent && !existing.consentAt) {
           await tx.update(client).set({ consentAt: now }).where(eq(client.id, existing.id));
         }
+        // Si vuelve a reservar con otro email, se queda con el último (es donde quiere el aviso)
+        if (input.client.email && input.client.email !== existing.email) {
+          await tx.update(client).set({ email: input.client.email }).where(eq(client.id, existing.id));
+        }
       } else {
         const [created] = await tx
           .insert(client)
@@ -184,6 +188,7 @@ export async function createAppointment(
           endsAt,
           priceAppliedCents,
           source: input.source,
+          locale: input.locale ?? null,
           status: deposit ? "pending_deposit" : "booked",
           depositCents: deposit?.cents ?? null,
           depositDueAt: deposit?.dueAt ?? null,

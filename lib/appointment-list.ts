@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../db";
 import { appointment, client, location, service, staff, user } from "../db/schema";
@@ -13,6 +13,8 @@ export type AppointmentListRow = {
   source: "web" | "phone" | "whatsapp";
   clientName: string;
   clientPhone: string;
+  // La clienta tiene email (si no, no se le pueden mandar correos)
+  hasEmail: boolean;
   serviceName: string;
   locationName: string;
   staffName: string;
@@ -54,6 +56,7 @@ export async function listAppointments(
       source: appointment.source,
       clientName: client.name,
       clientPhone: client.phone,
+      hasEmail: sql<boolean>`${client.email} is not null`,
       serviceName: service.name,
       locationName: location.name,
       staffName: staff.name,

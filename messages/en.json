@@ -53,7 +53,7 @@
     "stepDetails": "Your details",
     "name": "Name",
     "phone": "Phone",
-    "email": "Email (optional)",
+    "email": "Email (we'll send your confirmation)",
     "consent": "I agree to my details being stored to manage my appointment.",
     "submit": "Book appointment",
     "submitting": "Booking…",
@@ -136,135 +136,184 @@
     "payLinkMessage": "Hi, I've just booked appointment #{id} ({service}, {when}) with a {amount} deposit. Could you send me the payment link?"
   },
   "Admin": {
-  "title": "Dashboard",
-  "login": {
-    "title": "Staff sign-in",
-    "intro": "For the salon team only.",
-    "email": "Email",
-    "password": "Password",
-    "submit": "Sign in",
-    "submitting": "Signing in…",
-    "invalid": "Wrong email or password, or the account is disabled."
-  },
-  "panel": {
-    "label": "Management panel",
-    "signOut": "Sign out",
-    "welcome": "Hello, {name}",
-    "role": "Your role: {role}",
-    "soon": "Use the menu to see appointments and validate deposits."
-  },
-  "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
-  "nav": {
-    "home": "Home",
-    "appointments": "Appointments",
-    "deposits": "Deposits",
-    "users": "Users",
-    "pendingCount": "{count} pending deposits"
-  },
-  "status": {
-    "booked": "Confirmed",
-    "pending_deposit": "Deposit due",
-    "completed": "Completed",
-    "cancelled": "Cancelled",
-    "no_show": "No-show",
-    "expired": "Expired"
-  },
-  "actions": {
-    "validate": "Validate deposit",
-    "validating": "Validating…",
-    "confirmValidate": "Confirm that you have received the deposit for this appointment?",
-    "cancel": "Cancel appointment",
-    "reasonLabel": "Reason (optional)",
-    "reasonPlaceholder": "E.g. the client cannot make it",
-    "confirmCancel": "Confirm cancellation",
-    "cancelling": "Cancelling…",
-    "back": "Back",
-    "errors": {
-      "invalid": "Invalid data.",
-      "notFound": "Appointment not found.",
-      "notPending": "This appointment no longer awaits a deposit. Reload the page: someone else may have handled it.",
-      "notChangeable": "This appointment can no longer be cancelled. Reload the page.",
-      "expired": "The booking expired and its slot may have been taken. Talk to the client and find another time.",
-      "server": "The action could not be completed. Try again."
-    }
-  },
-  "card": {
-    "with": "with {staff}",
-    "reference": "appointment #{id}",
-    "deposit": "Deposit: {amount}",
-    "dueUntil": "due by {date}",
-    "urgent": "expires soon",
-    "expiredOn": "expired on {date}",
-    "validatedBy": "Deposit validated by {name}",
-    "cancelledBy": "Cancelled by {name} on {date}",
-    "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
-    "reason": "Reason: {reason}",
-    "whatsapp": "Message on WhatsApp"
-  },
-  "deposits": {
-    "title": "Deposits",
-    "intro": "Appointments waiting for the deposit payment. Once you receive the payment, validate it to confirm the appointment.",
-    "pendingTitle": "Waiting for deposit",
-    "pendingEmpty": "No pending deposits.",
-    "expiredTitle": "Expired (last 14 days)",
-    "expiredIntro": "The slot has already been released. Message the client in case she wants another time; if she had already paid, talk to her before booking again.",
-    "expiredEmpty": "No recently expired bookings."
-  },
-  "appointments": {
-    "title": "Appointments",
-    "tabsLabel": "Appointment filter",
-    "tabs": {
-      "upcoming": "Upcoming",
-      "past": "Past (30 days)",
-      "cancelled": "Cancelled and expired (30 days)"
+    "title": "Dashboard",
+    "login": {
+      "title": "Staff sign-in",
+      "intro": "For the salon team only.",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "invalid": "Wrong email or password, or the account is disabled."
     },
-    "empty": {
-      "upcoming": "No upcoming appointments.",
-      "past": "No appointments in the last 30 days.",
-      "cancelled": "No cancelled or expired appointments."
+    "panel": {
+      "label": "Management panel",
+      "signOut": "Sign out",
+      "welcome": "Hello, {name}",
+      "role": "Your role: {role}",
+      "soon": "Use the menu to see appointments and validate deposits."
+    },
+    "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
+    "nav": {
+      "home": "Home",
+      "appointments": "Appointments",
+      "deposits": "Deposits",
+      "users": "Users",
+      "pendingCount": "{count} pending deposits"
+    },
+    "status": {
+      "booked": "Confirmed",
+      "pending_deposit": "Deposit due",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No-show",
+      "expired": "Expired"
+    },
+    "actions": {
+      "validate": "Validate deposit",
+      "validating": "Validating…",
+      "confirmValidate": "Confirm that you have received the deposit for this appointment?",
+      "cancel": "Cancel appointment",
+      "reasonLabel": "Reason (optional)",
+      "reasonPlaceholder": "E.g. the client cannot make it",
+      "confirmCancel": "Confirm cancellation",
+      "cancelling": "Cancelling…",
+      "back": "Back",
+      "errors": {
+        "invalid": "Invalid data.",
+        "notFound": "Appointment not found.",
+        "notPending": "This appointment no longer awaits a deposit. Reload the page: someone else may have handled it.",
+        "notChangeable": "This appointment can no longer be cancelled. Reload the page.",
+        "expired": "The booking expired and its slot may have been taken. Talk to the client and find another time.",
+        "server": "The action could not be completed. Try again.",
+        "notResendable": "No email can be resent for this appointment.",
+        "noEmail": "The client has no email.",
+        "sendFailed": "The email could not be sent. Check the reason on the appointment or try again later."
+      }
+    },
+    "card": {
+      "with": "with {staff}",
+      "reference": "appointment #{id}",
+      "deposit": "Deposit: {amount}",
+      "dueUntil": "due by {date}",
+      "urgent": "expires soon",
+      "expiredOn": "expired on {date}",
+      "validatedBy": "Deposit validated by {name}",
+      "cancelledBy": "Cancelled by {name} on {date}",
+      "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
+      "reason": "Reason: {reason}",
+      "whatsapp": "Message on WhatsApp",
+      "email": {
+        "sent": "{kind} sent on {date}",
+        "pending": "{kind}: sending…",
+        "failed": "{kind}: could not be sent ({error})",
+        "none": "No email: no emails are sent to this client.",
+        "resend": "Resend email",
+        "resending": "Sending…",
+        "resent": "Email sent.",
+        "kinds": {
+          "confirmation": "Confirmation",
+          "cancellation": "Cancellation",
+          "reminder": "Reminder"
+        }
+      }
+    },
+    "deposits": {
+      "title": "Deposits",
+      "intro": "Appointments waiting for the deposit payment. Once you receive the payment, validate it to confirm the appointment.",
+      "pendingTitle": "Waiting for deposit",
+      "pendingEmpty": "No pending deposits.",
+      "expiredTitle": "Expired (last 14 days)",
+      "expiredIntro": "The slot has already been released. Message the client in case she wants another time; if she had already paid, talk to her before booking again.",
+      "expiredEmpty": "No recently expired bookings."
+    },
+    "appointments": {
+      "title": "Appointments",
+      "tabsLabel": "Appointment filter",
+      "tabs": {
+        "upcoming": "Upcoming",
+        "past": "Past (30 days)",
+        "cancelled": "Cancelled and expired (30 days)"
+      },
+      "empty": {
+        "upcoming": "No upcoming appointments.",
+        "past": "No appointments in the last 30 days.",
+        "cancelled": "No cancelled or expired appointments."
+      }
+    },
+    "whatsapp": {
+      "contactPending": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
+      "contactExpired": "Hello {name}, this is {salon}. Your booking #{id} ({service}, {when}) has expired because we did not receive the deposit in time. Would you like us to find another time?",
+      "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when})."
+    },
+    "users": {
+      "title": "Users",
+      "intro": "Who can sign in to the panel and with which role. Only the administrator sees this page.",
+      "createTitle": "New user",
+      "name": "Name",
+      "email": "Email",
+      "password": "Initial password",
+      "passwordHint": "At least 10 characters. Hand it over in person; it can be changed here later.",
+      "role": "Role",
+      "create": "Create user",
+      "creating": "Creating…",
+      "created": "User created.",
+      "you": "(you)",
+      "active": "Active",
+      "inactive": "Disabled",
+      "saveRole": "Save role",
+      "roleChanged": "Role updated.",
+      "deactivate": "Disable",
+      "reactivate": "Re-enable",
+      "confirmDeactivate": "Disable {name}? They will not be able to sign in and their sessions will end.",
+      "deactivated": "User disabled.",
+      "reactivated": "User re-enabled.",
+      "resetPassword": "Change password",
+      "newPassword": "New password (min. 10)",
+      "setPassword": "Save password",
+      "passwordChanged": "Password changed.",
+      "errors": {
+        "invalid": "Check the data: the password needs at least 10 characters.",
+        "emailTaken": "A user with that email already exists.",
+        "invalidRole": "Invalid role.",
+        "selfRole": "You cannot change your own role.",
+        "selfDeactivate": "You cannot disable yourself.",
+        "lastAdmin": "At least one active administrator must remain.",
+        "notFound": "User not found.",
+        "server": "The action could not be completed. Try again."
+      }
     }
   },
-  "whatsapp": {
-    "contactPending": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
-    "contactExpired": "Hello {name}, this is {salon}. Your booking #{id} ({service}, {when}) has expired because we did not receive the deposit in time. Would you like us to find another time?",
-    "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when})."
-  },
-  "users": {
-    "title": "Users",
-    "intro": "Who can sign in to the panel and with which role. Only the administrator sees this page.",
-    "createTitle": "New user",
-    "name": "Name",
-    "email": "Email",
-    "password": "Initial password",
-    "passwordHint": "At least 10 characters. Hand it over in person; it can be changed here later.",
-    "role": "Role",
-    "create": "Create user",
-    "creating": "Creating…",
-    "created": "User created.",
-    "you": "(you)",
-    "active": "Active",
-    "inactive": "Disabled",
-    "saveRole": "Save role",
-    "roleChanged": "Role updated.",
-    "deactivate": "Disable",
-    "reactivate": "Re-enable",
-    "confirmDeactivate": "Disable {name}? They will not be able to sign in and their sessions will end.",
-    "deactivated": "User disabled.",
-    "reactivated": "User re-enabled.",
-    "resetPassword": "Change password",
-    "newPassword": "New password (min. 10)",
-    "setPassword": "Save password",
-    "passwordChanged": "Password changed.",
-    "errors": {
-      "invalid": "Check the data: the password needs at least 10 characters.",
-      "emailTaken": "A user with that email already exists.",
-      "invalidRole": "Invalid role.",
-      "selfRole": "You cannot change your own role.",
-      "selfDeactivate": "You cannot disable yourself.",
-      "lastAdmin": "At least one active administrator must remain.",
-      "notFound": "User not found.",
-      "server": "The action could not be completed. Try again."
+  "Email": {
+    "common": {
+      "greeting": "Hello {name},",
+      "service": "Service",
+      "when": "When",
+      "where": "Where",
+      "with": "With",
+      "price": "Price",
+      "deposit": "Deposit",
+      "viewAppointment": "View my appointment",
+      "cancelNotice": "If you need to change or cancel your appointment, please let us know at least {hours, plural, one {# hour} other {# hours}} in advance. You can reply to this email."
+    },
+    "confirmation": {
+      "subject": "Appointment confirmed at {salon}",
+      "preheader": "We look forward to seeing you on {when}.",
+      "intro": "Your appointment is confirmed. Here are the details:",
+      "calendar": "We have attached a file so you can add the appointment to your calendar."
+    },
+    "cancellation": {
+      "subject": "Your appointment at {salon} has been cancelled",
+      "preheader": "Appointment cancelled: {service}, {when}.",
+      "intro": "We have cancelled your appointment on {when} ({service}).",
+      "deposit": "If you had already paid a deposit, please get in touch and we will sort it out with you.",
+      "rebook": "If you like, you can book another time whenever suits you.",
+      "rebookButton": "Book again"
+    },
+    "reminder": {
+      "subject": "Reminder of your appointment at {salon}",
+      "preheader": "Your next appointment is on {when}.",
+      "intro": "This is a reminder of your upcoming appointment. Here are the details:"
     }
   }
-}
 }
