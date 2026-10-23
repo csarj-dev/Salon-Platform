@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, integer, smallint, text, boolean, timestamp, time,
-  primaryKey, check, uuid,
+  primaryKey, check, uuid, index, uniqueIndex
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
@@ -266,6 +266,8 @@ export const appointment = pgTable(
     status: appointmentStatus("status").notNull().default("booked"),
     priceAppliedCents: integer("price_applied_cents").notNull(),
     source: appointmentSource("source").notNull(),
+    // Idioma en que reservó la clienta (para sus correos). null = sin dato: se usa el del salón.
+    locale: text("locale"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     // Depósito pedido al reservar: copia del importe del servicio en ese momento
@@ -299,6 +301,36 @@ export const appointment = pgTable(
       "appointment_pending_has_deposit",
       sql`${t.status} <> 'pending_deposit' OR (${t.depositCents} IS NOT NULL AND ${t.depositDueAt} IS NOT NULL)`,
     ),
+  ],
+);
+
+// Correos enviados a las clientas: qué se mandó, a quién y cómo fue
+export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder"]);
+export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);
+
+export const emailLog = pgTable(
+  "email_log",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    appointmentId: integer("appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    kind: emailKind("kind").notNull(),
+    toEmail: text("to_email").notNull(),
+    status: emailStatus("status").notNull().default("pending"),
+    // Identificador que devuelve el proveedor (Resend) cuando se envió
+    providerId: text("provider_id"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("email_log_appointment_idx").on(t.appointmentId),
+    // Un recordatorio por cita: la fila "pending" o "sent" actúa como reserva y evita
+    // duplicados si dos ejecuciones coinciden. Una fila "failed" no bloquea el reintento.
+    uniqueIndex("email_log_reminder_once")
+      .on(t.appointmentId)
+      .where(sql`${t.kind} = 'reminder' AND ${t.status} <> 'failed'`),
   ],
 );
 

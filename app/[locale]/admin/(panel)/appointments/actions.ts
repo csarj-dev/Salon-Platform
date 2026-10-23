@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
+import { sendAppointmentEmail } from "@/lib/email/appointment-email";
 
 export type StaffActionResult =
   | { ok: true }
@@ -41,6 +43,8 @@ export async function validateDepositAction(appointmentId: number): Promise<Staf
     console.error("[appointments] validate", error);
     return { ok: false, error: "server" };
   }
+  // La cita queda confirmada: se avisa a la clienta por correo después de responder
+  after(() => sendAppointmentEmail(appointmentId, "confirmation"));
   refresh(locale);
   return { ok: true };
 }
@@ -73,6 +77,7 @@ export async function cancelAppointmentAction(
     console.error("[appointments] cancel", error);
     return { ok: false, error: "server" };
   }
+  after(() => sendAppointmentEmail(appointmentId, "cancellation"));
   refresh(locale);
   return { ok: true };
 }

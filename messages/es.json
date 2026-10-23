@@ -53,7 +53,7 @@
     "stepDetails": "Tus datos",
     "name": "Nombre",
     "phone": "Teléfono",
-    "email": "Email (opcional)",
+    "email": "Email (te enviaremos la confirmación)",
     "consent": "Acepto que guarden mis datos para gestionar mi cita.",
     "submit": "Reservar cita",
     "submitting": "Reservando…",
@@ -136,135 +136,167 @@
     "payLinkMessage": "Hola, acabo de reservar la cita #{id} ({service}, {when}) y tiene un depósito de {amount}. ¿Me enviáis el enlace de pago?"
   },
   "Admin": {
-  "title": "Panel",
-  "login": {
-    "title": "Acceso al panel",
-    "intro": "Solo para el equipo del salón.",
-    "email": "Correo electrónico",
-    "password": "Contraseña",
-    "submit": "Entrar",
-    "submitting": "Entrando…",
-    "invalid": "Correo o contraseña incorrectos, o cuenta desactivada."
-  },
-  "panel": {
-    "label": "Panel de gestión",
-    "signOut": "Salir",
-    "welcome": "Hola, {name}",
-    "role": "Tu rol: {role}",
-    "soon": "Usa el menú para ver las citas y validar depósitos."
-  },
-  "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
-  "nav": {
-  "home": "Inicio",
-  "appointments": "Citas",
-  "deposits": "Depósitos",
-  "users": "Usuarios",
-  "pendingCount": "{count} depósitos pendientes"
-  },
-  "status": {
-    "booked": "Confirmada",
-    "pending_deposit": "Falta el depósito",
-    "completed": "Realizada",
-    "cancelled": "Cancelada",
-    "no_show": "No vino",
-    "expired": "Caducada"
-  },
-  "actions": {
-    "validate": "Validar depósito",
-    "validating": "Validando…",
-    "confirmValidate": "¿Confirmas que has recibido el depósito de esta cita?",
-    "cancel": "Cancelar cita",
-    "reasonLabel": "Motivo (opcional)",
-    "reasonPlaceholder": "Ej.: la clienta no puede venir",
-    "confirmCancel": "Confirmar cancelación",
-    "cancelling": "Cancelando…",
-    "back": "Volver",
-    "errors": {
-      "invalid": "Datos no válidos.",
-      "notFound": "No se encontró la cita.",
-      "notPending": "Esta cita ya no espera depósito. Recarga la página: puede que otra persona la haya gestionado.",
-      "notChangeable": "Esta cita ya no se puede cancelar. Recarga la página.",
-      "expired": "La reserva ya caducó y su hueco pudo ocuparse. Habla con la clienta y busca otra hora.",
-      "server": "No se pudo completar la acción. Inténtalo de nuevo."
-    }
-  },
-  "card": {
-    "with": "con {staff}",
-    "reference": "cita #{id}",
-    "deposit": "Depósito: {amount}",
-    "dueUntil": "plazo hasta {date}",
-    "urgent": "vence pronto",
-    "expiredOn": "caducó el {date}",
-    "validatedBy": "Depósito validado por {name}",
-    "cancelledBy": "Cancelada por {name} el {date}",
-    "cancelledNoAuthor": "Cancelada el {date} (por la clienta o sin registro)",
-    "reason": "Motivo: {reason}",
-    "whatsapp": "Escribir por WhatsApp"
-  },
-  "deposits": {
-    "title": "Depósitos",
-    "intro": "Citas que esperan el pago del depósito. Cuando recibas el pago, valídalo para confirmar la cita.",
-    "pendingTitle": "Esperando depósito",
-    "pendingEmpty": "No hay depósitos pendientes.",
-    "expiredTitle": "Caducadas (últimos 14 días)",
-    "expiredIntro": "El hueco ya se liberó. Escribe a la clienta por si quiere otra hora; si ya había pagado, habla con ella antes de volver a reservar.",
-    "expiredEmpty": "No hay reservas caducadas recientes."
-  },
-  "appointments": {
-    "title": "Citas",
-    "tabsLabel": "Filtro de citas",
-    "tabs": {
-      "upcoming": "Próximas",
-      "past": "Pasadas (30 días)",
-      "cancelled": "Canceladas y caducadas (30 días)"
+    "title": "Panel",
+    "login": {
+      "title": "Acceso al panel",
+      "intro": "Solo para el equipo del salón.",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "submit": "Entrar",
+      "submitting": "Entrando…",
+      "invalid": "Correo o contraseña incorrectos, o cuenta desactivada."
     },
-    "empty": {
-      "upcoming": "No hay citas próximas.",
-      "past": "No hay citas en los últimos 30 días.",
-      "cancelled": "No hay citas canceladas ni caducadas."
+    "panel": {
+      "label": "Panel de gestión",
+      "signOut": "Salir",
+      "welcome": "Hola, {name}",
+      "role": "Tu rol: {role}",
+      "soon": "Usa el menú para ver las citas y validar depósitos."
+    },
+    "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
+    "nav": {
+    "home": "Inicio",
+    "appointments": "Citas",
+    "deposits": "Depósitos",
+    "users": "Usuarios",
+    "pendingCount": "{count} depósitos pendientes"
+    },
+    "status": {
+      "booked": "Confirmada",
+      "pending_deposit": "Falta el depósito",
+      "completed": "Realizada",
+      "cancelled": "Cancelada",
+      "no_show": "No vino",
+      "expired": "Caducada"
+    },
+    "actions": {
+      "validate": "Validar depósito",
+      "validating": "Validando…",
+      "confirmValidate": "¿Confirmas que has recibido el depósito de esta cita?",
+      "cancel": "Cancelar cita",
+      "reasonLabel": "Motivo (opcional)",
+      "reasonPlaceholder": "Ej.: la clienta no puede venir",
+      "confirmCancel": "Confirmar cancelación",
+      "cancelling": "Cancelando…",
+      "back": "Volver",
+      "errors": {
+        "invalid": "Datos no válidos.",
+        "notFound": "No se encontró la cita.",
+        "notPending": "Esta cita ya no espera depósito. Recarga la página: puede que otra persona la haya gestionado.",
+        "notChangeable": "Esta cita ya no se puede cancelar. Recarga la página.",
+        "expired": "La reserva ya caducó y su hueco pudo ocuparse. Habla con la clienta y busca otra hora.",
+        "server": "No se pudo completar la acción. Inténtalo de nuevo."
+      }
+    },
+    "card": {
+      "with": "con {staff}",
+      "reference": "cita #{id}",
+      "deposit": "Depósito: {amount}",
+      "dueUntil": "plazo hasta {date}",
+      "urgent": "vence pronto",
+      "expiredOn": "caducó el {date}",
+      "validatedBy": "Depósito validado por {name}",
+      "cancelledBy": "Cancelada por {name} el {date}",
+      "cancelledNoAuthor": "Cancelada el {date} (por la clienta o sin registro)",
+      "reason": "Motivo: {reason}",
+      "whatsapp": "Escribir por WhatsApp"
+    },
+    "deposits": {
+      "title": "Depósitos",
+      "intro": "Citas que esperan el pago del depósito. Cuando recibas el pago, valídalo para confirmar la cita.",
+      "pendingTitle": "Esperando depósito",
+      "pendingEmpty": "No hay depósitos pendientes.",
+      "expiredTitle": "Caducadas (últimos 14 días)",
+      "expiredIntro": "El hueco ya se liberó. Escribe a la clienta por si quiere otra hora; si ya había pagado, habla con ella antes de volver a reservar.",
+      "expiredEmpty": "No hay reservas caducadas recientes."
+    },
+    "appointments": {
+      "title": "Citas",
+      "tabsLabel": "Filtro de citas",
+      "tabs": {
+        "upcoming": "Próximas",
+        "past": "Pasadas (30 días)",
+        "cancelled": "Canceladas y caducadas (30 días)"
+      },
+      "empty": {
+        "upcoming": "No hay citas próximas.",
+        "past": "No hay citas en los últimos 30 días.",
+        "cancelled": "No hay citas canceladas ni caducadas."
+      }
+    },
+    "whatsapp": {
+      "contactPending": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when}).",
+      "contactExpired": "Hola {name}, te escribimos de {salon}. Tu reserva #{id} ({service}, {when}) ha caducado porque no recibimos el depósito a tiempo. ¿Quieres que busquemos otra hora?",
+      "contactGeneric": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when})."
+    },
+    "users": {
+      "title": "Usuarios",
+      "intro": "Quién puede entrar al panel y con qué rol. Solo el administrador ve esta página.",
+      "createTitle": "Nuevo usuario",
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "password": "Contraseña inicial",
+      "passwordHint": "Mínimo 10 caracteres. Entrégasela en persona; luego puede cambiarse aquí.",
+      "role": "Rol",
+      "create": "Crear usuario",
+      "creating": "Creando…",
+      "created": "Usuario creado.",
+      "you": "(tú)",
+      "active": "Activo",
+      "inactive": "Desactivado",
+      "saveRole": "Guardar rol",
+      "roleChanged": "Rol actualizado.",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "confirmDeactivate": "¿Desactivar a {name}? No podrá entrar y se cerrarán sus sesiones.",
+      "deactivated": "Usuario desactivado.",
+      "reactivated": "Usuario reactivado.",
+      "resetPassword": "Cambiar contraseña",
+      "newPassword": "Nueva contraseña (mín. 10)",
+      "setPassword": "Guardar contraseña",
+      "passwordChanged": "Contraseña cambiada.",
+      "errors": {
+        "invalid": "Revisa los datos: la contraseña necesita al menos 10 caracteres.",
+        "emailTaken": "Ya existe un usuario con ese correo.",
+        "invalidRole": "Rol no válido.",
+        "selfRole": "No puedes cambiar tu propio rol.",
+        "selfDeactivate": "No puedes desactivarte a ti mismo.",
+        "lastAdmin": "Debe quedar al menos un administrador activo.",
+        "notFound": "No se encontró el usuario.",
+        "server": "No se pudo completar la acción. Inténtalo de nuevo."
+      }
     }
   },
-  "whatsapp": {
-    "contactPending": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when}).",
-    "contactExpired": "Hola {name}, te escribimos de {salon}. Tu reserva #{id} ({service}, {when}) ha caducado porque no recibimos el depósito a tiempo. ¿Quieres que busquemos otra hora?",
-    "contactGeneric": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when})."
-  },
-  "users": {
-    "title": "Usuarios",
-    "intro": "Quién puede entrar al panel y con qué rol. Solo el administrador ve esta página.",
-    "createTitle": "Nuevo usuario",
-    "name": "Nombre",
-    "email": "Correo electrónico",
-    "password": "Contraseña inicial",
-    "passwordHint": "Mínimo 10 caracteres. Entrégasela en persona; luego puede cambiarse aquí.",
-    "role": "Rol",
-    "create": "Crear usuario",
-    "creating": "Creando…",
-    "created": "Usuario creado.",
-    "you": "(tú)",
-    "active": "Activo",
-    "inactive": "Desactivado",
-    "saveRole": "Guardar rol",
-    "roleChanged": "Rol actualizado.",
-    "deactivate": "Desactivar",
-    "reactivate": "Reactivar",
-    "confirmDeactivate": "¿Desactivar a {name}? No podrá entrar y se cerrarán sus sesiones.",
-    "deactivated": "Usuario desactivado.",
-    "reactivated": "Usuario reactivado.",
-    "resetPassword": "Cambiar contraseña",
-    "newPassword": "Nueva contraseña (mín. 10)",
-    "setPassword": "Guardar contraseña",
-    "passwordChanged": "Contraseña cambiada.",
-    "errors": {
-      "invalid": "Revisa los datos: la contraseña necesita al menos 10 caracteres.",
-      "emailTaken": "Ya existe un usuario con ese correo.",
-      "invalidRole": "Rol no válido.",
-      "selfRole": "No puedes cambiar tu propio rol.",
-      "selfDeactivate": "No puedes desactivarte a ti mismo.",
-      "lastAdmin": "Debe quedar al menos un administrador activo.",
-      "notFound": "No se encontró el usuario.",
-      "server": "No se pudo completar la acción. Inténtalo de nuevo."
+  "Email": {
+    "common": {
+      "greeting": "Hola {name},",
+      "service": "Servicio",
+      "when": "Cuándo",
+      "where": "Dónde",
+      "with": "Con",
+      "price": "Precio",
+      "deposit": "Depósito",
+      "viewAppointment": "Ver mi cita",
+      "cancelNotice": "Si necesitas cambiar o cancelar la cita, avísanos con al menos {hours, plural, one {# hora} other {# horas}} de antelación. Puedes responder a este correo."
+    },
+    "confirmation": {
+      "subject": "Cita confirmada en {salon}",
+      "preheader": "Te esperamos el {when}.",
+      "intro": "Tu cita está confirmada. Estos son los detalles:",
+      "calendar": "Adjuntamos un archivo para añadir la cita a tu calendario."
+    },
+    "cancellation": {
+      "subject": "Tu cita en {salon} ha sido cancelada",
+      "preheader": "Cita cancelada: {service}, {when}.",
+      "intro": "Hemos cancelado tu cita del {when} ({service}).",
+      "deposit": "Si ya habías pagado un depósito, escríbenos y lo vemos contigo.",
+      "rebook": "Si quieres, puedes reservar otra hora cuando te venga bien.",
+      "rebookButton": "Reservar de nuevo"
+    },
+    "reminder": {
+      "subject": "Recordatorio de tu cita en {salon}",
+      "preheader": "Tu próxima cita es el {when}.",
+      "intro": "Te recordamos tu próxima cita. Estos son los detalles:"
     }
   }
-}
 }

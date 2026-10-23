@@ -7,17 +7,24 @@ const phone = z
   .transform((v) => v.replace(/[\s-]/g, ""))
   .pipe(z.string().regex(/^\+?\d{9,15}$/, "Teléfono no válido"));
 
-const email = z
+const optionalEmail = z
   .union([z.literal(""), z.string().trim().email("Email no válido")])
   .optional()
   .transform((v) => (v ? v : undefined));
 
-// Datos de la clienta tal y como llegan del formulario
-export const clientFormSchema = z.object({
+const requiredEmail = z.string().trim().email("Email no válido");
+
+const clientBase = z.object({
   name: z.string().trim().min(2).max(100),
   phone,
-  email,
 });
+
+// Datos de la clienta tal y como llegan del formulario web: el email es obligatorio
+// porque es por donde se le manda la confirmación
+export const clientFormSchema = clientBase.extend({ email: requiredEmail });
+
+// Datos de la clienta al crear una cita: recepción o WhatsApp pueden no tener su email
+const clientDataSchema = clientBase.extend({ email: optionalEmail });
 
 export const bookingInputSchema = z
   .object({
@@ -26,7 +33,9 @@ export const bookingInputSchema = z
     staffId: z.number().int().positive(),
     startsAt: z.coerce.date(),
     source: z.enum(["web", "phone", "whatsapp"]).default("web"),
-    client: clientFormSchema,
+    client: clientDataSchema,
+    // Idioma de la clienta (para sus correos)
+    locale: z.string().min(2).max(10).optional(),
     consent: z.boolean().default(false),
   })
   .refine((d) => d.source !== "web" || d.consent, {
