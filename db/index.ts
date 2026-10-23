@@ -2,5 +2,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
-export const pgClient = postgres(process.env.DATABASE_URL!);
+const url = process.env.DATABASE_URL!;
+
+// Las conexiones con pooler (Neon, Supabase…) no admiten sentencias preparadas
+export const pgClient = postgres(url, { prepare: !url.includes("-pooler") });
 export const db = drizzle(pgClient, { schema });
