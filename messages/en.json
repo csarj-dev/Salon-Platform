@@ -185,7 +185,10 @@
         "notPending": "This appointment no longer awaits a deposit. Reload the page: someone else may have handled it.",
         "notChangeable": "This appointment can no longer be cancelled. Reload the page.",
         "expired": "The booking expired and its slot may have been taken. Talk to the client and find another time.",
-        "server": "The action could not be completed. Try again."
+        "server": "The action could not be completed. Try again.",
+        "notResendable": "No email can be resent for this appointment.",
+        "noEmail": "The client has no email.",
+        "sendFailed": "The email could not be sent. Check the reason on the appointment or try again later."
       }
     },
     "card": {
@@ -199,7 +202,21 @@
       "cancelledBy": "Cancelled by {name} on {date}",
       "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
       "reason": "Reason: {reason}",
-      "whatsapp": "Message on WhatsApp"
+      "whatsapp": "Message on WhatsApp",
+      "email": {
+        "sent": "{kind} sent on {date}",
+        "pending": "{kind}: sending…",
+        "failed": "{kind}: could not be sent ({error})",
+        "none": "No email: no emails are sent to this client.",
+        "resend": "Resend email",
+        "resending": "Sending…",
+        "resent": "Email sent.",
+        "kinds": {
+          "confirmation": "Confirmation",
+          "cancellation": "Cancellation",
+          "reminder": "Reminder"
+        }
+      }
     },
     "deposits": {
       "title": "Deposits",
