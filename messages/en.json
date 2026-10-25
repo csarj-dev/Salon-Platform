@@ -133,7 +133,14 @@
     "home": "Back to home",
     "payLinkInfo": "To confirm your appointment, ask us for the payment link on WhatsApp. Once we receive the payment, your appointment is confirmed.",
     "payLinkButton": "Ask for the payment link on WhatsApp",
-    "payLinkMessage": "Hi, I've just booked appointment #{id} ({service}, {when}) with a {amount} deposit. Could you send me the payment link?"
+    "payLinkMessage": "Hi, I've just booked appointment #{id} ({service}, {when}) with a {amount} deposit. Could you send me the payment link?",
+    "stepsTitle": "What happens next",
+    "stepAskLink": "Ask us for the payment link on WhatsApp (button below).",
+    "stepPayInstructions": "Make the payment following the instructions above.",
+    "stepSendProof": "Send us the proof of payment on WhatsApp.",
+    "stepPay": "Pay the deposit before the deadline.",
+    "stepConfirmed": "Once we receive it, your appointment is confirmed and you get an email.",
+    "stepsKeepPage": "Keep this page: it updates by itself and will show when your appointment is confirmed."
   },
   "Admin": {
     "title": "Dashboard",
@@ -151,7 +158,10 @@
       "signOut": "Sign out",
       "welcome": "Hello, {name}",
       "role": "Your role: {role}",
-      "soon": "Use the menu to see appointments and validate deposits."
+      "soon": "Use the menu to see appointments and validate deposits.",
+      "refresh": "Refresh",
+      "refreshing": "Refreshing…",
+      "refreshHint": "The panel refreshes by itself every 30 seconds"
     },
     "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
     "nav": {

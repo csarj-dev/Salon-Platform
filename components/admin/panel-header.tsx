@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { SignOutButton } from "@/components/admin/sign-out-button";
+import { PanelRefresh } from "./panel-refresh";
 
 type Props = {
   salonName: string;
@@ -35,7 +36,10 @@ export async function PanelHeader({
             {roleLabel ? ` · ${roleLabel}` : ""}
           </p>
         </div>
-        <SignOutButton />
+        <div className="flex shrink-0 items-center gap-2">
+          <PanelRefresh />
+          <SignOutButton />
+        </div>
       </div>
       <nav
         aria-label={t("label")}

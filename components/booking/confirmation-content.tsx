@@ -11,6 +11,7 @@ import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 import { cn } from "@/lib/utils";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 type Props = { params: Promise<{ locale: string; token: string }> };
 
@@ -63,8 +64,14 @@ export async function ConfirmationContent({ params }: Props) {
     t("payLinkMessage", { id: view.id, service: view.serviceName, when, amount: deposit ?? "" }),
   );
 
+  const steps = viaWhatsApp
+    ? [t("stepAskLink"), t("stepPay"), t("stepConfirmed")]
+    : [t("stepPayInstructions"), t("stepSendProof"), t("stepConfirmed")];
+
   return (
     <div className="mx-auto max-w-xl px-6 py-8">
+      {/* Mientras espera el depósito, la página se actualiza sola para mostrar la confirmación */}
+      {view.status === "pending_deposit" && <AutoRefresh />}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("reference", { id: view.id })}</p>
 
@@ -107,9 +114,23 @@ export async function ConfirmationContent({ params }: Props) {
               </p>
             </div>
           )}
-          {viaWhatsApp
-            ? payLinkHref && <WhatsAppButton href={payLinkHref}>{t("payLinkButton")}</WhatsAppButton>
-            : proofHref && <WhatsAppButton href={proofHref}>{t("sendProof")}</WhatsAppButton>}
+          {!viaWhatsApp && (
+            <div>
+              <h3 className="text-sm font-medium">{t("howToPay")}</h3>
+              <p className="mt-1 whitespace-pre-line text-sm">
+                {instructions?.[locale] ?? instructions?.[config.defaultLocale] ?? t("payNoInstructions")}
+              </p>
+            </div>
+          )}
+          <div>
+            <h3 className="text-sm font-medium">{t("stepsTitle")}</h3>
+            <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm">
+              {steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            <p className="mt-2 text-sm text-muted-foreground">{t("stepsKeepPage")}</p>
+          </div>
         </section>
       )}
 
