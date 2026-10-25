@@ -12,6 +12,7 @@ import { loadSalonConfig } from "@/lib/salon-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { OpenWhatsAppOnce } from "@/components/booking/open-whatsapp-once";
 
 type Props = { params: Promise<{ locale: string; token: string }> };
 
@@ -72,6 +73,9 @@ export async function ConfirmationContent({ params }: Props) {
     <div className="mx-auto max-w-xl px-6 py-8">
       {/* Mientras espera el depósito, la página se actualiza sola para mostrar la confirmación */}
       {view.status === "pending_deposit" && <AutoRefresh />}
+      {view.status === "pending_deposit" && viaWhatsApp && payLinkHref && (
+        <OpenWhatsAppOnce href={payLinkHref} />
+      )}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("reference", { id: view.id })}</p>
 
@@ -96,9 +100,7 @@ export async function ConfirmationContent({ params }: Props) {
           <p className="text-sm">
             {t("depositDue", { date: formatDateTime(view.depositDueAt, locale, zone) })}
           </p>
-          {viaWhatsApp ? (
-            <p className="text-sm">{t("payLinkInfo")}</p>
-          ) : (
+          {!viaWhatsApp && (
             <div>
               <h3 className="text-sm font-medium">{t("howToPay")}</h3>
               <p className="mt-1 whitespace-pre-line text-sm">
@@ -114,14 +116,6 @@ export async function ConfirmationContent({ params }: Props) {
               </p>
             </div>
           )}
-          {!viaWhatsApp && (
-            <div>
-              <h3 className="text-sm font-medium">{t("howToPay")}</h3>
-              <p className="mt-1 whitespace-pre-line text-sm">
-                {instructions?.[locale] ?? instructions?.[config.defaultLocale] ?? t("payNoInstructions")}
-              </p>
-            </div>
-          )}
           <div>
             <h3 className="text-sm font-medium">{t("stepsTitle")}</h3>
             <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm">
@@ -131,6 +125,10 @@ export async function ConfirmationContent({ params }: Props) {
             </ol>
             <p className="mt-2 text-sm text-muted-foreground">{t("stepsKeepPage")}</p>
           </div>
+          {/* Botón del paso 1/2: abre WhatsApp en pestaña nueva (también sirve si al reservar no se abrió) */}
+          {viaWhatsApp
+            ? payLinkHref && <WhatsAppButton href={payLinkHref}>{t("payLinkButton")}</WhatsAppButton>
+            : proofHref && <WhatsAppButton href={proofHref}>{t("sendProof")}</WhatsAppButton>}
         </section>
       )}
 

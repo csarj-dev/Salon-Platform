@@ -21,6 +21,10 @@ export function AutoRefresh({ everyMs = 20_000, stopAfterMs = 30 * 60_000 }: Pro
     const refresh = () => {
       if (document.visibilityState === "visible") router.refresh();
     };
+    // Al volver con "atrás", el móvil suele recuperar la página de su caché sin avisar con visibilitychange
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) router.refresh();
+    };
 
     const id = window.setInterval(() => {
       // Una pestaña olvidada no consulta al servidor para siempre; al volver a ella sí se actualiza
@@ -31,10 +35,12 @@ export function AutoRefresh({ everyMs = 20_000, stopAfterMs = 30 * 60_000 }: Pro
       refresh();
     }, everyMs);
     document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("pageshow", onPageShow);
 
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, [router, everyMs, stopAfterMs]);
 
