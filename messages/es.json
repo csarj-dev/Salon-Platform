@@ -133,7 +133,14 @@
     "home": "Volver al inicio",
     "payLinkInfo": "Para confirmar la cita, pídenos el enlace de pago por WhatsApp. Cuando recibamos el pago, tu cita queda confirmada.",
     "payLinkButton": "Pedir el enlace de pago por WhatsApp",
-    "payLinkMessage": "Hola, acabo de reservar la cita #{id} ({service}, {when}) y tiene un depósito de {amount}. ¿Me enviáis el enlace de pago?"
+    "payLinkMessage": "Hola, acabo de reservar la cita #{id} ({service}, {when}) y tiene un depósito de {amount}. ¿Me enviáis el enlace de pago?",
+    "stepsTitle": "Qué sigue",
+    "stepAskLink": "Pídenos el enlace de pago por WhatsApp (botón de abajo).",
+    "stepPayInstructions": "Haz el pago siguiendo las instrucciones de arriba.",
+    "stepSendProof": "Envíanos el comprobante por WhatsApp.",
+    "stepPay": "Paga el depósito antes de que termine el plazo.",
+    "stepConfirmed": "Cuando lo recibamos, tu cita queda confirmada y te llega un correo.",
+    "stepsKeepPage": "Guarda esta página: se actualiza sola y aquí verás cuándo queda confirmada."
   },
   "Admin": {
     "title": "Panel",
@@ -151,7 +158,10 @@
       "signOut": "Salir",
       "welcome": "Hola, {name}",
       "role": "Tu rol: {role}",
-      "soon": "Usa el menú para ver las citas y validar depósitos."
+      "soon": "Usa el menú para ver las citas y validar depósitos.",
+      "refresh": "Actualizar",
+      "refreshing": "Actualizando…",
+      "refreshHint": "El panel se actualiza solo cada 30 segundos"
     },
     "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
     "nav": {

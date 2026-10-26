@@ -2,7 +2,6 @@
 
 import { DateTime } from "luxon";
 import { after } from "next/server";
-import { redirect as redirectExternal } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
@@ -24,6 +23,9 @@ export type BookingFormState = {
   fields?: Partial<Record<"name" | "phone" | "email" | "consent", true>>;
   // Lo que escribió la clienta, para no obligarla a repetirlo
   values?: { name: string; phone: string; email: string };
+  // Reserva hecha con la pestaña de WhatsApp ya abierta (ordenador): el formulario
+  // carga el chat en esa pestaña y lleva esta a la confirmación
+  done?: { publicToken: string; whatsappHref: string | null };
 };
 
 const text = (data: FormData, key: string) => {
@@ -154,8 +156,14 @@ export async function submitBooking(
     return { error: "server", values };
   }
 
-  // Con depósito por WhatsApp, la clienta va directa al chat para pedir el enlace de pago
-  if (whatsappHref) redirectExternal(whatsappHref);
+  // En ordenador el formulario ya abrió una pestaña vacía para WhatsApp: no se redirige,
+  // se le devuelve el enlace para que lo cargue ahí y esta pestaña pase a la confirmación
+  if (formData.get("whatsappTab") === "1") return { done: { publicToken, whatsappHref } };
+  // En móvil (o si el navegador bloqueó la pestaña): primero a la confirmación, que abre WhatsApp.
+  // Así, al volver del chat, la clienta está en una página que se actualiza sola.
+  if (whatsappHref) {
+    redirect({ href: { pathname: `/booking/confirmed/${publicToken}`, query: { whatsapp: "1" } }, locale });
+  }
   // redirect lanza una excepción propia de Next: tiene que ir fuera del try/catch
   redirect({ href: `/booking/confirmed/${publicToken}`, locale });
 

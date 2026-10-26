@@ -44,7 +44,7 @@ export async function SiteHeader({ name, branding }: Props) {
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
         <Link href="/" aria-label={name} className="flex items-center">
-          <BrandLogo branding={branding} name={name} className="h-8 w-auto" />
+          <BrandLogo branding={branding} name={name} className="h-7 w-auto" />
         </Link>
         <Suspense fallback={<SiteNav links={links} {...labels} />}>
           <HeaderNav links={links} teamLabel={t("team")} {...labels} />

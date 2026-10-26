@@ -12,6 +12,7 @@ import { addMonths, firstWeekdayOf, monthOfDay } from "@/lib/calendar";
 import type { CatalogService } from "@/lib/catalog";
 import { formatDateTime, formatDayLong, formatPrice, formatTime } from "@/lib/format";
 import { toAvailabilityOptions, type SalonConfig } from "@/lib/salon-config";
+import { needsWhatsAppTab } from "@/lib/whatsapp-tab";
 
 const DAY_FORMAT = "yyyy-MM-dd";
 
@@ -103,6 +104,11 @@ export async function DateTimeStep({
               staff={member === "any" ? "any" : String(member.id)}
               at={flow.at}
               backHref={changeHref}
+              opensWhatsApp={needsWhatsAppTab({
+                mode: config.booking.deposit.mode,
+                whatsapp: config.contact.whatsapp,
+                depositCents: service.depositCents,
+              })}
             />
           </section>
         </div>

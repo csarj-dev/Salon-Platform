@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { submitBooking, type BookingFormState } from "@/app/[locale]/(site)/booking/actions";
 import type { BookingHref } from "@/components/booking/step-ui";
 import { cn } from "@/lib/utils";
+import { DESKTOP_QUERY } from "@/lib/whatsapp-tab";
 
 type Props = {
   locale: string;
@@ -15,6 +16,7 @@ type Props = {
   staff: string; // id de la profesional o "any"
   at: string; // hora elegida (ISO, UTC)
   backHref: BookingHref; // volver a elegir otra hora
+  opensWhatsApp?: boolean; // si al reservar se acabará en WhatsApp (depósito por WhatsApp)
 };
 
 const inputClass =
@@ -43,13 +45,51 @@ function Field({
   );
 }
 
-export function BookingForm({ locale, locationId, serviceId, staff, at, backHref }: Props) {
+export function BookingForm({
+  locale, locationId, serviceId, staff, at, backHref, opensWhatsApp = false,
+}: Props) {
   const t = useTranslations("Booking");
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<BookingFormState, FormData>(
     submitBooking,
     {},
   );
+  const [, startTransition] = useTransition();
+  // Pestaña abierta en el clic para WhatsApp (solo ordenador); se rellena cuando responde el servidor
+  const tabRef = useRef<Window | null>(null);
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    tabRef.current?.close(); // por si quedó una de un intento anterior
+    tabRef.current = null;
+    if (opensWhatsApp && window.matchMedia(DESKTOP_QUERY).matches) {
+      // Tiene que abrirse AQUÍ, en el clic: si se abre después de esperar al servidor, el navegador la bloquea
+      const tab = window.open("about:blank", "_blank");
+      if (tab) {
+        tab.opener = null; // la pestaña nueva no puede tocar la nuestra
+        tabRef.current = tab;
+        formData.set("whatsappTab", "1");
+      }
+      // Si se bloqueó (tab === null), no se avisa al servidor y se redirige como en móvil
+    }
+    startTransition(() => formAction(formData));
+  }
+
+  // Cuando responde el servidor: WhatsApp en la pestaña nueva y esta a la confirmación,
+  // o, si hubo error, se cierra la pestaña vacía
+  useEffect(() => {
+    const tab = tabRef.current;
+    if (state.done) {
+      if (tab && !tab.closed && state.done.whatsappHref) tab.location.href = state.done.whatsappHref;
+      else tab?.close();
+      tabRef.current = null;
+      router.replace(`/booking/confirmed/${state.done.publicToken}`);
+    } else if (state.error) {
+      tab?.close();
+      tabRef.current = null;
+    }
+  }, [state, router]);
   const errorMessage = state.error
     ? {
         invalid: t("errorInvalid"),
@@ -61,7 +101,7 @@ export function BookingForm({ locale, locationId, serviceId, staff, at, backHref
   const slotProblem = state.error === "slot_taken" || state.error === "slot_unavailable";
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <form action={formAction} onSubmit={handleSubmit} className="space-y-4" noValidate>
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="location" value={locationId} />
       <input type="hidden" name="service" value={serviceId} />
