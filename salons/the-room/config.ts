@@ -10,8 +10,8 @@ const config = {
     logoHeight: 155,
   },
   initialLocations: [
-    { name: "The Room Centro", address: "Dirección de ejemplo 1" },
-    { name: "The Room Sur", address: "Dirección de ejemplo 2" },
+    { name: "The Room Studio", address: "Luján Pérez, 27, Adeje" },
+    { name: "The Room Micropigmentacion", address: "Plaza César Manrique, 10, Local 3, Adeje" },
   ],
   booking: {
     slotStepMin: 30,
@@ -65,15 +65,16 @@ const config = {
       en: "The Room team at the studio",
     },
   },
-  // Fotos de ejemplo en gris: sin `src` se pinta un bloque con esa proporción.
-  // Cuando haya fotos reales, se añade `src: "/salons/the-room/gallery/foto-1.jpg"`.
   gallery: [
-    { width: 1080, height: 1350, alt: { es: "Cejas laminadas, resultado final", en: "Laminated brows, final result" } },
-    { width: 1080, height: 1080, alt: { es: "Detalle de lifting de pestañas", en: "Close-up of a lash lift" } },
-    { width: 1080, height: 1350, alt: { es: "Diseño de cejas con henna", en: "Henna brow shaping" } },
-    { width: 1080, height: 1080, alt: { es: "Microblading, antes y después", en: "Microblading, before and after" } },
-    { width: 1080, height: 1350, alt: { es: "Interior del estudio", en: "Inside the studio" } },
-    { width: 1080, height: 1080, alt: { es: "Zona de recepción", en: "Reception area" } },
+    { src: "/salons/the-room/gallery/laminado-antes-despues.jpg", width: 1080, height: 1080, alt: { es: "Laminado de cejas, antes y después", en: "Brow lamination, before and after" } },
+    { src: "/salons/the-room/gallery/lifting-antes-despues.webp", width: 1080, height: 1080, alt: { es: "Lifting de pestañas, antes y después", en: "Lash lift, before and after" } },
+    { src: "/salons/the-room/gallery/microblading-antes-despues.jpg", width: 1080, height: 1080, alt: { es: "Microblading, antes y después", en: "Microblading, before and after" } },
+    { src: "/salons/the-room/gallery/laminado-resultado.webp", width: 1080, height: 1080, alt: { es: "Cejas laminadas, resultado final", en: "Laminated brows, final result" } },
+    { src: "/salons/the-room/gallery/lifting-detalle.webp", width: 1080, height: 1080, alt: { es: "Detalle de lifting de pestañas", en: "Close-up of a lash lift" } },
+    { src: "/salons/the-room/gallery/microblading-proceso.webp", width: 1080, height: 1080, alt: { es: "Microblading en proceso", en: "Microblading in progress" } },
+    { src: "/salons/the-room/gallery/estudio-recepcion.webp", width: 1080, height: 1080, alt: { es: "Recepción del estudio", en: "Studio reception" } },
+    { src: "/salons/the-room/gallery/estudio-espejos.webp", width: 1080, height: 1080, alt: { es: "Zona de trabajo con espejos", en: "Work area with mirrors" } },
+    { src: "/salons/the-room/gallery/estudio-sur.webp", width: 1080, height: 1080, alt: { es: "Estudio The Room Micropigmentación", en: "The Room Micropigmentación studio" } },
   ],
 };
 
