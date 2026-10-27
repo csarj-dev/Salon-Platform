@@ -74,7 +74,7 @@ export async function listDeposits(
       startsAt: appointment.startsAt,
       depositCents: appointment.depositCents,
       depositDueAt: appointment.depositDueAt,
-      clientName: client.name,
+      clientName: appointment.clientName,
       clientPhone: client.phone,
       serviceName: service.name,
       locationName: location.name,

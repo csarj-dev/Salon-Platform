@@ -257,6 +257,11 @@ export const appointment = pgTable(
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     clientId: integer("client_id").notNull().references(() => client.id),
+    // Nombre y email con que se hizo ESTA reserva. La ficha de clienta se identifica por
+    // teléfono y puede tener otro nombre (otra persona con el mismo número, o un cambio):
+    // mensajes y panel usan siempre los de la cita.
+    clientName: text("client_name").notNull(),
+    clientEmail: text("client_email"),
     serviceId: integer("service_id").notNull().references(() => service.id),
     staffId: integer("staff_id").notNull().references(() => staff.id),
     locationId: integer("location_id").notNull().references(() => location.id),

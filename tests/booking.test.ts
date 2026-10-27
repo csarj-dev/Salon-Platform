@@ -168,4 +168,42 @@ describe("createAppointment", () => {
     expect(await db.select().from(client)).toHaveLength(1);
     expect(await db.select().from(appointment)).toHaveLength(2);
   });
+
+  it("cada cita guarda el nombre y el email con que se reservó", async () => {
+    await createAppointment(
+      input(at("10:00"), "600111222", { client: { name: "Laura Gómez", phone: "600111222", email: "laura@example.com" } }),
+      opts,
+      NOW,
+    );
+    await createAppointment(
+      input(at("12:00"), "600111222", { client: { name: "Marta Ruiz", phone: "600111222", email: "marta@example.com" } }),
+      opts,
+      NOW,
+    );
+
+    const rows = await db.select().from(appointment).orderBy(appointment.startsAt);
+    expect(rows.map((r) => [r.clientName, r.clientEmail])).toEqual([
+      ["Laura Gómez", "laura@example.com"],
+      ["Marta Ruiz", "marta@example.com"],
+    ]);
+    // La ficha sigue siendo una sola (mismo teléfono)
+    expect(await db.select().from(client)).toHaveLength(1);
+  });
+
+  it("una reserva sin email usa el que ya tenía la clienta", async () => {
+    await createAppointment(
+      input(at("10:00"), "600111222", { client: { name: "Laura Gómez", phone: "600111222", email: "laura@example.com" } }),
+      opts,
+      NOW,
+    );
+    const r = await createAppointment(
+      input(at("12:00"), "600111222", { source: "phone", client: { name: "Laura Gómez", phone: "600111222" } }),
+      opts,
+      NOW,
+    );
+    if (!r.ok) throw new Error("La segunda reserva debía funcionar");
+
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.clientEmail).toBe("laura@example.com");
+  });
 });

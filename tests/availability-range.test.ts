@@ -103,6 +103,7 @@ beforeAll(async () => {
     extra: Partial<typeof appointment.$inferInsert> = {},
   ) => ({
     clientId: c.id,
+    clientName: "Clienta",
     serviceId: svc,
     staffId,
     locationId,

@@ -127,6 +127,22 @@ describe("guardar el idioma y el email al reservar", () => {
     expect(row.locale).toBe("en");
   });
 
+  it("con el mismo teléfono, cada correo va al email y nombre de su propia reserva", async () => {
+    await book("laura@example.com", { client: { name: "Laura Gómez", phone: "600111222", email: "laura@example.com" } });
+    const second = await book("marta@example.com", {
+      startsAt: at("12:00"),
+      client: { name: "Marta Ruiz", phone: "600111222", email: "marta@example.com" },
+    });
+    const { sent, send } = fakeSender();
+
+    await sendAppointmentEmail(second.appointmentId, "confirmation", {
+      now: NOW, send, config, loadMessagesFor: messagesFor,
+    });
+
+    expect(sent[0].to).toBe("marta@example.com");
+    expect(sent[0].text).toContain("Hola Marta Ruiz");
+  });
+
   it("sin idioma queda vacío", async () => {
     const r = await book("ana@example.com");
     const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));

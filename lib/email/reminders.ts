@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, isNotNull, lte, notExists, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { appointment, client, emailLog } from "../../db/schema";
+import { appointment, emailLog } from "../../db/schema";
 import { sendAppointmentEmail } from "./appointment-email";
 import {
   isReminderDue,
@@ -24,16 +24,15 @@ export function reminderCandidatesQuery(now: Date, limit = 200) {
       startsAt: appointment.startsAt,
       createdAt: appointment.createdAt,
       depositPaidAt: appointment.depositPaidAt,
-      email: client.email,
+      email: appointment.clientEmail,
     })
     .from(appointment)
-    .innerJoin(client, eq(client.id, appointment.clientId))
     .where(
       and(
         eq(appointment.status, "booked"),
         gt(appointment.startsAt, from),
         lte(appointment.startsAt, to),
-        isNotNull(client.email),
+        isNotNull(appointment.clientEmail),
         notExists(
           db
             .select({ one: sql`1` })

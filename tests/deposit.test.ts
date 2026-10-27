@@ -218,6 +218,7 @@ describe("el hueco mientras espera el depósito", () => {
     await expect(
       db.insert(appointment).values({
         clientId: c.id,
+        clientName: "X",
         serviceId: withDeposit,
         staffId: st,
         locationId: loc,
