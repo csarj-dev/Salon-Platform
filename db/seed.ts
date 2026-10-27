@@ -163,6 +163,7 @@ async function main() {
   // Lunes 2 de noviembre de 2026 (Canarias, UTC+0): Ana en Centro
   await db.insert(appointment).values({
     clientId: clienta.id,
+    clientName: "Clienta de prueba",
     serviceId: lam.id,
     staffId: ana.id,
     locationId: centro.id,

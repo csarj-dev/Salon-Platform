@@ -133,9 +133,12 @@ export async function createAppointment(
         .from(client)
         .where(eq(client.phone, input.client.phone));
 
+      // Email de ESTA reserva: el del formulario; si no lo trae (p. ej. recepción), el que ya tenía
+      let bookingEmail: string | null = input.client.email ?? null;
       let clientId: number;
       if (existing) {
         clientId = existing.id;
+        bookingEmail ??= existing.email;
         if (input.consent && !existing.consentAt) {
           await tx.update(client).set({ consentAt: now }).where(eq(client.id, existing.id));
         }
@@ -181,6 +184,8 @@ export async function createAppointment(
         .insert(appointment)
         .values({
           clientId,
+          clientName: input.client.name,
+          clientEmail: bookingEmail,
           serviceId: input.serviceId,
           staffId: input.staffId,
           locationId: input.locationId,
