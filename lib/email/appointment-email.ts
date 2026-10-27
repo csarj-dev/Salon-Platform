@@ -2,7 +2,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import {
   appointment,
-  client,
   emailLog,
   location,
   service,
@@ -41,15 +40,14 @@ export async function loadEmailData(
       depositCents: appointment.depositCents,
       serviceId: appointment.serviceId,
       serviceName: service.name,
-      clientName: client.name,
-      clientEmail: client.email,
+      clientName: appointment.clientName,
+      clientEmail: appointment.clientEmail,
       locationName: location.name,
       locationAddress: location.address,
       mapsUrl: location.mapsUrl,
       staffName: staff.name,
     })
     .from(appointment)
-    .innerJoin(client, eq(client.id, appointment.clientId))
     .innerJoin(service, eq(service.id, appointment.serviceId))
     .innerJoin(location, eq(location.id, appointment.locationId))
     .innerJoin(staff, eq(staff.id, appointment.staffId))

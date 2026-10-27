@@ -31,8 +31,8 @@ const config = {
         en: "Send a Bizum payment to 600 000 000 with your name and the appointment date. Once we receive it, your appointment is confirmed.",
       },
       policy: {
-        es: "El depósito se descuenta del precio del servicio. Si cancelas con 24 horas o más de antelación, te lo devolvemos.",
-        en: "The deposit is deducted from the service price. If you cancel at least 24 hours in advance, we refund it.",
+        es: "El depósito se descuenta del precio del servicio. Si cancelas con al menos 24 horas de antelación, lo guardamos para tu próxima cita. Si cancelas con menos de 24 horas o no vienes, se pierde. Los depósitos no se reembolsan.",
+        en: "The deposit is deducted from the service price. If you cancel at least 24 hours in advance, we keep it for your next appointment. If you cancel with less than 24 hours' notice or don't show up, it is lost. Deposits are non-refundable.",
       },
     },
   },

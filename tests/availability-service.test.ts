@@ -66,6 +66,7 @@ beforeAll(async () => {
     .returning();
   await db.insert(appointment).values({
     clientId: c.id,
+    clientName: "Clienta Test",
     serviceId,
     staffId: anaId,
     locationId,
