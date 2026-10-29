@@ -36,6 +36,15 @@ const config = {
       },
     },
   },
+  // Una cuenta de Koibox por titular: cada cita se guarda en la de quien hace el servicio.
+  // Las claves van en Vercel (Settings → Environment Variables), nunca en este archivo.
+  koibox: {
+    accounts: {
+      salon: { label: "Cuenta del salón (TR Studio)", keyEnv: "KOIBOX_KEY_SALON" },
+      amanda: { label: "Cuenta de Amanda", keyEnv: "KOIBOX_KEY_AMANDA" },
+      luz: { label: "Cuenta de Luz (TR Micros)", keyEnv: "KOIBOX_KEY_LUZ" },
+    },
+  },
   theme: {
     background: "#f7f1ea",
     foreground: "#231f20",

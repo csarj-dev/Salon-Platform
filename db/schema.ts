@@ -177,7 +177,23 @@ export const staff = pgTable("staff", {
   photoId: integer("photo_id").references(() => photo.id, { onDelete: "set null" }),
   // Cuándo se publicó en la página del equipo. Vacío = no se muestra (nadie aparece sin activarlo).
   listedOnTeamAt: timestamp("listed_on_team_at", { withTimezone: true }),
-});
+  // Cuenta de Koibox donde se guardan sus citas (una de koibox.accounts del config) y su id de
+  // usuaria en esa cuenta. Los dos o ninguno. Se ponen con db/koibox-link.ts.
+  koiboxAccount: text("koibox_account"),
+  koiboxUserId: integer("koibox_user_id"),
+},
+(t) => [
+  check(
+    "staff_koibox_link_complete",
+    sql`(${t.koiboxAccount} IS NULL) = (${t.koiboxUserId} IS NULL)`,
+  ),
+  check(
+    "staff_koibox_account_format",
+    sql`${t.koiboxAccount} IS NULL OR ${t.koiboxAccount} ~ '^[a-z][a-z0-9_-]{0,31}$'`,
+  ),
+  // Una usuaria de Koibox es una sola persona de nuestro equipo
+  uniqueIndex("staff_koibox_user_once").on(t.koiboxAccount, t.koiboxUserId),
+]);
 
 // Cargo y presentación de cada profesional, por idioma
 export const staffTranslation = pgTable(
@@ -212,6 +228,24 @@ export const staffService = pgTable(
     serviceId: integer("service_id").notNull().references(() => service.id),
   },
   (t) => [primaryKey({ columns: [t.staffId, t.serviceId] })],
+);
+
+// Id de cada servicio nuestro en cada cuenta de Koibox (cada cuenta tiene sus propios ids).
+// Se pone con db/koibox-link.ts.
+export const koiboxServiceMap = pgTable(
+  "koibox_service_map",
+  {
+    serviceId: integer("service_id")
+      .notNull()
+      .references(() => service.id, { onDelete: "cascade" }),
+    account: text("account").notNull(),
+    koiboxServiceId: integer("koibox_service_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.serviceId, t.account] }),
+    check("koibox_service_map_account_format", sql`${t.account} ~ '^[a-z][a-z0-9_-]{0,31}$'`),
+    check("koibox_service_map_id_positive", sql`${t.koiboxServiceId} > 0`),
+  ],
 );
 
 export const client = pgTable("client", {
@@ -290,6 +324,12 @@ export const appointment = pgTable(
     cancelReason: text("cancel_reason"),
     // Identificador secreto para la página de confirmación (/booking/confirmed/<token>)
     publicToken: uuid("public_token").notNull().defaultRandom().unique(),
+    // Copia de la cita en Koibox: en qué cuenta está y con qué id.
+    // `koiboxError` guarda el último fallo al sincronizarla (vacío si fue bien).
+    koiboxAccount: text("koibox_account"),
+    koiboxAppointmentId: integer("koibox_appointment_id"),
+    koiboxSyncedAt: timestamp("koibox_synced_at", { withTimezone: true }),
+    koiboxError: text("koibox_error"),
   },
   (t) => [
     check("ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`),
@@ -306,6 +346,17 @@ export const appointment = pgTable(
       "appointment_pending_has_deposit",
       sql`${t.status} <> 'pending_deposit' OR (${t.depositCents} IS NOT NULL AND ${t.depositDueAt} IS NOT NULL)`,
     ),
+    // Un id de Koibox sin saber de qué cuenta es no sirve
+    check(
+      "appointment_koibox_id_has_account",
+      sql`${t.koiboxAppointmentId} IS NULL OR ${t.koiboxAccount} IS NOT NULL`,
+    ),
+    check(
+      "appointment_koibox_error_length",
+      sql`${t.koiboxError} IS NULL OR char_length(${t.koiboxError}) <= 500`,
+    ),
+    // Cada cita de Koibox corresponde a una sola cita nuestra
+    uniqueIndex("appointment_koibox_once").on(t.koiboxAccount, t.koiboxAppointmentId),
   ],
 );
 

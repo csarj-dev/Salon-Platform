@@ -109,6 +109,26 @@ const depositSchema = z.object({
   policy: localizedText.optional(),
 });
 
+// Cuentas de Koibox del salón. Cada cuenta es un centro de Koibox con su propia clave;
+// la clave nunca va aquí: `keyEnv` dice en qué variable de entorno está (en Vercel).
+export const KOIBOX_ACCOUNT_ID = /^[a-z][a-z0-9_-]{0,31}$/;
+
+const koiboxAccountSchema = z.object({
+  label: z.string().min(1), // "Cuenta del salón", "Cuenta de Amanda"...
+  keyEnv: z
+    .string()
+    .regex(/^KOIBOX_KEY_[A-Z0-9_]+$/, "Nombre de variable tipo KOIBOX_KEY_SALON"),
+});
+
+const koiboxSchema = z.object({
+  accounts: z
+    .record(
+      z.string().regex(KOIBOX_ACCOUNT_ID, "Id de cuenta en minúsculas, por ejemplo salon o amanda"),
+      koiboxAccountSchema,
+    )
+    .default({}),
+});
+
 export const salonConfigSchema = z
   .object({
     name: z.string().min(1),
@@ -138,6 +158,8 @@ export const salonConfigSchema = z
       cancellationNoticeHours: z.number().min(0).default(24),
       deposit: depositSchema.prefault({}),
     }),
+    // Sin `koibox` (o sin cuentas) el salón no usa Koibox
+    koibox: koiboxSchema.prefault({}),
   })
   .superRefine((c, ctx) => {
     // Un canal de WhatsApp sin número no tiene sentido
@@ -186,6 +208,20 @@ export const salonConfigSchema = z
       }
     }
 
+    // Dos cuentas con la misma clave serían el mismo centro de Koibox
+    const keyOwners = new Map<string, string>();
+    for (const [id, account] of Object.entries(c.koibox.accounts)) {
+      const other = keyOwners.get(account.keyEnv);
+      if (other) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["koibox", "accounts", id, "keyEnv"],
+          message: `La variable ${account.keyEnv} ya la usa la cuenta "${other}"`,
+        });
+      }
+      keyOwners.set(account.keyEnv, id);
+    }
+
     if (c.hero) {
       for (const locale of c.locales) {
         if (!c.hero.alt[locale]?.trim()) {
@@ -202,6 +238,7 @@ export const salonConfigSchema = z
 export type SalonConfig = z.infer<typeof salonConfigSchema>;
 export type GalleryItem = SalonConfig["gallery"][number];
 export type HeroConfig = NonNullable<SalonConfig["hero"]>;
+export type KoiboxConfig = SalonConfig["koibox"];
 
 // Variables de entorno que pisan valores del archivo de config.
 // Hoy solo SALON_WHATSAPP; así un número personal de pruebas no se sube al repo.

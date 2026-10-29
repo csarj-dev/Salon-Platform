@@ -120,6 +120,13 @@
       "when": 1793118717103,
       "tag": "0016_appointment_client_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793278495310,
+      "tag": "0017_koibox_link",
+      "breakpoints": true
     }
   ]
 }
