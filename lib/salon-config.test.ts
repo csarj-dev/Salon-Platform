@@ -343,3 +343,41 @@ describe("prefijo telefónico", () => {
     expect(() => salonConfigSchema.parse({ ...valid, phoneCountryCode: "es" })).toThrow();
   });
 });
+
+describe("salonConfigSchema · koibox", () => {
+  const account = (keyEnv: string) => ({ label: "Cuenta", keyEnv });
+
+  it("sin koibox, el salón no tiene cuentas", () => {
+    expect(salonConfigSchema.parse(valid).koibox.accounts).toEqual({});
+  });
+
+  it("acepta cuentas con su variable de clave", () => {
+    const c = salonConfigSchema.parse({
+      ...valid,
+      koibox: { accounts: { salon: account("KOIBOX_KEY_SALON"), amanda: account("KOIBOX_KEY_AMANDA") } },
+    });
+    expect(Object.keys(c.koibox.accounts)).toEqual(["salon", "amanda"]);
+  });
+
+  it("rechaza ids de cuenta raros y variables que no son KOIBOX_KEY_...", () => {
+    expect(() => salonConfigSchema.parse({ ...valid, koibox: { accounts: { Salon: account("KOIBOX_KEY_SALON") } } })).toThrow();
+    expect(() => salonConfigSchema.parse({ ...valid, koibox: { accounts: { salon: account("SECRET") } } })).toThrow();
+  });
+
+  it("rechaza dos cuentas con la misma clave", () => {
+    expect(() =>
+      salonConfigSchema.parse({
+        ...valid,
+        koibox: { accounts: { salon: account("KOIBOX_KEY_SALON"), amanda: account("KOIBOX_KEY_SALON") } },
+      }),
+    ).toThrow(/KOIBOX_KEY_SALON ya la usa la cuenta/);
+  });
+});
+
+describe("config de The Room", () => {
+  it("es válido y tiene una cuenta de Koibox por titular", async () => {
+    const raw = (await import("../salons/the-room/config")).default;
+    const c = salonConfigSchema.parse(raw);
+    expect(Object.keys(c.koibox.accounts)).toEqual(["salon", "amanda", "luz"]);
+  });
+});
