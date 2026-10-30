@@ -4,6 +4,7 @@
 import type { KoiboxConfig } from "../salon-config";
 import { createKoiboxClient, type KoiboxApi } from "./client";
 import { createFakeKoibox, demoSeed, type FakeKoibox } from "./fake";
+import type { RateLimiter } from "./limits";
 
 export const KOIBOX_DRIVERS = ["fake", "api"] as const;
 export type KoiboxDriver = (typeof KOIBOX_DRIVERS)[number];
@@ -33,8 +34,15 @@ function fakeFor(accountIds: string[]): FakeKoibox {
 
 const fakeKey = (account: string) => `fake-key-${account}`;
 
-// Cliente para una cuenta del salón ("salon", "amanda"...)
-export function getKoiboxClient(account: string, config: KoiboxConfig, env: KoiboxEnv = process.env): KoiboxApi {
+// Cliente para una cuenta del salón ("salon", "amanda"...).
+// `limiter`: uno propio en vez del compartido del proceso. Hace falta dentro de "use cache":
+// una función en caché no puede esperar promesas creadas fuera de ella (se quedaría colgada).
+export function getKoiboxClient(
+  account: string,
+  config: KoiboxConfig,
+  env: KoiboxEnv = process.env,
+  opts: { limiter?: RateLimiter } = {},
+): KoiboxApi {
   const settings = config.accounts[account];
   if (!settings) {
     const known = Object.keys(config.accounts);
@@ -47,12 +55,12 @@ export function getKoiboxClient(account: string, config: KoiboxConfig, env: Koib
 
   if (koiboxDriver(env) === "fake") {
     const fake = fakeFor(Object.keys(config.accounts));
-    return createKoiboxClient({ apiKey: fakeKey(account), fetchImpl: fake.fetch });
+    return createKoiboxClient({ apiKey: fakeKey(account), fetchImpl: fake.fetch, limiter: opts.limiter });
   }
 
   const apiKey = env[settings.keyEnv]?.trim();
   if (!apiKey) throw new Error(`Falta ${settings.keyEnv} (clave de Koibox de "${settings.label}")`);
-  return createKoiboxClient({ apiKey });
+  return createKoiboxClient({ apiKey, limiter: opts.limiter });
 }
 
 // Solo para los tests: vacía el Koibox de mentira del proceso

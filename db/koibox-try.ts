@@ -10,6 +10,7 @@ import { DateTime } from "luxon";
 import { loadSalonConfig } from "../lib/salon-config";
 import { getKoiboxClient, koiboxDriver } from "../lib/koibox/driver";
 import { KoiboxError } from "../lib/koibox/limits";
+import { WEEKDAY_FIELDS } from "@/lib/koibox/schedule";
 import { refId, refText } from "../lib/koibox/types";
 
 function option(name: string): string | undefined {
@@ -59,6 +60,25 @@ async function main() {
       console.log(`\nProfesionales vistas (id de usuaria para koibox-link):`);
       if (users.size === 0) console.log("  (ninguna: mira los servicios o las citas de otro día)");
       for (const [id, name] of [...users].sort((a, b) => a[1].localeCompare(b[1]))) console.log(`  ${id}  ${name}`);
+
+      // Horarios y bloqueos: los usa el modo booking.availability = "koibox".
+      // Sirve para comprobar con datos reales cómo vienen (semana, turno partido, repeticiones).
+      const schedules = await api.listSchedules();
+      console.log(`\nHorarios (${schedules.length}):`);
+      for (const h of schedules) {
+        const when = h.week ? `semana ${h.week}/${h.year}` : "de siempre";
+        const days = WEEKDAY_FIELDS.map((field) => {
+          const shifts = [h[field]].flat().filter((x) => x !== null);
+          return shifts.length ? `${field.slice(0, 3)} ${shifts.map((x) => `${x.hora_inicio.slice(0, 5)}-${x.hora_fin.slice(0, 5)}`).join("+")}` : null;
+        }).filter(Boolean);
+        console.log(`  ${h.user === null ? "centro" : `usuaria ${h.user}`} · ${when} · ${days.join(", ") || "sin turnos"}`);
+      }
+
+      const blocks = await api.listBlocks({ to: date });
+      console.log(`\nBloqueos hasta el ${date} (${blocks.length}):`);
+      for (const b of blocks.slice(-20)) {
+        console.log(`  ${b.fecha} ${b.hora_inicio.slice(0, 5)}–${b.hora_fin.slice(0, 5)}  usuaria ${b.user}  ${b.recurrencia ?? "none"}  ${b.titulo ?? ""}`);
+      }
 
       console.log(`\nCitas del ${date} (${appointments.length}):`);
       for (const a of appointments) {

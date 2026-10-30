@@ -48,6 +48,8 @@
     "dayUnavailable": "sin huecos",
     "noSlotsMonth": "No hay huecos este mes. Prueba con otro mes.",
     "noSlotsAtAll": "Por ahora no hay huecos disponibles para este servicio.",
+    "agendaUnavailable": "Ahora mismo no podemos consultar la agenda. Inténtalo en unos minutos o escríbenos por WhatsApp y te buscamos hueco.",
+    "agendaUnavailableWhatsApp": "Escribir por WhatsApp",
     "nextAvailable": "Próximo hueco: {day}",
     "timesFor": "Horas disponibles · {day}",
     "stepDetails": "Tus datos",

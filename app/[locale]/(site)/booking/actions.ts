@@ -1,19 +1,18 @@
 "use server";
 
-import { DateTime } from "luxon";
 import { after } from "next/server";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { getConfirmation } from "@/lib/appointment-view";
-import { getAvailabilityForService } from "@/lib/availability-service";
+import { KoiboxUnavailableError, confirmBookingSlot } from "@/lib/availability-source";
 import { parseFlowParams } from "@/lib/booking-flow";
 import { clientFormSchema } from "@/lib/booking-schema";
 import { createAppointment, toBookingOptions } from "@/lib/booking";
 import { paysThroughWhatsApp } from "@/lib/deposit";
 import { formatDateTime, formatPrice } from "@/lib/format";
-import { loadSalonConfig, toAvailabilityOptions } from "@/lib/salon-config";
+import { loadSalonConfig } from "@/lib/salon-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
 
@@ -83,23 +82,17 @@ export async function submitBooking(
     const now = new Date();
     const startsAt = new Date(flow.at);
 
-    // 3. "Cualquiera": se asigna la primera profesional libre a esa hora
-    let staffId: number;
-    if (flow.staff === "any") {
-      const day = DateTime.fromJSDate(startsAt, { zone: config.timezone }).toFormat("yyyy-MM-dd");
-      const availability = await getAvailabilityForService(
-        flow.location,
-        flow.service,
-        day,
-        toAvailabilityOptions(config),
-        now,
-      );
-      const slot = availability.any.find((s) => s.startsAt.getTime() === startsAt.getTime());
-      if (!slot) return { error: "slot_unavailable", values };
-      staffId = slot.staffIds[0];
-    } else {
-      staffId = flow.staff;
+    // 3. ¿Sigue libre? Con "cualquiera" se asigna la primera profesional libre a esa hora.
+    //    En modo Koibox se pregunta a Koibox sin caché; si no responde, no se reserva.
+    let staffId: number | null;
+    try {
+      staffId = await confirmBookingSlot(config, flow.location, flow.service, flow.staff, startsAt, now);
+    } catch (error) {
+      if (!(error instanceof KoiboxUnavailableError)) throw error;
+      console.error(error);
+      return { error: "server", values };
     }
+    if (staffId === null) return { error: "slot_unavailable", values };
 
     // 4. Crear la cita (comprueba otra vez el hueco, y la base de datos impide solapes)
     const result = await createAppointment(

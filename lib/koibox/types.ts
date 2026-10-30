@@ -104,6 +104,42 @@ export type KoiboxAppointmentPatch = {
   tags?: KoiboxTag[];
 };
 
+// GET /api/horarios/: turno semanal de una profesional (o del centro, con user null).
+// Con `week` y `year` vacíos es su horario de siempre; con valor, solo para esa semana.
+// Cada día es un tramo { hora_inicio, hora_fin } o null si no trabaja. Por si Koibox
+// devuelve turno partido, también aceptamos una lista de tramos.
+export type KoiboxShift = { hora_inicio: string; hora_fin: string }; // "09:00:00"
+export type KoiboxScheduleDay = KoiboxShift | KoiboxShift[] | null;
+
+export type KoiboxSchedule = {
+  id: number;
+  user: number | null;
+  centro: number | null;
+  week: string | null; // "01".."53"
+  year: string | null; // "2026"
+  lunes: KoiboxScheduleDay;
+  martes: KoiboxScheduleDay;
+  miercoles: KoiboxScheduleDay;
+  jueves: KoiboxScheduleDay;
+  viernes: KoiboxScheduleDay;
+  sabado: KoiboxScheduleDay;
+  domingo: KoiboxScheduleDay;
+};
+
+// GET /api/bloqueos/: tramo en el que una profesional no atiende (ausencia, descanso...).
+// `recurrencia`: none, day_1___ (cada día), week_1___ (cada semana), week_2___ (cada dos
+// semanas) o month_1___ (cada mes), siempre a partir de `fecha`.
+export type KoiboxBlock = {
+  id: number;
+  user: number;
+  fecha: string; // "YYYY-MM-DD"
+  hora_inicio: string; // "HH:mm:ss"
+  hora_fin: string;
+  titulo?: string;
+  recurrencia?: string | null;
+  is_online?: boolean;
+};
+
 // Saca el número de un campo que puede venir como objeto o como número
 export function refId(ref: KoiboxRef | null | undefined): number | null {
   if (ref == null) return null;

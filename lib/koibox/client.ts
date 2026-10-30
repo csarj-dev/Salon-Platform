@@ -24,6 +24,8 @@ import type {
   KoiboxKeyInfo,
   KoiboxPage,
   KoiboxService,
+  KoiboxBlock,
+  KoiboxSchedule
 } from "./types";
 
 export const KOIBOX_BASE_URL = "https://api.koibox.cloud/api";
@@ -53,6 +55,8 @@ export interface KoiboxApi {
   getAppointment(id: number): Promise<KoiboxAppointment | null>;
   updateAppointment(id: number, patch: KoiboxAppointmentPatch): Promise<KoiboxAppointment>;
   listAppointments(q: ListAppointmentsQuery): Promise<KoiboxAppointment[]>;
+  listSchedules(): Promise<KoiboxSchedule[]>;
+  listBlocks(q: { to: string }): Promise<KoiboxBlock[]>;
 }
 
 export type KoiboxClientOptions = {
@@ -209,6 +213,13 @@ export function createKoiboxClient(opts: KoiboxClientOptions): KoiboxApi {
         user__id__in: userIds?.length ? userIds : undefined,
         estado__id__in: statuses?.length ? statuses : undefined,
       }),
+
+    // Horarios de todas las profesionales (y del centro). Son pocos: una o dos páginas.
+    listSchedules: () => listAll<KoiboxSchedule>("/horarios/"),
+
+    // Bloqueos que empiezan hasta `to`. Pedimos también los antiguos porque uno que se
+    // repite cada semana pudo crearse hace meses y seguir vigente.
+    listBlocks: ({ to }) => listAll<KoiboxBlock>("/bloqueos/", { fecha__lte: to }),
   };
 }
 

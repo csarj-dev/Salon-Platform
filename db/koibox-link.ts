@@ -7,8 +7,8 @@
 import "dotenv/config";
 import { and, asc, eq } from "drizzle-orm";
 import { db, pgClient } from "./index";
-import { koiboxServiceMap, service, staff, staffService } from "./schema";
-import { loadSalonConfig } from "../lib/salon-config";
+import { koiboxServiceMap, location, service, staff, staffService } from "./schema";
+import { loadSalonConfig, type KoiboxConfig } from "../lib/salon-config";
 import { parseKoiboxLinkArgs } from "../lib/koibox-cli";
 import { linkReport } from "../lib/koibox/routing";
 
@@ -20,7 +20,7 @@ async function main() {
   const accountIds = Object.keys(config.koibox.accounts);
   const args = parseKoiboxLinkArgs(process.argv.slice(2), accountIds);
 
-  if (args.kind === "list") return printList(accountIds);
+  if (args.kind === "list") return printList(config.koibox);
 
   if (args.kind === "staff" || args.kind === "staff-clear") {
     const [member] = await db.select({ id: staff.id, name: staff.name }).from(staff).where(eq(staff.id, args.staffId));
@@ -66,7 +66,8 @@ async function main() {
   }
 }
 
-async function printList(accountIds: string[]) {
+async function printList(koibox: KoiboxConfig) {
+  const accountIds = Object.keys(koibox.accounts);
   const team = await db
     .select({ id: staff.id, name: staff.name, account: staff.koiboxAccount, userId: staff.koiboxUserId })
     .from(staff)
@@ -100,12 +101,22 @@ async function printList(accountIds: string[]) {
     accountIds,
   });
 
-  const pending = report.unlinkedStaff.length + report.unknownAccounts.length + report.missingServices.length;
+    // Locales del config (koibox.accounts.*.locations) que no existen en la base
+  const slugs = new Set((await db.select({ slug: location.slug }).from(location)).map((l) => l.slug));
+  const unknownLocations = Object.entries(koibox.accounts).flatMap(([id, account]) =>
+    (account.locations ?? []).filter((slug) => !slugs.has(slug)).map((slug) => ({ id, slug })),
+  );
+
+  const pending =
+    report.unlinkedStaff.length + report.unknownAccounts.length + report.missingServices.length + unknownLocations.length;
   console.log(pending === 0 ? "\nTodo enlazado." : "\nFalta:");
   for (const s of report.unlinkedStaff) console.log(`  · ${s.staffName} (id ${s.staffId}) sin cuenta de Koibox`);
   for (const s of report.unknownAccounts) console.log(`  · ${s.staffName} (id ${s.staffId}) en la cuenta "${s.account}", que no está en el config`);
   for (const s of report.missingServices) {
     console.log(`  · ${s.serviceName} (id ${s.serviceId}) sin id en "${s.account}" (lo hace ${s.staffNames.join(", ")})`);
+  }
+  for (const l of unknownLocations) {
+    console.log(`  · La cuenta "${l.id}" dice trabajar en el local "${l.slug}", que no existe (revisa koibox.accounts en el config)`);
   }
 }
 

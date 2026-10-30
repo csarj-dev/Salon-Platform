@@ -48,6 +48,8 @@
     "dayUnavailable": "no availability",
     "noSlotsMonth": "No slots this month. Try another month.",
     "noSlotsAtAll": "There are no slots available for this service right now.",
+    "agendaUnavailable": "We can't check the schedule right now. Please try again in a few minutes, or message us on WhatsApp and we'll find you a slot.",
+    "agendaUnavailableWhatsApp": "Message us on WhatsApp",
     "nextAvailable": "Next available: {day}",
     "timesFor": "Available times · {day}",
     "stepDetails": "Your details",
