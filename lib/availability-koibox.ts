@@ -105,12 +105,23 @@ async function localBusy(staffIds: number[], from: string, to: string, zone: str
 
 async function snapshotsFor(team: KoiboxTeamMember[], from: string, to: string, load: SnapshotLoader) {
   const accounts = [...new Set(team.map((m) => m.account))];
+  let snapshots: Record<string, KoiboxSnapshot>;
   try {
     const loaded = await Promise.all(accounts.map((a) => load(a, from, to)));
-    return Object.fromEntries(accounts.map((a, i) => [a, loaded[i]]));
+    snapshots = Object.fromEntries(accounts.map((a, i) => [a, loaded[i]]));
   } catch (error) {
     throw new KoiboxUnavailableError(error);
   }
+  // Enlazada con una usuaria que no tiene horario en esa cuenta: nunca tendrá huecos.
+  // Suele ser un id de usuaria equivocado en db/koibox-link.ts.
+  for (const m of team) {
+    if (!snapshots[m.account].schedules.some((s) => s.user === m.koiboxUserId)) {
+      console.warn(
+        `[koibox] ${m.staffName} está enlazada con la usuaria ${m.koiboxUserId} de "${m.account}", que no tiene horario en Koibox (revisa el id con db/koibox-try.ts)`,
+      );
+    }
+  }
+  return snapshots;
 }
 
 // Huecos de todos los días entre dos fechas (el calendario y las horas de cada día).
