@@ -118,7 +118,18 @@ const koiboxAccountSchema = z.object({
   keyEnv: z
     .string()
     .regex(/^KOIBOX_KEY_[A-Z0-9_]+$/, "Nombre de variable tipo KOIBOX_KEY_SALON"),
+  // Locales (por su slug) donde trabaja esta cuenta. Sin esto, vale para todos los locales.
+  locations: z
+    .array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug del local, por ejemplo the-room-studio"))
+    .min(1)
+    .optional(),
 });
+
+// De dónde salen los huecos de la reserva web:
+// "local": turnos, citas y ausencias de nuestra base de datos (como hasta ahora).
+// "koibox": horarios, citas y bloqueos de las cuentas de Koibox del salón.
+export const AVAILABILITY_SOURCES = ["local", "koibox"] as const;
+export type AvailabilitySource = (typeof AVAILABILITY_SOURCES)[number];
 
 const koiboxSchema = z.object({
   accounts: z
@@ -157,6 +168,7 @@ export const salonConfigSchema = z
       maxDaysAhead: z.number().int().positive().default(60),
       cancellationNoticeHours: z.number().min(0).default(24),
       deposit: depositSchema.prefault({}),
+      availability: z.enum(AVAILABILITY_SOURCES).default("local"),
     }),
     // Sin `koibox` (o sin cuentas) el salón no usa Koibox
     koibox: koiboxSchema.prefault({}),
@@ -208,6 +220,15 @@ export const salonConfigSchema = z
       }
     }
 
+    // Sacar los huecos de Koibox sin ninguna cuenta no tiene sentido
+    if (c.booking.availability === "koibox" && Object.keys(c.koibox.accounts).length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["booking", "availability"],
+        message: 'Los huecos vienen de "koibox" pero no hay cuentas en koibox.accounts',
+      });
+    }
+
     // Dos cuentas con la misma clave serían el mismo centro de Koibox
     const keyOwners = new Map<string, string>();
     for (const [id, account] of Object.entries(c.koibox.accounts)) {
@@ -240,16 +261,25 @@ export type GalleryItem = SalonConfig["gallery"][number];
 export type HeroConfig = NonNullable<SalonConfig["hero"]>;
 export type KoiboxConfig = SalonConfig["koibox"];
 
-// Variables de entorno que pisan valores del archivo de config.
-// Hoy solo SALON_WHATSAPP; así un número personal de pruebas no se sube al repo.
+// Variables de entorno que pisan valores del archivo de config:
+// - SALON_WHATSAPP: así un número personal de pruebas no se sube al repo.
+// - BOOKING_AVAILABILITY ("local" o "koibox"): para probar el modo Koibox en local sin tocar el config.
 export function applyEnvOverrides(
   raw: Record<string, unknown>,
   env: Record<string, string | undefined>,
 ): Record<string, unknown> {
+  let out = raw;
   const whatsapp = env.SALON_WHATSAPP?.trim();
-  if (!whatsapp) return raw;
-  const contact = (raw.contact ?? {}) as Record<string, unknown>;
-  return { ...raw, contact: { ...contact, whatsapp } };
+  if (whatsapp) {
+    const contact = (out.contact ?? {}) as Record<string, unknown>;
+    out = { ...out, contact: { ...contact, whatsapp } };
+  }
+  const availability = env.BOOKING_AVAILABILITY?.trim();
+  if (availability) {
+    const booking = (out.booking ?? {}) as Record<string, unknown>;
+    out = { ...out, booking: { ...booking, availability } };
+  }
+  return out;
 }
 
 // Lee SALON_ID del entorno, carga salons/<id>/config.ts y lo valida

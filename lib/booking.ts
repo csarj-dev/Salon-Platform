@@ -1,16 +1,19 @@
 import { and, eq, lte } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, client, location, locationService, service } from "../db/schema";
+import { appointment, client, location, locationService, service, staffService } from "../db/schema";
 import { bookingInputSchema } from "./booking-schema";
 import { getAvailabilityForDay, type AvailabilityOptions } from "./availability-db";
 import { depositDueAt } from "./deposit";
-import { toAvailabilityOptions, type SalonConfig } from "./salon-config";
+import { toAvailabilityOptions, type AvailabilitySource, type SalonConfig } from "./salon-config";
 
 export type BookingOptions = AvailabilityOptions & {
   maxDaysAhead: number;
   // Horas que se guarda el hueco esperando el depósito (por defecto, 24)
   depositHoldHours?: number;
+  // De dónde salen los huecos (por defecto, "local"). Con "koibox" la hora ya la comprobó
+  // confirmBookingSlot contra Koibox, y aquí no se miran nuestros turnos.
+  availability?: AvailabilitySource;
 };
 
 export function toBookingOptions(c: SalonConfig): BookingOptions {
@@ -18,6 +21,7 @@ export function toBookingOptions(c: SalonConfig): BookingOptions {
     ...toAvailabilityOptions(c),
     maxDaysAhead: c.booking.maxDaysAhead,
     depositHoldHours: c.booking.deposit.holdHours,
+    availability: c.booking.availability,
   };
 }
 
@@ -86,19 +90,36 @@ export async function createAppointment(
   // 3. Comprobación previa: el hueco debe estar entre los disponibles.
   //    Cubre servicio ofrecido en el local, profesional que lo hace,
   //    turnos, bloqueos y antelación mínima. Sirve para dar un error claro.
-  const date = DateTime.fromJSDate(input.startsAt, { zone: opts.zone }).toISODate();
-  if (!date) return { ok: false, reason: "slot_unavailable" };
+  if (opts.availability === "koibox") {
+    // Turnos y bloqueos están en Koibox y ya se comprobaron antes de llamar aquí
+    // (confirmBookingSlot). Aquí solo: el local ofrece el servicio, la profesional lo hace
+    // y se respeta la antelación mínima.
+    const earliest = now.getTime() + opts.minNoticeHours * 3_600_000;
+    if (input.startsAt.getTime() < earliest) return { ok: false, reason: "slot_unavailable" };
+    const [offered] = await db
+      .select({ serviceId: locationService.serviceId })
+      .from(locationService)
+      .innerJoin(
+        staffService,
+        and(eq(staffService.serviceId, locationService.serviceId), eq(staffService.staffId, input.staffId)),
+      )
+      .where(and(eq(locationService.locationId, input.locationId), eq(locationService.serviceId, input.serviceId)));
+    if (!offered) return { ok: false, reason: "slot_unavailable" };
+  } else {
+    const date = DateTime.fromJSDate(input.startsAt, { zone: opts.zone }).toISODate();
+    if (!date) return { ok: false, reason: "slot_unavailable" };
 
-  const slots = await getAvailabilityForDay(
-    input.locationId,
-    input.staffId,
-    input.serviceId,
-    date,
-    opts,
-    now,
-  );
-  if (!slots.some((s) => s.getTime() === input.startsAt.getTime())) {
-    return { ok: false, reason: "slot_unavailable" };
+    const slots = await getAvailabilityForDay(
+      input.locationId,
+      input.staffId,
+      input.serviceId,
+      date,
+      opts,
+      now,
+    );
+    if (!slots.some((s) => s.getTime() === input.startsAt.getTime())) {
+      return { ok: false, reason: "slot_unavailable" };
+    }
   }
 
   // 4. Transacción: cliente y cita se crean juntos o no se crea nada.

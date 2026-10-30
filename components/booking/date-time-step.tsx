@@ -5,14 +5,15 @@ import { Link } from "@/i18n/navigation";
 import { BookingForm } from "@/components/booking/booking-form";
 import { MonthCalendar } from "@/components/booking/month-calendar";
 import { Chosen, Heading, bookingHref } from "@/components/booking/step-ui";
-import { getAvailabilityForRange } from "@/lib/availability-range";
 import type { ServiceAvailability } from "@/lib/availability-service";
 import type { Flow } from "@/lib/booking-flow";
 import { addMonths, firstWeekdayOf, monthOfDay } from "@/lib/calendar";
 import type { CatalogService } from "@/lib/catalog";
 import { formatDateTime, formatDayLong, formatPrice, formatTime } from "@/lib/format";
-import { toAvailabilityOptions, type SalonConfig } from "@/lib/salon-config";
 import { needsWhatsAppTab } from "@/lib/whatsapp-tab";
+import { KoiboxUnavailableError, confirmBookingSlot, getBookingAvailability } from "@/lib/availability-source";
+import type { SalonConfig } from "@/lib/salon-config";
+import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 
 const DAY_FORMAT = "yyyy-MM-dd";
 
@@ -37,16 +38,41 @@ export async function DateTimeStep({
 }: Props) {
   const t = await getTranslations("Booking");
   const zone = config.timezone;
-  const opts = toAvailabilityOptions(config);
 
   // Primer y último día en los que se puede reservar (fecha local del salón)
   const todayDt = DateTime.fromJSDate(now, { zone }).startOf("day");
   const today = todayDt.toFormat(DAY_FORMAT);
   const last = todayDt.plus({ days: config.booking.maxDaysAhead }).toFormat(DAY_FORMAT);
 
-  // Los huecos de TODO el rango reservable, con unas 6 consultas en total (ver availability-range.ts).
+  // Si Koibox no responde, no se enseñan horas (podrían estar ya ocupadas): aviso y WhatsApp
+  const agendaUnavailable = (
+    <div className="space-y-6">
+      <div className="space-y-2">{summary}</div>
+      <section className="space-y-3 rounded-lg border bg-muted/50 p-4" role="status">
+        <p>{t("agendaUnavailable")}</p>
+        {config.contact.whatsapp ? (
+          <a
+            href={buildWhatsAppLink(config.contact.whatsapp)}
+            className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+          >
+            {t("agendaUnavailableWhatsApp")}
+          </a>
+        ) : null}
+      </section>
+    </div>
+  );
+
+  // Los huecos de TODO el rango reservable de una vez: en modo local con unas 6 consultas
+  // (availability-range.ts); en modo Koibox con los datos de cada cuenta, en caché 2 minutos.
   // Así el calendario puede marcar qué días tienen huecos y cambiar de mes sin más cálculo.
-  const availability = await getAvailabilityForRange(location.id, service.id, today, last, opts, now);
+  let availability: Map<string, ServiceAvailability>;
+  try {
+    availability = await getBookingAvailability(config, location.id, service.id, today, last, now);
+  } catch (error) {
+    if (!(error instanceof KoiboxUnavailableError)) throw error;
+    console.error(error);
+    return agendaUnavailable;
+  }
 
   // Huecos de cada día para la profesional elegida (o de cualquiera, juntando a todas)
   const slotsOf = (a: ServiceAvailability): Date[] =>
@@ -72,7 +98,19 @@ export async function DateTimeStep({
   if (flow.at) {
     const at = new Date(flow.at);
     const atDay = DateTime.fromJSDate(at, { zone }).toFormat(DAY_FORMAT);
-    const stillFree = (slotsByDay.get(atDay) ?? []).some((s) => s.getTime() === at.getTime());
+    let stillFree = (slotsByDay.get(atDay) ?? []).some((s) => s.getTime() === at.getTime());
+
+    // En modo Koibox, antes de pedir los datos se confirma con Koibox sin caché
+    if (stillFree && config.booking.availability === "koibox") {
+      try {
+        const staffChoice = member === "any" ? "any" : member.id;
+        stillFree = (await confirmBookingSlot(config, location.id, service.id, staffChoice, at, now)) !== null;
+      } catch (error) {
+        if (!(error instanceof KoiboxUnavailableError)) throw error;
+        console.error(error);
+        return agendaUnavailable;
+      }
+    }
 
     if (stillFree) {
       const changeHref = bookingHref({ ...base, month: monthOfDay(atDay), date: atDay }, "times");

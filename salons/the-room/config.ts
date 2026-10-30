@@ -20,6 +20,9 @@ const config = {
     maxDaysAhead: 60,
     cancellationNoticeHours: 24,
     channels: ["online", "whatsapp"],
+    // De dónde salen los huecos: "local" hasta tener las claves de Koibox; luego "koibox".
+    // Para probar en local sin tocar esto: BOOKING_AVAILABILITY=koibox en el .env
+    availability: "local",
     // Depósitos: el importe se pone en cada servicio (npx tsx db/service-deposit.ts)
     // Los textos de abajo son de ejemplo hasta que el salón confirme los suyos.
     deposit: {
@@ -40,9 +43,9 @@ const config = {
   // Las claves van en Vercel (Settings → Environment Variables), nunca en este archivo.
   koibox: {
     accounts: {
-      salon: { label: "Cuenta del salón (TR Studio)", keyEnv: "KOIBOX_KEY_SALON" },
-      amanda: { label: "Cuenta de Amanda", keyEnv: "KOIBOX_KEY_AMANDA" },
-      luz: { label: "Cuenta de Luz (TR Micros)", keyEnv: "KOIBOX_KEY_LUZ" },
+      salon: { label: "Cuenta del salón (TR Studio)", keyEnv: "KOIBOX_KEY_SALON", locations: ["the-room-studio"] },
+      amanda: { label: "Cuenta de Amanda", keyEnv: "KOIBOX_KEY_AMANDA", locations: ["the-room-studio"] },
+      luz: { label: "Cuenta de Luz (TR Micros)", keyEnv: "KOIBOX_KEY_LUZ", locations: ["the-room-micropigmentacion"] },
     },
   },
   theme: {

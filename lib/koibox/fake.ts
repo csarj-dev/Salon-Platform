@@ -2,12 +2,16 @@
 // Sirve para desarrollar sin clave (KOIBOX_DRIVER=fake) y para los tests.
 // Imita lo que nos importa del real: clave por centro, páginas de 50, citas que no se
 // pueden pisar, estados, PATCH de la cita y el límite de llamadas por minuto (429).
-// No imita todo (servicios combinados, ventas, bloqueos...): eso llega en otras entregas.
+// También da horarios y bloqueos, y calcula los huecos libres con ellos.
+// No imita todo (servicios combinados, ventas...): eso llega en otras entregas.
 // Por dentro guarda los datos con nombres nuestros; hacia fuera responde con los de Koibox.
+import { WEEKDAY_FIELDS, blockOccursOn, shiftsOn } from "./schedule";
 import { KOIBOX_STATUS, freesSlot } from "./statuses";
-import type { KoiboxAppointment, KoiboxClient, KoiboxTag } from "./types";
+import type { KoiboxAppointment, KoiboxBlock, KoiboxClient, KoiboxSchedule, KoiboxTag } from "./types";
 
-export type FakeUser = { id: number; name: string; from?: string; to?: string }; // horario "09:00"-"20:00"
+// Profesional con su horario de siempre: de `from` a `to` los días `days` (1 = lunes).
+// Por defecto, de 09:00 a 20:00 de lunes a sábado.
+export type FakeUser = { id: number; name: string; from?: string; to?: string; days?: number[] };
 export type FakeService = {
   id: number;
   name: string;
@@ -18,12 +22,24 @@ export type FakeService = {
   availableOnline?: boolean;
 };
 
+// Horario distinto solo una semana (week "01".."53", year "2026"). Día con null = libre.
+export type FakeWeekOverride = {
+  userId: number;
+  week: string;
+  year: string;
+  days: Partial<Record<number, [string, string] | null>>;
+};
+
+export type FakeBlock = { userId: number; date: string; start: string; end: string; recurrence?: string };
+
 export type FakeSeed = {
   name?: string;
   centerId?: number;
   users: FakeUser[];
   services: FakeService[];
   clients?: KoiboxClient[];
+  weekOverrides?: FakeWeekOverride[];
+  blocks?: FakeBlock[];
 };
 
 type StoredAppointment = {
@@ -42,6 +58,8 @@ type StoredAppointment = {
 
 type Center = {
   seed: FakeSeed & { centerId: number };
+  schedules: KoiboxSchedule[];
+  blocks: KoiboxBlock[];
   clients: KoiboxClient[];
   appointments: StoredAppointment[];
   nextId: number;
@@ -82,8 +100,20 @@ export function createFakeKoibox(centersByKey: Record<string, FakeSeed>, opts: F
   for (const [key, seed] of Object.entries(centersByKey)) {
     const clients = (seed.clients ?? []).map((c) => ({ ...c }));
     const maxId = Math.max(0, ...clients.map((c) => c.id));
+    const centerId = seed.centerId ?? ++nextCenterId;
     centers.set(key, {
-      seed: { ...seed, centerId: seed.centerId ?? ++nextCenterId },
+      seed: { ...seed, centerId },
+      schedules: buildSchedules(seed, centerId),
+      blocks: (seed.blocks ?? []).map((b, i) => ({
+        id: i + 1,
+        user: b.userId,
+        fecha: b.date,
+        hora_inicio: withSeconds(b.start),
+        hora_fin: withSeconds(b.end),
+        titulo: "Bloqueo",
+        recurrencia: b.recurrence ?? "none",
+        is_online: false,
+      })),
       clients,
       appointments: [],
       nextId: maxId + 1,
@@ -130,6 +160,19 @@ export function createFakeKoibox(centersByKey: Record<string, FakeSeed>, opts: F
         !freesSlot(o.status) &&
         toMinutes(o.start) < end &&
         start < toMinutes(o.end),
+    );
+  }
+
+  // ¿Pisa un bloqueo de esa profesional ese día?
+  function blocked(center: Center, a: { userId: number; date: string; start: string; end: string }) {
+    const start = toMinutes(a.start);
+    const end = toMinutes(a.end);
+    return center.blocks.some(
+      (b) =>
+        b.user === a.userId &&
+        blockOccursOn({ date: b.fecha, recurrence: b.recurrencia ?? "none" }, a.date) &&
+        toMinutes(b.hora_inicio) < end &&
+        start < toMinutes(b.hora_fin),
     );
   }
 
@@ -193,9 +236,11 @@ export function createFakeKoibox(centersByKey: Record<string, FakeSeed>, opts: F
       );
       const out: { user: number; hora: string }[] = [];
       for (const u of users) {
-        for (let t = toMinutes(u.from ?? "09:00"); t + total <= toMinutes(u.to ?? "20:00"); t += stepMin) {
-          const slot = { userId: u.id, date, start: toTime(t), end: toTime(t + total) };
-          if (!overlaps(center, slot)) out.push({ user: u.id, hora: slot.start.slice(0, 5) });
+        for (const shift of shiftsOn(center.schedules, u.id, date)) {
+          for (let t = toMinutes(shift.start); t + total <= toMinutes(shift.end); t += stepMin) {
+            const slot = { userId: u.id, date, start: toTime(t), end: toTime(t + total) };
+            if (!overlaps(center, slot) && !blocked(center, slot)) out.push({ user: u.id, hora: slot.start.slice(0, 5) });
+          }
         }
       }
       // Por defecto Koibox da una sola profesional por hora
@@ -204,6 +249,18 @@ export function createFakeKoibox(centersByKey: Record<string, FakeSeed>, opts: F
         return json(200, out.filter((h) => !seen.has(h.hora) && seen.add(h.hora)));
       }
       return json(200, out);
+    }
+
+    if (method === "GET" && path === "/horarios/") {
+      const user = url.searchParams.get("user");
+      return page(url, center.schedules.filter((s) => !user || s.user === Number(user)));
+    }
+
+    if (method === "GET" && path === "/bloqueos/") {
+      const from = url.searchParams.get("fecha__gte")?.slice(0, 10);
+      const to = url.searchParams.get("fecha__lte")?.slice(0, 10);
+      const items = center.blocks.filter((b) => (!from || b.fecha >= from) && (!to || b.fecha <= to));
+      return page(url, items);
     }
 
     if (method === "GET" && path === "/clientes/") {
@@ -259,7 +316,7 @@ export function createFakeKoibox(centersByKey: Record<string, FakeSeed>, opts: F
       if (toMinutes(appointment.end) <= toMinutes(appointment.start)) {
         return json(400, { hora_fin: ["Debe ser posterior al inicio."] });
       }
-      if (!freesSlot(appointment.status) && overlaps(center, appointment)) {
+      if (!freesSlot(appointment.status) && (overlaps(center, appointment) || blocked(center, appointment))) {
         return json(400, { non_field_errors: ["La profesional ya tiene una cita a esa hora."] });
       }
       center.appointments.push(appointment);
@@ -358,6 +415,31 @@ export type FakeKoibox = ReturnType<typeof createFakeKoibox>;
 // "10:00" -> "10:00:00"
 function withSeconds(t: string): string {
   return /^\d{2}:\d{2}$/.test(t) ? `${t}:00` : t;
+}
+
+// Horarios como los devuelve Koibox: uno "de siempre" por profesional y uno por cada semana distinta
+function buildSchedules(seed: FakeSeed, centerId: number): KoiboxSchedule[] {
+  const day = (range: [string, string] | null | undefined) =>
+    range ? { hora_inicio: withSeconds(range[0]), hora_fin: withSeconds(range[1]) } : null;
+  const row = (id: number, userId: number, week: string | null, year: string | null, byDay: (d: number) => [string, string] | null) =>
+    ({
+      id,
+      user: userId,
+      centro: centerId,
+      week,
+      year,
+      ...Object.fromEntries(WEEKDAY_FIELDS.map((field, i) => [field, day(byDay(i + 1))])),
+    }) as KoiboxSchedule;
+
+  const usual = seed.users.map((u, i) =>
+    row(i + 1, u.id, null, null, (d) =>
+      (u.days ?? [1, 2, 3, 4, 5, 6]).includes(d) ? [u.from ?? "09:00", u.to ?? "20:00"] : null,
+    ),
+  );
+  const weeks = (seed.weekOverrides ?? []).map((o, i) =>
+    row(seed.users.length + i + 1, o.userId, o.week, o.year, (d) => o.days[d] ?? null),
+  );
+  return [...usual, ...weeks];
 }
 
 // Datos de ejemplo para KOIBOX_DRIVER=fake: dos profesionales y dos servicios por cuenta.

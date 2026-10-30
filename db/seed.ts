@@ -47,16 +47,17 @@ async function main() {
   const [centro, sur] = await db
     .insert(location)
     .values([
+      // Mismos nombres y direcciones que initialLocations en salons/the-room/config.ts
       {
-        name: "The Room Centro",
-        slug: slugify("The Room Centro"),
-        address: "Dirección de ejemplo 1",
+        name: "The Room Studio",
+        slug: slugify("The Room Studio"),
+        address: "Luján Pérez, 27, Adeje",
         mapsUrl: "https://www.google.com/maps/search/?api=1&query=Adeje+Tenerife",
       },
       {
-        name: "The Room Sur",
-        slug: slugify("The Room Sur"),
-        address: "Dirección de ejemplo 2",
+        name: "The Room Micropigmentacion",
+        slug: slugify("The Room Micropigmentacion"),
+        address: "Plaza César Manrique, 10, Local 3, Adeje",
         mapsUrl: "https://www.google.com/maps/search/?api=1&query=Costa+Adeje+Tenerife",
       },
     ])

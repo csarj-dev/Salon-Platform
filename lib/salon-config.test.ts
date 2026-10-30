@@ -379,5 +379,40 @@ describe("config de The Room", () => {
     const raw = (await import("../salons/the-room/config")).default;
     const c = salonConfigSchema.parse(raw);
     expect(Object.keys(c.koibox.accounts)).toEqual(["salon", "amanda", "luz"]);
+    // Hasta tener las claves, los huecos siguen saliendo de nuestra base
+    expect(c.booking.availability).toBe("local");
+  });
+});
+
+describe("salonConfigSchema · de dónde salen los huecos", () => {
+  const accounts = { salon: { label: "Cuenta", keyEnv: "KOIBOX_KEY_SALON" } };
+
+  it("por defecto, de nuestra base (local)", () => {
+    expect(salonConfigSchema.parse(valid).booking.availability).toBe("local");
+  });
+
+  it("con koibox hacen falta cuentas", () => {
+    expect(() => salonConfigSchema.parse({ ...valid, booking: { availability: "koibox" } })).toThrow(/koibox.accounts/);
+    const c = salonConfigSchema.parse({ ...valid, booking: { availability: "koibox" }, koibox: { accounts } });
+    expect(c.booking.availability).toBe("koibox");
+  });
+
+  it("rechaza un valor desconocido", () => {
+    expect(() => salonConfigSchema.parse({ ...valid, booking: { availability: "google" } })).toThrow();
+  });
+
+  it("los locales de una cuenta van por slug", () => {
+    const ok = { salon: { ...accounts.salon, locations: ["the-room-studio"] } };
+    expect(salonConfigSchema.parse({ ...valid, koibox: { accounts: ok } }).koibox.accounts.salon.locations).toEqual([
+      "the-room-studio",
+    ]);
+    const bad = { salon: { ...accounts.salon, locations: ["The Room Studio"] } };
+    expect(() => salonConfigSchema.parse({ ...valid, koibox: { accounts: bad } })).toThrow();
+  });
+
+  it("BOOKING_AVAILABILITY en el entorno pisa el config", () => {
+    const raw = applyEnvOverrides({ ...valid, koibox: { accounts } }, { BOOKING_AVAILABILITY: "koibox" });
+    expect(salonConfigSchema.parse(raw).booking.availability).toBe("koibox");
+    expect(applyEnvOverrides(valid, {})).toBe(valid);
   });
 });
