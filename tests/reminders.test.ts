@@ -14,14 +14,15 @@ import { latestEmailByAppointment } from "../lib/email/email-status";
 import { findDueReminders, sendDueReminders } from "../lib/email/reminders";
 import { salonConfigSchema } from "../lib/salon-config";
 
-const config = salonConfigSchema.parse({
+const configInput = {
   name: "Salón de prueba",
   timezone: "Atlantic/Canary",
   locales: ["es", "en"],
   defaultLocale: "es",
   contact: { email: "hola@salon.test" },
   booking: {},
-});
+};
+const config = salonConfigSchema.parse(configInput);
 
 const opts: BookingOptions = {
   zone: "Atlantic/Canary",
@@ -199,6 +200,22 @@ describe("sendDueReminders", () => {
     await run(fakeSender({ ok: false, error: "caído" }).send);
     expect(await run(fakeSender().send)).toMatchObject({ sent: 1 });
     expect(await run(fakeSender().send)).toMatchObject({ checked: 0 });
+  });
+});
+
+describe("recordatorios apagados en el config", () => {
+  it("no envía nada y lo indica", async () => {
+    await makeAppointment("a@example.com", { startsAt: hoursFrom(20), createdAt: hoursFrom(-72) });
+    const off = salonConfigSchema.parse({ ...configInput, email: { reminders: false } });
+    const { sent, send } = fakeSender();
+
+    const summary = await sendDueReminders(NOW, { send, config: off, loadMessagesFor: messagesFor });
+    expect(summary).toEqual({ checked: 0, sent: 0, failed: 0, skipped: 0, disabled: true });
+    expect(sent).toHaveLength(0);
+    expect(await db.select().from(emailLog)).toHaveLength(0);
+
+    // Al encenderlos, ese mismo recordatorio sale con normalidad
+    expect(await run(send)).toMatchObject({ sent: 1 });
   });
 });
 

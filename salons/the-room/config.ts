@@ -48,6 +48,11 @@ const config = {
       luz: { label: "Cuenta de Luz (TR Micros)", keyEnv: "KOIBOX_KEY_LUZ", locations: ["the-room-micropigmentacion"] },
     },
   },
+  email: {
+    // Recordatorio por correo antes de la cita. Si se confirma que Koibox ya los manda
+    // en las tres cuentas, poner false para que la clienta no reciba dos.
+    reminders: true,
+  },
   theme: {
     background: "#f7f1ea",
     foreground: "#231f20",

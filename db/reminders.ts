@@ -14,6 +14,10 @@ async function main() {
     return;
   }
   const summary = await sendDueReminders(now);
+  if (summary.disabled) {
+    console.log("Los recordatorios están apagados en el config del salón (email.reminders: false).");
+    return;
+  }
   console.log(
     `Recordatorios: ${summary.checked} pendientes, ${summary.sent} enviados, ${summary.failed} fallidos, ${summary.skipped} omitidos.`,
   );

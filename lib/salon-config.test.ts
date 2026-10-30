@@ -416,3 +416,17 @@ describe("salonConfigSchema · de dónde salen los huecos", () => {
     expect(applyEnvOverrides(valid, {})).toBe(valid);
   });
 });
+
+describe("salonConfigSchema · correos", () => {
+  it("por defecto se mandan los recordatorios", () => {
+    expect(salonConfigSchema.parse(valid).email.reminders).toBe(true);
+  });
+
+  it("se pueden apagar", () => {
+    expect(salonConfigSchema.parse({ ...valid, email: { reminders: false } }).email.reminders).toBe(false);
+  });
+
+  it("rechaza un valor que no es sí o no", () => {
+    expect(() => salonConfigSchema.parse({ ...valid, email: { reminders: "no" } })).toThrow();
+  });
+});
