@@ -70,6 +70,9 @@ export type FakeOptions = {
   now?: () => number;
   ratePerMinute?: number; // 60 por defecto, como Koibox
   stepMin?: number; // paso de los huecos libres (30 por defecto)
+  // Primer id para clientas y citas nuevas. El Koibox de desarrollo empieza en uno distinto
+  // cada vez que arranca: si no, tras reiniciar repetiría ids que ya guardó nuestra base.
+  firstId?: number;
 };
 
 type Failure = { status: number; body?: unknown; headers?: Record<string, string> };
@@ -116,7 +119,7 @@ export function createFakeKoibox(centersByKey: Record<string, FakeSeed>, opts: F
       })),
       clients,
       appointments: [],
-      nextId: maxId + 1,
+      nextId: Math.max(maxId + 1, opts.firstId ?? 1),
       calls: [],
     });
   }

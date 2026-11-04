@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, isNotNull, lte, notExists, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { appointment, emailLog } from "../../db/schema";
+import { loadSalonConfig } from "../salon-config";
 import { sendAppointmentEmail } from "./appointment-email";
 import {
   isReminderDue,
@@ -75,6 +76,8 @@ export type ReminderSummary = {
   failed: number;
   // Otra ejecución se adelantó o la clienta ya no tiene email
   skipped: number;
+  // El salón tiene apagados los recordatorios (email.reminders: false)
+  disabled?: true;
 };
 
 type SendOptions = NonNullable<Parameters<typeof sendAppointmentEmail>[2]>;
@@ -85,12 +88,16 @@ export async function sendDueReminders(
   now: Date = new Date(),
   opts: Omit<SendOptions, "now"> = {},
 ): Promise<ReminderSummary> {
+  const config = opts.config ?? (await loadSalonConfig());
+  // Recordatorios apagados (p. ej. porque ya los manda Koibox): no se busca ni se envía nada
+  if (!config.email.reminders) return { checked: 0, sent: 0, failed: 0, skipped: 0, disabled: true };
+
   const due = await findDueReminders(now);
   const summary: ReminderSummary = { checked: due.length, sent: 0, failed: 0, skipped: 0 };
 
   // Uno detrás de otro: son pocos y así no se supera el límite por segundo del proveedor
   for (const item of due) {
-    const outcome = await sendAppointmentEmail(item.id, "reminder", { ...opts, now });
+    const outcome = await sendAppointmentEmail(item.id, "reminder", { ...opts, config, now });
     if (outcome.ok) summary.sent++;
     else if (outcome.reason === "send_failed") summary.failed++;
     else summary.skipped++;

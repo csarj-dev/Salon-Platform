@@ -10,6 +10,7 @@ import { KoiboxUnavailableError, confirmBookingSlot } from "@/lib/availability-s
 import { parseFlowParams } from "@/lib/booking-flow";
 import { clientFormSchema } from "@/lib/booking-schema";
 import { createAppointment, toBookingOptions } from "@/lib/booking";
+import { pushNewWebBooking, writesToKoibox } from "@/lib/koibox-sync";
 import { paysThroughWhatsApp } from "@/lib/deposit";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -115,6 +116,14 @@ export async function submitBooking(
       if (result.reason === "invalid_input") return { error: "invalid", values };
       return { error: "slot_unavailable", values };
     }
+
+    // 5. Con Koibox: apuntarla allí. Si Koibox no la acepta, nuestra cita queda anulada
+    //    y la clienta elige otra hora. Va antes del correo, para no confirmar algo que no vale.
+    if (writesToKoibox(config)) {
+      const pushed = await pushNewWebBooking(result.appointmentId, config, { now });
+      if (!pushed.ok) return { error: pushed.reason, values };
+    }
+
     publicToken = result.publicToken;
     // Sin depósito, la cita ya está confirmada: se avisa por correo después de responder.
     // Con depósito, el correo sale cuando recepción valida el pago.

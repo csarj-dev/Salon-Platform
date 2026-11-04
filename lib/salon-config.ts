@@ -140,6 +140,14 @@ const koiboxSchema = z.object({
     .default({}),
 });
 
+// Correos que manda la web a la clienta. La confirmación y la cancelación salen siempre:
+// llevan el enlace a su cita, que solo tiene nuestra web.
+const emailSchema = z.object({
+  // Recordatorio antes de la cita. Apagar si el salón ya lo manda desde Koibox,
+  // para que la clienta no reciba dos.
+  reminders: z.boolean().default(true),
+});
+
 export const salonConfigSchema = z
   .object({
     name: z.string().min(1),
@@ -172,6 +180,7 @@ export const salonConfigSchema = z
     }),
     // Sin `koibox` (o sin cuentas) el salón no usa Koibox
     koibox: koiboxSchema.prefault({}),
+    email: emailSchema.prefault({}),
   })
   .superRefine((c, ctx) => {
     // Un canal de WhatsApp sin número no tiene sentido

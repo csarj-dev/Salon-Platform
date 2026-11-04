@@ -6,6 +6,7 @@
 import "dotenv/config";
 import { pgClient } from "./index";
 import { expireOverdueDeposits, listDeposits, markDepositPaid, type DepositRow } from "../lib/deposit-db";
+import { syncKoiboxChange } from "../lib/koibox-sync";
 import { parseDepositsArgs } from "../lib/deposit-cli";
 import { formatDateTime, formatPrice } from "../lib/format";
 import { loadSalonConfig } from "../lib/salon-config";
@@ -42,6 +43,7 @@ async function main() {
     const r = await markDepositPaid(cmd.appointmentId);
     if (r.ok) {
       console.log(`Cita #${cmd.appointmentId}: depósito recibido, cita confirmada.`);
+      await syncKoiboxChange(cmd.appointmentId, { kind: "deposit_paid" }, config);
     } else if (r.reason === "not_found") {
       throw new Error(`No existe la cita #${cmd.appointmentId}`);
     } else if (r.reason === "expired") {

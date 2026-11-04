@@ -27,7 +27,8 @@ function fakeFor(accountIds: string[]): FakeKoibox {
   const signature = accountIds.join(",");
   if (!devFake || devFake.accounts !== signature) {
     const centers = Object.fromEntries(accountIds.map((id, i) => [fakeKey(id), demoSeed(id, i)]));
-    devFake = { fake: createFakeKoibox(centers), accounts: signature };
+    // Ids a partir de los segundos actuales: no se repiten entre un arranque y el siguiente
+    devFake = { fake: createFakeKoibox(centers, { firstId: Math.floor(Date.now() / 1000) }), accounts: signature };
   }
   return devFake.fake;
 }
