@@ -10,6 +10,7 @@ import { appointment } from "@/db/schema";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
+import { syncKoiboxChange } from "@/lib/koibox-sync";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
@@ -47,8 +48,10 @@ export async function validateDepositAction(appointmentId: number): Promise<Staf
     console.error("[appointments] validate", error);
     return { ok: false, error: "server" };
   }
-  // La cita queda confirmada: se avisa a la clienta por correo después de responder
+  // La cita queda confirmada: se avisa a la clienta por correo y se cambia la etiqueta
+  // en Koibox, las dos cosas después de responder
   after(() => sendAppointmentEmail(appointmentId, "confirmation"));
+  after(async () => syncKoiboxChange(appointmentId, { kind: "deposit_paid" }, await loadSalonConfig()));
   refresh(locale);
   return { ok: true };
 }
@@ -82,6 +85,13 @@ export async function cancelAppointmentAction(
     return { ok: false, error: "server" };
   }
   after(() => sendAppointmentEmail(appointmentId, "cancellation"));
+  after(async () =>
+    syncKoiboxChange(
+      appointmentId,
+      { kind: "cancelled_by_staff", reason: parsedReason.data },
+      await loadSalonConfig(),
+    ),
+  );
   refresh(locale);
   return { ok: true };
 }

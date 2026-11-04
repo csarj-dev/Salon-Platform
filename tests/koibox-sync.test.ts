@@ -16,6 +16,8 @@ import {
   applyKoiboxChange,
   moveAppointmentInKoibox,
   pushAppointmentToKoibox,
+  pushNewWebBooking,
+  syncKoiboxChange,
   writesToKoibox,
   type KoiboxApiFor,
 } from "../lib/koibox-sync";
@@ -200,6 +202,7 @@ describe("pushAppointmentToKoibox", () => {
     expect(r).toMatchObject({ ok: false, outcome: "rejected" });
     expect(fake.calls).toHaveLength(0);
     expect((await row(id)).koiboxError).toMatch(/Nerea no tiene cuenta de Koibox/);
+    expect(r).toMatchObject({ ok: false, outcome: "rejected", taken: false });
   });
 
   it("si Koibox rechaza la cita (hueco ocupado allí), es un no claro", async () => {
@@ -214,6 +217,7 @@ describe("pushAppointmentToKoibox", () => {
     const saved = await row(id);
     expect(saved.koiboxAppointmentId).toBeNull();
     expect(saved.koiboxError).toMatch(/Koibox respondió 400/);
+    expect(r).toMatchObject({ ok: false, outcome: "rejected", taken: true });
   });
 
   it("si se corta al crear la cita, no se sabe si llegó; el reintento la encuentra y no la duplica", async () => {
@@ -322,5 +326,81 @@ describe("moveAppointmentInKoibox", () => {
     expect(old.notas).toMatch(/Cambiada de hora desde la web al 02\/11 16:00$/);
     expect(fresh).toMatchObject({ hora_inicio: "16:00:00", estado: { value: KOIBOX_STATUS.PENDING } });
     expect((await row(id)).koiboxAppointmentId).toBe(fresh.id);
+  });
+});
+
+describe("pushNewWebBooking", () => {
+  const phoneBooking = () =>
+    api.createAppointment({
+      titulo: "Teléfono", fecha: MON, hora_inicio: "10:00:00", hora_fin: "11:00:00",
+      user: 11, cliente: 900, servicios: [501], estado: KOIBOX_STATUS.PENDING,
+    });
+
+  it("si Koibox la acepta, la reserva vale", async () => {
+    const id = await book("10:00");
+    expect(await pushNewWebBooking(id, config, { apiFor, now: NOW })).toEqual({ ok: true, synced: true });
+    expect((await row(id)).status).toBe("booked");
+  });
+
+  it("si la hora se acaba de ocupar en Koibox, anula la nuestra y libera el hueco", async () => {
+    await phoneBooking();
+    const id = await book("10:00");
+    expect(await pushNewWebBooking(id, config, { apiFor, now: NOW })).toEqual({ ok: false, reason: "slot_taken" });
+    expect(await row(id)).toMatchObject({
+      status: "cancelled",
+      cancelledAt: NOW,
+      cancelReason: "No se pudo apuntar en Koibox",
+    });
+    // El hueco queda libre en nuestra base: se puede volver a reservar
+    await expect(book("10:00")).resolves.toBeGreaterThan(id);
+  });
+
+  it("si falla por otra cosa (p. ej. sin enlazar), también se anula, con error de servidor", async () => {
+    const id = await book("10:00", undefined, { staffId: ids.nerea });
+    expect(await pushNewWebBooking(id, config, { apiFor, now: NOW })).toEqual({ ok: false, reason: "server" });
+    expect((await row(id)).status).toBe("cancelled");
+  });
+
+  it("si no se sabe si llegó, la reserva vale y queda marcada para el reintento", async () => {
+    const id = await book("10:00");
+    const down: typeof fetch = async (input, init) => {
+      if (init?.method === "POST" && String(input).includes("/agenda/")) throw new TypeError("fetch failed");
+      return fake.fetch(input, init);
+    };
+    const r = await pushNewWebBooking(id, config, {
+      apiFor: () => createKoiboxClient({ apiKey: "salon", fetchImpl: down, limiter: new RateLimiter(1000) }),
+      now: NOW,
+    });
+    expect(r).toEqual({ ok: true, synced: false });
+    const saved = await row(id);
+    expect(saved.status).toBe("booked");
+    expect(saved.koiboxAppointmentId).toBeNull();
+    expect(saved.koiboxError).toMatch(/Koibox no responde/);
+  });
+});
+
+describe("syncKoiboxChange", () => {
+  it("lleva el cambio a Koibox cuando Koibox manda en la agenda", async () => {
+    const id = await book("10:00");
+    await pushAppointmentToKoibox(id, config, { apiFor, now: NOW });
+    await syncKoiboxChange(id, { kind: "cancelled_by_staff", reason: "Enferma" }, config, { apiFor, now: NOW });
+    expect(inKoibox()[0].estado).toMatchObject({ value: KOIBOX_STATUS.CANCELLED });
+  });
+
+  it("con la agenda en local no toca Koibox", async () => {
+    const id = await book("10:00");
+    await pushAppointmentToKoibox(id, config, { apiFor, now: NOW });
+    const local = { ...config, booking: { ...config.booking, availability: "local" as const } };
+    const before = fake.calls.length;
+    await syncKoiboxChange(id, { kind: "cancelled_by_staff" }, local, { apiFor, now: NOW });
+    expect(fake.calls).toHaveLength(before);
+  });
+
+  it("si Koibox falla no lanza: lo deja apuntado en la cita", async () => {
+    const id = await book("10:00");
+    await pushAppointmentToKoibox(id, config, { apiFor, now: NOW });
+    fake.failNext(403);
+    await expect(syncKoiboxChange(id, { kind: "deposit_paid" }, config, { apiFor, now: NOW })).resolves.toBeUndefined();
+    expect((await row(id)).koiboxError).toMatch(/^deposit_paid:/);
   });
 });
