@@ -6,6 +6,11 @@ import { CreateUserForm } from "@/components/admin/create-user-form";
 import { UserRow } from "@/components/admin/user-row";
 import { requireStaff } from "@/lib/session";
 
+// El panel lee la sesión (cookies) antes de pintar nada: cada navegación espera al servidor.
+// Hacerlo instantáneo (sesión con "use cache: private" y datos en <Suspense>) queda para
+// cuando se trabaje el panel. Ver Notion: "Panel: quitar instant = false".
+export const instant = false;
+
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function UsersPage({ params }: Props) {
