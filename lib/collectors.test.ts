@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SINGLE_COLLECTOR_ID, resolveCollector, salonCollectors } from "./collectors";
+import { SINGLE_COLLECTOR_ID, chooseCollector, resolveCollector, salonCollectors } from "./collectors";
 import { salonConfigSchema } from "./salon-config";
 
 const base = {
@@ -83,6 +83,22 @@ describe("resolveCollector", () => {
   it("un cobrador que ya no está en el config se salta", () => {
     expect(resolveCollector(multi, { staffCollector: "antigua", koiboxAccount: "luz" }).id).toBe("luz");
     expect(resolveCollector(multi, { koiboxAccount: "cuenta-borrada" }).id).toBe("salon");
+  });
+});
+
+describe("chooseCollector", () => {
+  it("dice de dónde sale el cobrador", () => {
+    expect(chooseCollector(multi, { staffCollector: "luz" })).toMatchObject({ source: "staff", ignored: null });
+    expect(chooseCollector(multi, { koiboxAccount: "amanda" })).toMatchObject({ source: "account", ignored: null });
+    expect(chooseCollector(multi, { koiboxAccount: "salon" })).toMatchObject({ source: "default", ignored: null });
+  });
+
+  it("avisa del id guardado que ya no está en el config", () => {
+    expect(chooseCollector(multi, { staffCollector: "antigua", koiboxAccount: "amanda" })).toMatchObject({
+      collector: { id: "amanda" },
+      source: "account",
+      ignored: "antigua",
+    });
   });
 });
 

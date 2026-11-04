@@ -62,12 +62,33 @@ export type CollectorHints = {
   koiboxAccount?: string | null;
 };
 
-export function resolveCollector(config: CollectorsConfig, hints: CollectorHints = {}): Collector {
+export type CollectorChoice = {
+  collector: Collector;
+  // De dónde sale: de la profesional, de su cuenta de Koibox o el de por defecto
+  source: "staff" | "account" | "default";
+  // Un id guardado que ya no está en el config (se quitó ese cobrador): se ha saltado
+  ignored: string | null;
+};
+
+// Igual que resolveCollector, pero explica de dónde sale (para db/collectors.ts y el panel)
+export function chooseCollector(config: CollectorsConfig, hints: CollectorHints = {}): CollectorChoice {
   const { defaultId, byId } = salonCollectors(config);
-  // Un id que ya no está en el config (se quitó un cobrador) se salta: no se rompe la cita
-  const fromStaff = hints.staffCollector ? byId.get(hints.staffCollector) : undefined;
-  if (fromStaff) return fromStaff;
+  let ignored: string | null = null;
+
+  // Un id que ya no está en el config se salta: no se rompe la cita
+  if (hints.staffCollector) {
+    const fromStaff = byId.get(hints.staffCollector);
+    if (fromStaff) return { collector: fromStaff, source: "staff", ignored };
+    ignored = hints.staffCollector;
+  }
   const accountCollector = hints.koiboxAccount ? config.koibox.accounts[hints.koiboxAccount]?.collector : undefined;
-  const fromAccount = accountCollector ? byId.get(accountCollector) : undefined;
-  return fromAccount ?? byId.get(defaultId)!;
+  if (accountCollector) {
+    const fromAccount = byId.get(accountCollector);
+    if (fromAccount) return { collector: fromAccount, source: "account", ignored };
+  }
+  return { collector: byId.get(defaultId)!, source: "default", ignored };
+}
+
+export function resolveCollector(config: CollectorsConfig, hints: CollectorHints = {}): Collector {
+  return chooseCollector(config, hints).collector;
 }
