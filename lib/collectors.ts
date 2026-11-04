@@ -3,8 +3,8 @@
 //   1. el de la profesional (columna staff.collector), si lo tiene y existe en el config;
 //   2. el de su cuenta de Koibox (koibox.accounts.<cuenta>.collector);
 //   3. el cobrador por defecto (payments.defaultCollector, o el único que haya).
-// Un salón sin payments.collectors tiene un solo cobrador con lo de booking.deposit.
-// Lógica pura: sin base de datos. Guía para configurarlo: docs/collectors.md.
+// Un salón sin payments.collectors tiene un solo cobrador: el salón, con instrucciones (que no
+// lleva: la clienta ve "el salón te escribirá") y el WhatsApp del salón.
 import type { DepositMode } from "./deposit";
 import type { SalonConfig } from "./salon-config";
 
@@ -21,7 +21,7 @@ export type Collector = {
 // Id del cobrador único de un salón que no tiene payments.collectors
 export const SINGLE_COLLECTOR_ID = "salon";
 
-type CollectorsConfig = Pick<SalonConfig, "name" | "contact" | "booking" | "koibox" | "payments">;
+type CollectorsConfig = Pick<SalonConfig, "name" | "contact" | "koibox" | "payments">;
 
 export function salonCollectors(config: CollectorsConfig): { defaultId: string; byId: Map<string, Collector> } {
   const entries = Object.entries(config.payments.collectors);
@@ -29,11 +29,7 @@ export function salonCollectors(config: CollectorsConfig): { defaultId: string; 
     const single: Collector = {
       id: SINGLE_COLLECTOR_ID,
       label: config.name,
-      deposit: {
-        mode: config.booking.deposit.mode,
-        whatsapp: config.contact.whatsapp ?? null,
-        instructions: config.booking.deposit.instructions ?? null,
-      },
+      deposit: { mode: "instructions", whatsapp: config.contact.whatsapp ?? null, instructions: null },
     };
     return { defaultId: single.id, byId: new Map([[single.id, single]]) };
   }
@@ -52,8 +48,13 @@ export function salonCollectors(config: CollectorsConfig): { defaultId: string; 
       },
     ]),
   );
-  // El schema ya exige defaultCollector cuando hay más de uno
+// ¿Cobra más de una persona? Entonces el equipo ve a quién se paga (panel, Koibox). La clienta, nunca.
   return { defaultId: config.payments.defaultCollector ?? entries[0][0], byId };
+}
+
+// ¿Cobra más de una persona? Entonces se dice a quién se paga (confirmación, panel, Koibox)
+export function hasSeveralCollectors(config: CollectorsConfig): boolean {
+  return Object.keys(config.payments.collectors).length > 1;
 }
 
 // Lo que se sabe de la profesional de la cita

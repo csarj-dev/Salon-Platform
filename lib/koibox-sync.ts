@@ -11,6 +11,7 @@ import { findOrCreateClient, type KoiboxApi } from "./koibox/client";
 import type { KoiboxAppointment } from "./koibox/types";
 import { getKoiboxClient } from "./koibox/driver";
 import { KoiboxError } from "./koibox/limits";
+import { hasSeveralCollectors, resolveCollector } from "./collectors";
 import { koiboxWorkFor } from "./koibox/pending";
 import { resolveKoiboxTarget } from "./koibox/routing";
 import type { SalonConfig } from "./salon-config";
@@ -85,6 +86,7 @@ export async function pushAppointmentToKoibox(
       staffName: staff.name,
       staffAccount: staff.koiboxAccount,
       staffUserId: staff.koiboxUserId,
+      staffCollector: staff.collector,
     })
     .from(appointment)
     .innerJoin(service, eq(service.id, appointment.serviceId))
@@ -163,7 +165,15 @@ export async function pushAppointmentToKoibox(
         clientEmail: row.clientEmail,
         deposit:
           row.status === "pending_deposit" && row.depositCents !== null && row.depositDueAt !== null
-            ? { cents: row.depositCents, currency: config.currency, dueAt: row.depositDueAt }
+            ? {
+                cents: row.depositCents,
+                currency: config.currency,
+                dueAt: row.depositDueAt,
+                // Con varias titulares, recepción ve en Koibox a quién se paga
+                collector: hasSeveralCollectors(config)
+                  ? resolveCollector(config, { staffCollector: row.staffCollector, koiboxAccount: row.staffAccount }).label
+                  : null,
+              }
             : null,
       }),
     );

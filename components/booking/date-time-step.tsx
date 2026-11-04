@@ -8,6 +8,7 @@ import { Chosen, Heading, bookingHref } from "@/components/booking/step-ui";
 import type { ServiceAvailability } from "@/lib/availability-service";
 import type { Flow } from "@/lib/booking-flow";
 import { addMonths, firstWeekdayOf, monthOfDay } from "@/lib/calendar";
+import { collectorForStaff } from "@/lib/collectors-db";
 import type { CatalogService } from "@/lib/catalog";
 import { formatDateTime, formatDayLong, formatPrice, formatTime } from "@/lib/format";
 import { needsWhatsAppTab } from "@/lib/whatsapp-tab";
@@ -99,12 +100,18 @@ export async function DateTimeStep({
     const at = new Date(flow.at);
     const atDay = DateTime.fromJSDate(at, { zone }).toFormat(DAY_FORMAT);
     let stillFree = (slotsByDay.get(atDay) ?? []).some((s) => s.getTime() === at.getTime());
+    // Quién la atenderá: la elegida o, con "cualquiera", la primera libre a esa hora (como al reservar)
+    let expectedStaff: number | null =
+      member === "any"
+        ? (availability.get(atDay)?.any.find((s) => s.startsAt.getTime() === at.getTime())?.staffIds[0] ?? null)
+        : member.id;
 
     // En modo Koibox, antes de pedir los datos se confirma con Koibox sin caché
     if (stillFree && config.booking.availability === "koibox") {
       try {
         const staffChoice = member === "any" ? "any" : member.id;
-        stillFree = (await confirmBookingSlot(config, location.id, service.id, staffChoice, at, now)) !== null;
+        expectedStaff = await confirmBookingSlot(config, location.id, service.id, staffChoice, at, now);
+        stillFree = expectedStaff !== null;
       } catch (error) {
         if (!(error instanceof KoiboxUnavailableError)) throw error;
         console.error(error);
@@ -112,8 +119,11 @@ export async function DateTimeStep({
       }
     }
 
-    if (stillFree) {
+    if (stillFree && expectedStaff !== null) {
       const changeHref = bookingHref({ ...base, month: monthOfDay(atDay), date: atDay }, "times");
+      // Si el depósito se pide por WhatsApp, el formulario abre la pestaña al enviar: depende de
+      // quién cobra a esa profesional (docs/collectors.md)
+      const collector = await collectorForStaff(expectedStaff, config);
       return (
         <div className="space-y-6">
           <div className="space-y-2">
@@ -143,8 +153,8 @@ export async function DateTimeStep({
               at={flow.at}
               backHref={changeHref}
               opensWhatsApp={needsWhatsAppTab({
-                mode: config.booking.deposit.mode,
-                whatsapp: config.contact.whatsapp,
+                mode: collector.deposit.mode,
+                whatsapp: collector.deposit.whatsapp,
                 depositCents: service.depositCents,
               })}
             />

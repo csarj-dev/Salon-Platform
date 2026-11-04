@@ -23,29 +23,34 @@ const config = {
     // De dónde salen los huecos: "local" hasta tener las claves de Koibox; luego "koibox".
     // Para probar en local sin tocar esto: BOOKING_AVAILABILITY=koibox en el .env
     availability: "local",
-    // Depósitos: el importe se pone en cada servicio (npx tsx db/service-deposit.ts)
-    // Los textos de abajo son de ejemplo hasta que el salón confirme los suyos.
+    // Depósitos: el importe se pone en cada servicio (npx tsx db/service-deposit.ts).
+    // Cómo se pagan va en payments (abajo). La política es de ejemplo hasta que el salón confirme la suya.
     deposit: {
-      // "whatsapp": la clienta pide por chat el enlace de cobro del TPV; "instructions": Bizum/transferencia
-      mode: "whatsapp",
       holdHours: 24,
-      instructions: {
-        es: "Haz un Bizum al 600 000 000 indicando tu nombre y la fecha de la cita. Cuando lo recibamos, tu cita queda confirmada.",
-        en: "Send a Bizum payment to 600 000 000 with your name and the appointment date. Once we receive it, your appointment is confirmed.",
-      },
       policy: {
-        es: "El depósito se descuenta del precio del servicio. Si cancelas con al menos 24 horas de antelación, lo guardamos para tu próxima cita. Si cancelas con menos de 24 horas o no vienes, se pierde. Los depósitos no se reembolsan.",
-        en: "The deposit is deducted from the service price. If you cancel at least 24 hours in advance, we keep it for your next appointment. If you cancel with less than 24 hours' notice or don't show up, it is lost. Deposits are non-refundable.",
+        es: "…", // la que ya tienes, sin cambios
+        en: "…",
       },
+    },
+  },
+  // Quién cobra los depósitos: una titular por cuenta de Koibox (cada una con su NIF y su TPV).
+  // Guía: docs/collectors.md. La clienta siempre pide el enlace a recepción (contact.whatsapp, sin
+  // deposit.whatsapp propio): recepción ve en el panel quién cobra y lo genera desde ese TPV.
+  payments: {
+    defaultCollector: "salon",
+    collectors: {
+      salon: { label: "The Room Studio", deposit: { mode: "whatsapp" } },
+      amanda: { label: "Amanda", deposit: { mode: "whatsapp" } },
+      luz: { label: "The Room Micropigmentación", deposit: { mode: "whatsapp" } },
     },
   },
   // Una cuenta de Koibox por titular: cada cita se guarda en la de quien hace el servicio.
   // Las claves van en Vercel (Settings → Environment Variables), nunca en este archivo.
   koibox: {
     accounts: {
-      salon: { label: "Cuenta del salón (TR Studio)", keyEnv: "KOIBOX_KEY_SALON", locations: ["the-room-studio"] },
-      amanda: { label: "Cuenta de Amanda", keyEnv: "KOIBOX_KEY_AMANDA", locations: ["the-room-studio"] },
-      luz: { label: "Cuenta de Luz (TR Micros)", keyEnv: "KOIBOX_KEY_LUZ", locations: ["the-room-micropigmentacion"] },
+      salon: { label: "Cuenta del salón (TR Studio)", keyEnv: "KOIBOX_KEY_SALON", locations: ["the-room-studio"], collector: "salon" },
+      amanda: { label: "Cuenta de Amanda", keyEnv: "KOIBOX_KEY_AMANDA", locations: ["the-room-studio"], collector: "amanda" },
+      luz: { label: "Cuenta de Luz (TR Micros)", keyEnv: "KOIBOX_KEY_LUZ", locations: ["the-room-micropigmentacion"], collector: "luz" },
     },
   },
   email: {

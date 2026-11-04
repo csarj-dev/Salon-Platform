@@ -11,6 +11,7 @@ import { parseFlowParams } from "@/lib/booking-flow";
 import { clientFormSchema } from "@/lib/booking-schema";
 import { createAppointment, toBookingOptions } from "@/lib/booking";
 import { pushNewWebBooking, writesToKoibox } from "@/lib/koibox-sync";
+import { collectorForAppointment } from "@/lib/collectors-db";
 import { paysThroughWhatsApp } from "@/lib/deposit";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -134,8 +135,10 @@ export async function submitBooking(
     // La cita ya existe. Preparar el WhatsApp no puede hacer que la clienta vea un error:
     // si algo falla aquí, simplemente va a la página de confirmación, que tiene el mismo botón.
     try {
-      const phone = config.contact.whatsapp;
-      if (phone && result.deposit && paysThroughWhatsApp(config.booking.deposit.mode, result.status)) {
+      // El enlace se pide a quien cobra las citas de esa profesional (docs/collectors.md)
+      const collector = result.deposit ? await collectorForAppointment(result.appointmentId, config) : null;
+      const phone = collector?.deposit.whatsapp;
+      if (collector && phone && result.deposit && paysThroughWhatsApp(collector.deposit.mode, result.status)) {
         const view = await getConfirmation(publicToken, locale, config.defaultLocale, now);
         if (view) {
           const t = await getTranslations({ locale, namespace: "Confirmation" });

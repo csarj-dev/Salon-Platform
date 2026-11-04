@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { getConfirmation } from "@/lib/appointment-view";
+import { collectorForAppointment } from "@/lib/collectors-db";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
@@ -43,8 +44,13 @@ export async function ConfirmationContent({ params }: Props) {
 
   const zone = config.timezone;
   const when = formatDateTime(view.startsAt, locale, zone);
-  const phone = config.contact.whatsapp;
-  const whatsapp = (message: string) => (phone ? buildWhatsAppLink(phone, message) : null);
+  const salonPhone = config.contact.whatsapp;
+  const whatsapp = (message: string) => (salonPhone ? buildWhatsAppLink(salonPhone, message) : null);
+  // El depósito se paga a quien cobra las citas de esa profesional (docs/collectors.md):
+  // su forma de pago, sus instrucciones y su WhatsApp para pedir el enlace o mandar el comprobante
+  const collector = await collectorForAppointment(view.id, config);
+  const payPhone = collector.deposit.whatsapp;
+  const payWhatsapp = (message: string) => (payPhone ? buildWhatsAppLink(payPhone, message) : null);
 
   const title = {
     booked: t("titleBooked"),
@@ -56,12 +62,13 @@ export async function ConfirmationContent({ params }: Props) {
   }[view.status];
 
   const deposit = view.depositCents !== null ? formatPrice(view.depositCents, locale, config.currency) : null;
-  const { instructions, policy } = config.booking.deposit;
-  const proofHref = whatsapp(t("proofMessage", { id: view.id, service: view.serviceName, when }));
+  const instructions = collector.deposit.instructions;
+  const policy = config.booking.deposit.policy;
+  const proofHref = payWhatsapp(t("proofMessage", { id: view.id, service: view.serviceName, when }));
   const contactHref = whatsapp(t("contactMessage", { id: view.id, service: view.serviceName, when }));
   // Con depósito por WhatsApp, se pide el enlace de cobro por chat en vez de seguir instrucciones
-  const viaWhatsApp = config.booking.deposit.mode === "whatsapp";
-  const payLinkHref = whatsapp(
+  const viaWhatsApp = collector.deposit.mode === "whatsapp";
+  const payLinkHref = payWhatsapp(
     t("payLinkMessage", { id: view.id, service: view.serviceName, when, amount: deposit ?? "" }),
   );
 

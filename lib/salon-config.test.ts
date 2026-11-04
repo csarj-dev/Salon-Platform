@@ -272,10 +272,10 @@ describe("imagen de portada para móvil", () => {
 });
 
 describe("depósitos en la configuración", () => {
-  it("el depósito guarda el hueco 24 horas por defecto y sin textos", () => {
+  it("el depósito guarda el hueco 24 horas por defecto y sin política", () => {
     const c = salonConfigSchema.parse(valid);
     expect(c.booking.deposit.holdHours).toBe(24);
-    expect(c.booking.deposit.instructions).toBeUndefined();
+    expect(c.booking.deposit.policy).toBeUndefined();
   });
 
   it("acepta un plazo de depósito propio", () => {
@@ -289,47 +289,26 @@ describe("depósitos en la configuración", () => {
     ).toThrow();
   });
 
-  it("las instrucciones de pago tienen que estar en todos los idiomas", () => {
+  it("la política tiene que estar en todos los idiomas", () => {
     const two = { ...valid, locales: ["es", "en"] };
     expect(() =>
-      salonConfigSchema.parse({
-        ...two,
-        booking: { deposit: { instructions: { es: "Haz un Bizum" } } },
-      }),
+      salonConfigSchema.parse({ ...two, booking: { deposit: { policy: { es: "No se devuelve" } } } }),
     ).toThrow(/Falta el texto en/);
     expect(() =>
       salonConfigSchema.parse({
         ...two,
-        booking: { deposit: { instructions: { es: "Haz un Bizum", en: "Send a Bizum" } } },
+        booking: { deposit: { policy: { es: "No se devuelve", en: "Non-refundable" } } },
       }),
     ).not.toThrow();
   });
-});
 
-describe("modo de pago del depósito", () => {
-  it("por defecto se paga con instrucciones", () => {
-    expect(salonConfigSchema.parse(valid).booking.deposit.mode).toBe("instructions");
-  });
-
-  it("admite pedir el enlace de pago por WhatsApp si hay número", () => {
-    const c = salonConfigSchema.parse({
-      ...valid,
-      contact: { whatsapp: "34600000000" },
-      booking: { deposit: { mode: "whatsapp" } },
-    });
-    expect(c.booking.deposit.mode).toBe("whatsapp");
-  });
-
-  it("el modo whatsapp sin número de WhatsApp es un error", () => {
+  it("el modo y las instrucciones ya no van aquí: error claro si un config viejo los trae", () => {
     expect(() =>
       salonConfigSchema.parse({ ...valid, booking: { deposit: { mode: "whatsapp" } } }),
-    ).toThrow(/falta contact\.whatsapp/);
-  });
-
-  it("rechaza un modo que no existe", () => {
+    ).toThrow(/payments.collectors/);
     expect(() =>
-      salonConfigSchema.parse({ ...valid, booking: { deposit: { mode: "paypal" } } }),
-    ).toThrow();
+      salonConfigSchema.parse({ ...valid, booking: { deposit: { instructions: { es: "Bizum" } } } }),
+    ).toThrow(/payments.collectors/);
   });
 });
 
@@ -379,6 +358,9 @@ describe("config de The Room", () => {
     const raw = (await import("../salons/the-room/config")).default;
     const c = salonConfigSchema.parse(raw);
     expect(Object.keys(c.koibox.accounts)).toEqual(["salon", "amanda", "luz"]);
+    // Un cobrador por titular, cada cuenta con el suyo
+    expect(Object.keys(c.payments.collectors)).toEqual(["salon", "amanda", "luz"]);
+    expect(Object.values(c.koibox.accounts).map((a) => a.collector)).toEqual(["salon", "amanda", "luz"]);
     // Hasta tener las claves, los huecos siguen saliendo de nuestra base
     expect(c.booking.availability).toBe("local");
   });

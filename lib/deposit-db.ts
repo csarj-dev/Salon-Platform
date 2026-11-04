@@ -56,6 +56,9 @@ export type DepositRow = {
   serviceName: string;
   locationName: string;
   staffName: string;
+  // Para saber quién cobra el depósito (lib/collectors.ts)
+  staffCollector: string | null;
+  staffKoiboxAccount: string | null;
 };
 
 // Citas esperando depósito (o, con `expired`, las que caducaron) para que el salón las gestione
@@ -79,6 +82,8 @@ export async function listDeposits(
       serviceName: service.name,
       locationName: location.name,
       staffName: staff.name,
+      staffCollector: staff.collector,
+      staffKoiboxAccount: staff.koiboxAccount,
     })
     .from(appointment)
     .innerJoin(client, eq(client.id, appointment.clientId))

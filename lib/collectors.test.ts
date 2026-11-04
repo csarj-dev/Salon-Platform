@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SINGLE_COLLECTOR_ID, chooseCollector, resolveCollector, salonCollectors } from "./collectors";
+import { SINGLE_COLLECTOR_ID, chooseCollector, hasSeveralCollectors, resolveCollector, salonCollectors } from "./collectors";
 import { salonConfigSchema } from "./salon-config";
 
 const base = {
@@ -32,20 +32,19 @@ const multi = salonConfigSchema.parse({
 });
 
 describe("salonCollectors", () => {
-  it("sin payments: un solo cobrador con lo de booking.deposit y el WhatsApp del salón", () => {
-    const c = salonConfigSchema.parse({
-      ...base,
-      booking: { deposit: { mode: "instructions", instructions: { es: "Bizum al 600" } } },
-    });
+  it("sin payments: un solo cobrador, el salón, con instrucciones y su WhatsApp", () => {
+    const c = salonConfigSchema.parse(base);
     const { defaultId, byId } = salonCollectors(c);
     expect(defaultId).toBe(SINGLE_COLLECTOR_ID);
     expect([...byId.values()]).toEqual([
       {
         id: SINGLE_COLLECTOR_ID,
         label: "Salón de prueba",
-        deposit: { mode: "instructions", whatsapp: "34600000000", instructions: { es: "Bizum al 600" } },
+        deposit: { mode: "instructions", whatsapp: "34600000000", instructions: null },
       },
     ]);
+    expect(hasSeveralCollectors(c)).toBe(false);
+    expect(hasSeveralCollectors(multi)).toBe(true);
   });
 
   it("con un solo cobrador no hace falta defaultCollector", () => {
