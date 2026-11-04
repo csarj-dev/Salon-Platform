@@ -1,14 +1,16 @@
 // Escribe en Koibox las citas de la web y sus cambios, y guarda en nuestra cita el resultado
 // (koibox_account, koibox_appointment_id, koibox_synced_at y, si falla, koibox_error).
 // Solo se usa con booking.availability = "koibox": entonces Koibox es quien manda en la agenda.
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, or } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
 import { appointment, client, koiboxServiceMap, service, staff } from "../db/schema";
+import { expireOverdueDeposits } from "./deposit-db";
 import { findWebAppointment, koiboxPatchFor, toKoiboxAppointment, type WebChange } from "./koibox/booking";
 import { findOrCreateClient, type KoiboxApi } from "./koibox/client";
 import { getKoiboxClient } from "./koibox/driver";
 import { KoiboxError } from "./koibox/limits";
+import { koiboxWorkFor } from "./koibox/pending";
 import { resolveKoiboxTarget } from "./koibox/routing";
 import type { SalonConfig } from "./salon-config";
 
@@ -283,4 +285,72 @@ export async function syncKoiboxChange(
   } catch (error) {
     console.error(`[koibox] cita ${appointmentId}: no se pudo llevar el cambio a Koibox`, error);
   }
+}
+
+// Citas que tienen algo pendiente en Koibox (reintento, depósito pagado o vencido, cancelación).
+// Solo mira la última semana y lo que viene: lo más antiguo ya no le importa a recepción.
+export async function findPendingKoiboxWork(now: Date = new Date(), limit = 200) {
+  const rows = await db
+    .select({
+      id: appointment.id,
+      clientName: appointment.clientName,
+      status: appointment.status,
+      startsAt: appointment.startsAt,
+      koiboxAppointmentId: appointment.koiboxAppointmentId,
+      koiboxError: appointment.koiboxError,
+      koiboxSyncedAt: appointment.koiboxSyncedAt,
+      cancelledAt: appointment.cancelledAt,
+      cancelledBy: appointment.cancelledBy,
+      cancelReason: appointment.cancelReason,
+      depositDueAt: appointment.depositDueAt,
+      depositPaidAt: appointment.depositPaidAt,
+    })
+    .from(appointment)
+    .where(
+      and(
+        or(isNotNull(appointment.koiboxAppointmentId), isNotNull(appointment.koiboxError)),
+        gt(appointment.startsAt, new Date(now.getTime() - 7 * 24 * 3_600_000)),
+      ),
+    )
+    .orderBy(asc(appointment.startsAt))
+    .limit(limit);
+
+  return rows.flatMap((r) => {
+    const work = koiboxWorkFor(r, now);
+    return work ? [{ id: r.id, clientName: r.clientName, startsAt: r.startsAt, lastError: r.koiboxError, work }] : [];
+  });
+}
+
+export type PendingSyncSummary = {
+  disabled?: true; // el salón no trabaja con Koibox
+  expired: number; // depósitos vencidos en esta pasada
+  checked: number;
+  fixed: number;
+  failed: { id: number; message: string }[];
+};
+
+// Pone Koibox al día: vence los depósitos que tocan y reintenta todo lo pendiente.
+// La llama el cron (/api/cron/koibox) y db/koibox-sync.ts. Repetirla no hace daño.
+export async function syncPendingKoibox(
+  config: SalonConfig,
+  opts: { apiFor?: KoiboxApiFor; now?: Date } = {},
+): Promise<PendingSyncSummary> {
+  if (!writesToKoibox(config)) return { disabled: true, expired: 0, checked: 0, fixed: 0, failed: [] };
+  const now = opts.now ?? new Date();
+
+  // Primero se liberan los depósitos vencidos: así salen abajo como "anular en Koibox"
+  const expired = await expireOverdueDeposits(now);
+  const pending = await findPendingKoiboxWork(now);
+  const summary: PendingSyncSummary = { expired, checked: pending.length, fixed: 0, failed: [] };
+
+  // Una detrás de otra: son pocas y así no se pasa del límite de llamadas de Koibox
+  for (const item of pending) {
+    const result =
+      item.work.kind === "push"
+        ? await pushAppointmentToKoibox(item.id, config, { ...opts, now, lookFirst: true })
+        : await applyKoiboxChange(item.id, item.work.change, config, { ...opts, now });
+    if (result.ok) summary.fixed++;
+    else summary.failed.push({ id: item.id, message: result.message });
+  }
+  return summary;
 }
