@@ -260,6 +260,24 @@ describe("pushAppointmentToKoibox", () => {
     expect(r).toMatchObject({ ok: false, outcome: "unknown" });
   });
 
+  it("si se crea en Koibox pero no se puede guardar el enlace, no lanza: queda como 'no se sabe'", async () => {
+    const other = await book("12:00");
+    const id = await book("10:00");
+    // La cita que creará el fake tendrá el id 902 (900 es Marta, 901 será la ficha de Laura).
+    // Otra cita nuestra ya lo tiene guardado: el índice único impide guardarlo dos veces.
+    await db
+      .update(appointment)
+      .set({ koiboxAccount: "salon", koiboxAppointmentId: 902 })
+      .where(eq(appointment.id, other));
+
+    const r = await pushAppointmentToKoibox(id, config, { apiFor, now: NOW });
+    expect(r).toMatchObject({ ok: false, outcome: "unknown" });
+    expect(inKoibox().map((a) => a.id)).toEqual([902]);
+    const saved = await row(id);
+    expect(saved.koiboxAppointmentId).toBeNull();
+    expect(saved.koiboxError).toMatch(/^Creada en Koibox \(id 902\) pero no se pudo guardar el enlace/);
+  });
+
   it("una cita cancelada no se apunta", async () => {
     const id = await book("10:00");
     await db.update(appointment).set({ status: "cancelled", cancelledAt: NOW }).where(eq(appointment.id, id));

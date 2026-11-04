@@ -8,6 +8,7 @@ import { appointment, client, koiboxServiceMap, service, staff } from "../db/sch
 import { expireOverdueDeposits } from "./deposit-db";
 import { findWebAppointment, koiboxPatchFor, toKoiboxAppointment, type WebChange } from "./koibox/booking";
 import { findOrCreateClient, type KoiboxApi } from "./koibox/client";
+import type { KoiboxAppointment } from "./koibox/types";
 import { getKoiboxClient } from "./koibox/driver";
 import { KoiboxError } from "./koibox/limits";
 import { koiboxWorkFor } from "./koibox/pending";
@@ -146,8 +147,9 @@ export async function pushAppointmentToKoibox(
     return { ok: false, outcome: "rejected", taken: false, message };
   }
 
+  let created: KoiboxAppointment;
   try {
-    const created = await api.createAppointment(
+    created = await api.createAppointment(
       toKoiboxAppointment({
         ref: row.id,
         serviceName: row.serviceName,
@@ -165,14 +167,23 @@ export async function pushAppointmentToKoibox(
             : null,
       }),
     );
-    return linked(created.id, false);
-    } catch (error) {
-        const message = errorText(error);
-        await saveError(appointmentId, message);
-        if (mayHaveArrived(error)) return { ok: false, outcome: "unknown", message };
-        const taken = error instanceof KoiboxError && error.code === "bad_request";
-        return { ok: false, outcome: "rejected", taken, message };
-    }
+  } catch (error) {
+    const message = errorText(error);
+    await saveError(appointmentId, message);
+    if (mayHaveArrived(error)) return { ok: false, outcome: "unknown", message };
+    const taken = error instanceof KoiboxError && error.code === "bad_request";
+    return { ok: false, outcome: "rejected", taken, message };
+  }
+
+  // La cita ya existe en Koibox. Si ahora falla guardar su id en nuestra base, no se puede
+  // dar por rechazada (allí sí está): queda como "no se sabe" y el reintento la busca.
+  try {
+    return await linked(created.id, false);
+  } catch (error) {
+    const message = errorText(`Creada en Koibox (id ${created.id}) pero no se pudo guardar el enlace: ${errorText(error)}`);
+    await saveError(appointmentId, message);
+    return { ok: false, outcome: "unknown", message };
+  }
 }
 
 export type ChangeSyncResult =
