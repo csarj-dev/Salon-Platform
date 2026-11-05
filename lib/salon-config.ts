@@ -97,16 +97,45 @@ const heroSchema = z.object({
 // Texto por idioma (instrucciones de pago, política de cancelación...)
 const localizedText = z.record(z.string(), z.string());
 
-// Depósitos: el importe va en cada servicio (base de datos); esto es lo común a todo el salón
+// Depósitos: el importe va en cada servicio (base de datos); esto es lo común a todo el salón.
+// Cómo se paga (modo, WhatsApp, instrucciones) va en cada cobrador: payments.collectors.
+const movedToCollectors = 'Se movió a payments.collectors: cada cobrador lleva su "deposit" (ver docs/collectors.md)';
 const depositSchema = z.object({
-    // Cómo se paga: con instrucciones (Bizum, transferencia) o pidiendo un enlace de cobro por WhatsApp
-  mode: z.enum(DEPOSIT_MODES).default("instructions"),
   // Horas que se guarda el hueco esperando el pago
   holdHours: z.number().positive().default(24),
-  // Cómo pagar (Bizum, transferencia...), por idioma
-  instructions: localizedText.optional(),
   // Política de cancelación y devolución del depósito, por idioma
   policy: localizedText.optional(),
+  // Antes estaban aquí: si un config viejo los trae, error claro en vez de ignorarlos sin avisar
+  mode: z.never({ error: movedToCollectors }).optional(),
+  instructions: z.never({ error: movedToCollectors }).optional(),
+});
+
+// Cobradores: quién recibe el dinero de los depósitos y cómo se le paga. En un salón con varias
+// titulares (cada una con su NIF) hay uno por titular; en un salón pequeño, uno solo.
+// Qué cobrador toca en cada cita: lib/collectors.ts (y docs/collectors.md).
+export const COLLECTOR_ID = /^[a-z][a-z0-9_-]{0,31}$/;
+const collectorId = z.string().regex(COLLECTOR_ID, "Id de cobrador en minúsculas, por ejemplo salon o amanda");
+
+const collectorSchema = z.object({
+  label: z.string().min(1), // nombre que ve recepción ("The Room Studio", "Amanda")
+  deposit: z
+    .object({
+      // Igual que en booking.deposit: con instrucciones (Bizum, transferencia) o pidiendo
+      // por WhatsApp el enlace de cobro del TPV
+      mode: z.enum(DEPOSIT_MODES).default("instructions"),
+      // WhatsApp de esta titular para pedir el enlace. Sin esto, el del salón (contact.whatsapp)
+      whatsapp: whatsapp.optional(),
+      // Cómo pagarle, por idioma
+      instructions: localizedText.optional(),
+    })
+    .prefault({}),
+});
+
+const paymentsSchema = z.object({
+  // El que cobra cuando no se indica otro. Si solo hay uno, no hace falta ponerlo.
+  defaultCollector: collectorId.optional(),
+  // Sin cobradores, hay uno solo con lo de booking.deposit (como hasta ahora)
+  collectors: z.record(collectorId, collectorSchema).default({}),
 });
 
 // Cuentas de Koibox del salón. Cada cuenta es un centro de Koibox con su propia clave;
@@ -123,6 +152,9 @@ const koiboxAccountSchema = z.object({
     .array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug del local, por ejemplo the-room-studio"))
     .min(1)
     .optional(),
+  // Quién cobra los depósitos de las citas de esta cuenta (un id de payments.collectors).
+  // Sin esto, el cobrador por defecto.
+  collector: collectorId.optional(),
 });
 
 // De dónde salen los huecos de la reserva web:
@@ -181,6 +213,7 @@ export const salonConfigSchema = z
     // Sin `koibox` (o sin cuentas) el salón no usa Koibox
     koibox: koiboxSchema.prefault({}),
     email: emailSchema.prefault({}),
+    payments: paymentsSchema.prefault({}),
   })
   .superRefine((c, ctx) => {
     // Un canal de WhatsApp sin número no tiene sentido
@@ -189,15 +222,6 @@ export const salonConfigSchema = z
         code: "custom",
         path: ["contact", "whatsapp"],
         message: 'El canal "whatsapp" está activo pero falta contact.whatsapp (o SALON_WHATSAPP)',
-      });
-    }
-
-    // Pedir el enlace de pago por WhatsApp exige un número al que escribir
-    if (c.booking.deposit.mode === "whatsapp" && !c.contact.whatsapp) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["booking", "deposit", "mode"],
-        message: 'El depósito se paga por "whatsapp" pero falta contact.whatsapp (o SALON_WHATSAPP)',
       });
     }
 
@@ -214,15 +238,14 @@ export const salonConfigSchema = z
       }
     });
 
-    // Los textos del depósito, si existen, tienen que estar en todos los idiomas del salón
-    for (const field of ["instructions", "policy"] as const) {
-      const texts = c.booking.deposit[field];
-      if (!texts) continue;
+    // La política del depósito, si existe, en todos los idiomas del salón
+    const policy = c.booking.deposit.policy;
+    if (policy) {
       for (const locale of c.locales) {
-        if (!texts[locale]?.trim()) {
+        if (!policy[locale]?.trim()) {
           ctx.addIssue({
             code: "custom",
-            path: ["booking", "deposit", field, locale],
+            path: ["booking", "deposit", "policy", locale],
             message: `Falta el texto en "${locale}"`,
           });
         }
@@ -250,6 +273,53 @@ export const salonConfigSchema = z
         });
       }
       keyOwners.set(account.keyEnv, id);
+    }
+
+    // Cobradores: el de por defecto existe, cada cuenta apunta a uno que existe,
+    // quien cobra por WhatsApp tiene número y las instrucciones están en todos los idiomas
+    const collectorIds = Object.keys(c.payments.collectors);
+    if (collectorIds.length > 0) {
+      if (c.payments.defaultCollector === undefined && collectorIds.length > 1) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payments", "defaultCollector"],
+          message: `Con varios cobradores hay que decir cuál cobra por defecto (hay: ${collectorIds.join(", ")})`,
+        });
+      }
+    }
+    if (c.payments.defaultCollector !== undefined && !collectorIds.includes(c.payments.defaultCollector)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["payments", "defaultCollector"],
+        message: `El cobrador "${c.payments.defaultCollector}" no está en payments.collectors`,
+      });
+    }
+    for (const [id, account] of Object.entries(c.koibox.accounts)) {
+      if (account.collector !== undefined && !collectorIds.includes(account.collector)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["koibox", "accounts", id, "collector"],
+          message: `El cobrador "${account.collector}" no está en payments.collectors`,
+        });
+      }
+    }
+    for (const [id, collector] of Object.entries(c.payments.collectors)) {
+      if (collector.deposit.mode === "whatsapp" && !collector.deposit.whatsapp && !c.contact.whatsapp) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payments", "collectors", id, "deposit", "whatsapp"],
+          message: `"${id}" cobra por WhatsApp pero no tiene número (ni hay contact.whatsapp)`,
+        });
+      }
+      for (const locale of c.locales) {
+        if (collector.deposit.instructions && !collector.deposit.instructions[locale]?.trim()) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["payments", "collectors", id, "deposit", "instructions", locale],
+            message: `Falta el texto en "${locale}"`,
+          });
+        }
+      }
     }
 
     if (c.hero) {

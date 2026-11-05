@@ -20,6 +20,8 @@ export type AppointmentCardData = {
   staffName: string;
   depositCents: number | null;
   depositDueAt: Date | null;
+  // A quién se paga el depósito (solo si en el salón cobra más de una persona)
+  collectorLabel?: string | null;
   cancelledAt?: Date | null;
   cancelReason?: string | null;
   cancelledByName?: string | null;
@@ -157,6 +159,7 @@ export async function AppointmentCard({
       {data.depositCents !== null && (
         <p className="text-sm text-muted-foreground">
           {t("deposit", { amount: formatPrice(data.depositCents, locale, currency) })}
+          {data.collectorLabel ? ` · ${t("collector", { name: data.collectorLabel })}` : ""}
           {data.status === "pending_deposit" && data.depositDueAt && (
             <span className={dueSoon ? "font-medium text-destructive" : undefined}>
               {" · "}

@@ -1,0 +1,2 @@
+ALTER TABLE "staff" ADD COLUMN "collector" text;--> statement-breakpoint
+ALTER TABLE "staff" ADD CONSTRAINT "staff_collector_format" CHECK ("staff"."collector" IS NULL OR "staff"."collector" ~ '^[a-z][a-z0-9_-]{0,31}$');

@@ -70,6 +70,16 @@ describe("toKoiboxAppointment", () => {
   });
 });
 
+describe("toKoiboxAppointment · cobrador", () => {
+  it("si se indica, dice a quién se paga el depósito", () => {
+    const r = toKoiboxAppointment({
+      ...booking,
+      deposit: { cents: 1500, currency: "EUR", dueAt: new Date("2026-11-04T18:00:00Z"), collector: "Amanda" },
+    });
+    expect(r.notas?.split("\n").at(-1)).toBe("Depósito 15,00 € (cobra Amanda) pendiente de pago hasta el 04/11 18:00");
+  });
+});
+
 describe("koiboxPatchFor", () => {
   it("depósito pagado: cambia la etiqueta de la web y conserva las del salón", () => {
     expect(koiboxPatchFor({ kind: "deposit_paid" }, inKoibox())).toEqual({

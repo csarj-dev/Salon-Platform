@@ -17,8 +17,8 @@ export type WebBooking = {
   koiboxServiceId: number;
   clientName: string;
   clientEmail: string | null;
-  // Depósito pendiente de pago, si lo lleva
-  deposit: { cents: number; currency: string; dueAt: Date } | null;
+  // Depósito pendiente de pago, si lo lleva. `collector`: a quién se paga (solo si cobra más de una)
+  deposit: { cents: number; currency: string; dueAt: Date; collector?: string | null } | null;
 };
 
 // Primera línea de las notas: con ella se reconoce una cita nuestra en Koibox
@@ -30,7 +30,8 @@ export function toKoiboxAppointment(b: WebBooking): KoiboxAppointmentInput {
   const lines: string[] = [];
   if (b.deposit) {
     const due = DateTime.fromJSDate(b.deposit.dueAt, { zone: b.zone }).toFormat("dd/MM HH:mm");
-    lines.push(`Depósito ${formatPrice(b.deposit.cents, "es-ES", b.deposit.currency)} pendiente de pago hasta el ${due}`);
+    const to = b.deposit.collector ? ` (cobra ${b.deposit.collector})` : "";
+    lines.push(`Depósito ${formatPrice(b.deposit.cents, "es-ES", b.deposit.currency)}${to} pendiente de pago hasta el ${due}`);
   }
   return {
     titulo: b.serviceName,

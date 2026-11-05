@@ -181,6 +181,9 @@ export const staff = pgTable("staff", {
   // usuaria en esa cuenta. Los dos o ninguno. Se ponen con db/koibox-link.ts.
   koiboxAccount: text("koibox_account"),
   koiboxUserId: integer("koibox_user_id"),
+  // Quién cobra los depósitos de sus citas (un id de payments.collectors del config).
+  // Vacío = el de su cuenta de Koibox o el de por defecto. Se pone con db/collectors.ts.
+  collector: text("collector"),
 },
 (t) => [
   check(
@@ -193,6 +196,10 @@ export const staff = pgTable("staff", {
   ),
   // Una usuaria de Koibox es una sola persona de nuestro equipo
   uniqueIndex("staff_koibox_user_once").on(t.koiboxAccount, t.koiboxUserId),
+  check(
+    "staff_collector_format",
+    sql`${t.collector} IS NULL OR ${t.collector} ~ '^[a-z][a-z0-9_-]{0,31}$'`,
+  ),
 ]);
 
 // Cargo y presentación de cada profesional, por idioma

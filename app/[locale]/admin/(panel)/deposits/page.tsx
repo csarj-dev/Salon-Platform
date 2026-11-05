@@ -1,6 +1,7 @@
 import { io } from "next/cache";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentCard } from "@/components/admin/appointment-card";
+import { hasSeveralCollectors, resolveCollector } from "@/lib/collectors";
 import { expireOverdueDeposits, listDeposits } from "@/lib/deposit-db";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -31,10 +32,17 @@ export default async function DepositsPage({ params }: Props) {
   await io();
   const now = new Date().getTime();
 
+  // Con varias titulares, cada tarjeta dice a quién se paga (docs/collectors.md)
+  const several = hasSeveralCollectors(config);
+  const collectorLabel = (row: (typeof pending)[number]) =>
+    several
+      ? resolveCollector(config, { staffCollector: row.staffCollector, koiboxAccount: row.staffKoiboxAccount }).label
+      : null;
+
   const card = (row: (typeof pending)[number], actionable: boolean) => (
     <AppointmentCard
       key={row.id}
-      data={row}
+      data={{ ...row, collectorLabel: collectorLabel(row) }}
       locale={locale}
       zone={config.timezone}
       currency={config.currency}
