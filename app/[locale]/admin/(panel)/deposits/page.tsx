@@ -1,23 +1,35 @@
+import { Suspense } from "react";
 import { io } from "next/cache";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentCard } from "@/components/admin/appointment-card";
+import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { hasSeveralCollectors, resolveCollector } from "@/lib/collectors";
 import { expireOverdueDeposits, listDeposits } from "@/lib/deposit-db";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 
-// El panel lee la sesión (cookies) antes de pintar nada: cada navegación espera al servidor.
-// Hacerlo instantáneo (sesión con "use cache: private" y datos en <Suspense>) queda para
-// cuando se trabaje el panel. Ver Notion: "Panel: quitar instant = false".
-export const instant = false;
-
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function DepositsPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "Admin.deposits" });
 
+  return (
+    <section className="space-y-8">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("intro")}</p>
+      </div>
+      <Suspense fallback={<PanelSkeleton />}>
+        <DepositsContent locale={locale} />
+      </Suspense>
+    </section>
+  );
+}
+
+async function DepositsContent({ locale }: { locale: string }) {
   const { role } = await requireStaff(locale, "deposits.manage");
   // Antes de listar, se liberan las que ya vencieron para que no salgan como pendientes
   await expireOverdueDeposits();
@@ -56,12 +68,7 @@ export default async function DepositsPage({ params }: Props) {
   );
 
   return (
-    <section className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("intro")}</p>
-      </div>
-
+    <>
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t("pendingTitle")}</h2>
         {pending.length === 0 ? (
@@ -80,6 +87,6 @@ export default async function DepositsPage({ params }: Props) {
           <ul className="space-y-3">{expired.map((row) => card(row, false))}</ul>
         )}
       </div>
-    </section>
+    </>
   );
 }

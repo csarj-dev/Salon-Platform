@@ -1,21 +1,15 @@
+import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { LoginForm } from "@/components/admin/login-form";
 import { hasStaffSession } from "@/lib/session";
 import { loadSalonConfig } from "@/lib/salon-config";
 
-// El panel lee la sesión (cookies) antes de pintar nada: cada navegación espera al servidor.
-// Hacerlo instantáneo (sesión con "use cache: private" y datos en <Suspense>) queda para
-// cuando se trabaje el panel. Ver Notion: "Panel: quitar instant = false".
-export const instant = false;
-
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function AdminLoginPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
-
-  if (await hasStaffSession()) redirect({ href: "/admin", locale });
 
   const [t, config] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.login" }),
@@ -24,6 +18,9 @@ export default async function AdminLoginPage({ params }: Props) {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-10">
+      <Suspense fallback={null}>
+        <RedirectIfSignedIn locale={locale} />
+      </Suspense>
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">{config.name}</p>
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
@@ -32,4 +29,10 @@ export default async function AdminLoginPage({ params }: Props) {
       <LoginForm />
     </main>
   );
+}
+
+/** Si ya hay sesión de equipo, salta el login. No pinta nada. */
+async function RedirectIfSignedIn({ locale }: { locale: string }) {
+  if (await hasStaffSession()) redirect({ href: "/admin", locale });
+  return null;
 }
