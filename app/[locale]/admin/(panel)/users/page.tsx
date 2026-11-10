@@ -1,28 +1,19 @@
+import { Suspense } from "react";
 import { asc } from "drizzle-orm";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { db } from "@/db";
 import { user } from "@/db/auth-schema";
 import { CreateUserForm } from "@/components/admin/create-user-form";
+import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { UserRow } from "@/components/admin/user-row";
 import { requireStaff } from "@/lib/session";
-
-// El panel lee la sesión (cookies) antes de pintar nada: cada navegación espera al servidor.
-// Hacerlo instantáneo (sesión con "use cache: private" y datos en <Suspense>) queda para
-// cuando se trabaje el panel. Ver Notion: "Panel: quitar instant = false".
-export const instant = false;
 
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function UsersPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
-
-  // Solo el administrador gestiona usuarios (si no, 404)
-  const { user: actor } = await requireStaff(locale, "users.manage");
-  const [t, users] = await Promise.all([
-    getTranslations({ locale, namespace: "Admin.users" }),
-    db.select().from(user).orderBy(asc(user.createdAt)),
-  ]);
+  const t = await getTranslations({ locale, namespace: "Admin.users" });
 
   return (
     <section className="space-y-6">
@@ -30,6 +21,20 @@ export default async function UsersPage({ params }: Props) {
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
       </div>
+      <Suspense fallback={<PanelSkeleton />}>
+        <UsersContent locale={locale} />
+      </Suspense>
+    </section>
+  );
+}
+
+async function UsersContent({ locale }: { locale: string }) {
+  // Solo el administrador gestiona usuarios (si no, 404)
+  const { user: actor } = await requireStaff(locale, "users.manage");
+  const users = await db.select().from(user).orderBy(asc(user.createdAt));
+
+  return (
+    <>
       <CreateUserForm />
       <ul className="space-y-3">
         {users.map((u) => (
@@ -44,6 +49,6 @@ export default async function UsersPage({ params }: Props) {
           />
         ))}
       </ul>
-    </section>
+    </>
   );
 }

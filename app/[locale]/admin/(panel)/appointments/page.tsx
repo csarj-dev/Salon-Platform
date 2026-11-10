@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { io } from "next/cache";
 import { DateTime } from "luxon";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentCard } from "@/components/admin/appointment-card";
+import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
 import { listAppointments, type AppointmentStatus } from "@/lib/appointment-list";
 import { formatDayLong } from "@/lib/format";
@@ -11,11 +13,6 @@ import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
-
-// El panel lee la sesión (cookies) antes de pintar nada: cada navegación espera al servidor.
-// Hacerlo instantáneo (sesión con "use cache: private" y datos en <Suspense>) queda para
-// cuando se trabaje el panel. Ver Notion: "Panel: quitar instant = false".
-export const instant = false;
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -30,7 +27,25 @@ const isTab = (v: string | undefined): v is Tab => TABS.some((t) => t === v);
 export default async function AppointmentsPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "Admin.appointments" });
 
+  return (
+    <section className="space-y-6">
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <Suspense fallback={<PanelSkeleton />}>
+        <AppointmentsContent locale={locale} searchParams={searchParams} />
+      </Suspense>
+    </section>
+  );
+}
+
+async function AppointmentsContent({
+  locale,
+  searchParams,
+}: {
+  locale: string;
+  searchParams: Props["searchParams"];
+}) {
   const { role } = await requireStaff(locale, "appointments.view");
   const { tab: rawTab } = await searchParams;
   const tab: Tab = isTab(rawTab) ? rawTab : "upcoming";
@@ -75,9 +90,7 @@ export default async function AppointmentsPage({ params, searchParams }: Props) 
   );
 
   return (
-    <section className="space-y-6">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
-
+    <>
       <nav aria-label={t("tabsLabel")} className="flex flex-wrap gap-2">
         {TABS.map((id) => (
           <Link
@@ -124,6 +137,6 @@ export default async function AppointmentsPage({ params, searchParams }: Props) 
           </div>
         ))
       )}
-    </section>
+    </>
   );
 }

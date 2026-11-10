@@ -1,22 +1,28 @@
+import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { parseRoles } from "@/lib/permissions";
 import { requireStaff } from "@/lib/session";
-
-// El panel lee la sesión (cookies) antes de pintar nada: cada navegación espera al servidor.
-// Hacerlo instantáneo (sesión con "use cache: private" y datos en <Suspense>) queda para
-// cuando se trabaje el panel. Ver Notion: "Panel: quitar instant = false".
-export const instant = false;
 
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function PanelHomePage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
+  return (
+    <Suspense fallback={<PanelSkeleton rows={1} />}>
+      <Welcome locale={locale} />
+    </Suspense>
+  );
+}
 
-  // Se vuelve a comprobar aquí: el layout no basta como única barrera
+async function Welcome({ locale }: { locale: string }) {
+  // Se vuelve a comprobar aquí: el layout no es una barrera
   const { user, role } = await requireStaff(locale);
-  const t = await getTranslations({ locale, namespace: "Admin.panel" });
-  const tRoles = await getTranslations({ locale, namespace: "Admin.roles" });
+  const [t, tRoles] = await Promise.all([
+    getTranslations({ locale, namespace: "Admin.panel" }),
+    getTranslations({ locale, namespace: "Admin.roles" }),
+  ]);
   const firstRole = parseRoles(role)[0];
 
   return (

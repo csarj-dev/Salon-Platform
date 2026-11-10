@@ -164,7 +164,8 @@
       "soon": "Usa el menú para ver las citas y validar depósitos.",
       "refresh": "Actualizar",
       "refreshing": "Actualizando…",
-      "refreshHint": "El panel se actualiza solo cada 30 segundos"
+      "refreshHint": "El panel se actualiza solo cada 30 segundos",
+      "loading": "Cargando…"
     },
     "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
     "nav": {

@@ -164,7 +164,8 @@
       "soon": "Use the menu to see appointments and validate deposits.",
       "refresh": "Refresh",
       "refreshing": "Refreshing…",
-      "refreshHint": "The panel refreshes by itself every 30 seconds"
+      "refreshHint": "The panel refreshes by itself every 30 seconds",
+      "loading": "Loading…"
     },
     "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
     "nav": {

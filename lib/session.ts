@@ -1,13 +1,19 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { redirect } from "@/i18n/navigation";
 import { auth } from "./auth";
 import { can, isStaff, type Permission } from "./permissions";
 
-/** Sesión actual o null. Solo desde el servidor. Lee headers, así que es dinámico. */
-export async function getSession() {
+/**
+ * Sesión actual o null. Solo desde el servidor. Lee headers, así que es dinámico:
+ * quien la use en una página tiene que estar dentro de un <Suspense>.
+ * cache() de React: en una misma petición se consulta una sola vez aunque la pidan
+ * la cabecera y la página a la vez.
+ */
+export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() });
-}
+});
 
 function roleOf(user: object): string | null {
   const role = (user as { role?: string | null }).role;
