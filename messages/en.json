@@ -173,7 +173,8 @@
       "appointments": "Appointments",
       "deposits": "Deposits",
       "users": "Users",
-      "pendingCount": "{count} pending deposits"
+      "pendingCount": "{count} pending deposits",
+      "collectors": "Payments"
     },
     "status": {
       "booked": "Confirmed",
@@ -231,6 +232,50 @@
           "cancellation": "Cancellation",
           "reminder": "Reminder"
         }
+      }
+    },
+    "collectors": {
+      "title": "Payments",
+      "intro": "Who receives each professional's deposits. Reception sees it on every deposit to ask for payment to the right person. Clients don't see it.",
+      "collectorsTitle": "Collectors",
+      "default": "Default",
+      "howLabel": "How the client pays",
+      "mode": {
+        "whatsapp": "Asks for the payment link on WhatsApp",
+        "instructions": "With the payment instructions (Bizum, bank transfer…)"
+      },
+      "numberLabel": "Which number",
+      "ownNumber": "+{number}",
+      "receptionNumber": "Reception · +{number}",
+      "noNumber": "No number: contact.whatsapp is missing in the configuration",
+      "accountsLabel": "Koibox accounts",
+      "staffLabel": "Professionals",
+      "none": "None",
+      "configNote": "Collectors and how they're paid are set in the salon configuration. Here you choose who collects for each professional.",
+      "staffTitle": "Who collects for each professional",
+      "noStaff": "There are no active professionals.",
+      "single": "All deposits are collected by {name}. If several people collect one day, add them in the configuration (docs/collectors.md) and you'll be able to choose here.",
+      "noAccount": "No Koibox account",
+      "chargedBy": "Collected by {name}",
+      "source": {
+        "staff": "Set for her",
+        "account": "From her Koibox account",
+        "default": "Default"
+      },
+      "ignored": "She had “{id}”, which is no longer in the configuration: her account's or the default one is used. Save to clear it.",
+      "selectLabel": "Who collects for {name}",
+      "followAccount": "From her account · {name}",
+      "followDefault": "Default · {name}",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "footnote": "“From her account” uses her Koibox account's collector; with no account, the default one. Only choose another if she collects with a different card terminal.",
+      "footnoteLocal": "Only choose another if she collects with a different card terminal from the salon's.",
+      "errors": {
+        "invalid": "The data isn't valid. Reload the page.",
+        "unknownCollector": "That collector is no longer in the configuration. Reload the page.",
+        "notFound": "That professional no longer exists. Reload the page.",
+        "server": "Couldn't save. Try again."
       }
     },
     "deposits": {

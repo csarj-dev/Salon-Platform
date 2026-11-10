@@ -38,6 +38,11 @@ describe("can", () => {
     expect(can(null, "appointments.view")).toBe(false);
     expect(can("user", "appointments.view")).toBe(false);
   });
+  it("administrador y dirección cambian los ajustes; recepción no", () => {
+    expect(can("admin", "settings.manage")).toBe(true);
+    expect(can("owner", "settings.manage")).toBe(true);
+    expect(can("reception", "settings.manage")).toBe(false);
+  });
 });
 
 describe("isStaff", () => {

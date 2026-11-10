@@ -169,11 +169,12 @@
     },
     "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
     "nav": {
-    "home": "Inicio",
-    "appointments": "Citas",
-    "deposits": "Depósitos",
-    "users": "Usuarios",
-    "pendingCount": "{count} depósitos pendientes"
+      "home": "Inicio",
+      "appointments": "Citas",
+      "deposits": "Depósitos",
+      "users": "Usuarios",
+      "pendingCount": "{count} depósitos pendientes",
+      "collectors": "Cobros"
     },
     "status": {
       "booked": "Confirmada",
@@ -231,6 +232,50 @@
           "cancellation": "Cancelación",
           "reminder": "Recordatorio"
         }
+      }
+    },
+    "collectors": {
+      "title": "Cobros",
+      "intro": "Quién recibe los depósitos de cada profesional. Recepción lo ve en cada depósito para pedir el pago a quien toca. La clienta no lo ve.",
+      "collectorsTitle": "Cobradores",
+      "default": "Por defecto",
+      "howLabel": "Cómo paga la clienta",
+      "mode": {
+        "whatsapp": "Pide el enlace de pago por WhatsApp",
+        "instructions": "Con las instrucciones de pago (Bizum, transferencia…)"
+      },
+      "numberLabel": "A qué número",
+      "ownNumber": "+{number}",
+      "receptionNumber": "Recepción · +{number}",
+      "noNumber": "Sin número: falta contact.whatsapp en la configuración",
+      "accountsLabel": "Cuentas de Koibox",
+      "staffLabel": "Profesionales",
+      "none": "Ninguna",
+      "configNote": "Los cobradores y su forma de pago se definen en la configuración del salón. Aquí se elige quién cobra a cada profesional.",
+      "staffTitle": "Quién cobra a cada profesional",
+      "noStaff": "No hay profesionales activas.",
+      "single": "Todos los depósitos los cobra {name}. Si algún día cobran varias personas, se añaden en la configuración (docs/collectors.md) y aquí podrás elegir.",
+      "noAccount": "Sin cuenta de Koibox",
+      "chargedBy": "Cobra {name}",
+      "source": {
+        "staff": "Puesto a ella",
+        "account": "Por su cuenta de Koibox",
+        "default": "Por defecto"
+      },
+      "ignored": "Tenía «{id}», que ya no está en la configuración: se usa el de su cuenta o el de por defecto. Guarda para limpiarlo.",
+      "selectLabel": "Quién cobra a {name}",
+      "followAccount": "Según su cuenta · {name}",
+      "followDefault": "El de por defecto · {name}",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Guardado.",
+      "footnote": "«Según su cuenta» usa el cobrador de su cuenta de Koibox; si no tiene cuenta, el de por defecto. Elige otro solo si esa profesional cobra con un TPV distinto.",
+      "footnoteLocal": "Elige otro solo si esa profesional cobra con un TPV distinto al del salón.",
+      "errors": {
+        "invalid": "Los datos no son válidos. Recarga la página.",
+        "unknownCollector": "Ese cobrador ya no está en la configuración. Recarga la página.",
+        "notFound": "Esa profesional ya no existe. Recarga la página.",
+        "server": "No se pudo guardar. Inténtalo otra vez."
       }
     },
     "deposits": {

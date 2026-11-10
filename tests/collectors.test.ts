@@ -6,7 +6,7 @@ import { db, pgClient } from "../db";
 import {
   appointment, client, location, locationService, schedule, service, staff, staffService, timeOff,
 } from "../db/schema";
-import { collectorForAppointment, collectorForStaff, listStaffCollectors } from "../lib/collectors-db";
+import { collectorForAppointment, collectorForStaff, listStaffCollectors, setStaffCollector } from "../lib/collectors-db";
 import { salonConfigSchema } from "../lib/salon-config";
 
 const config = salonConfigSchema.parse({
@@ -99,5 +99,24 @@ describe("cobrador desde la base", () => {
 
   it("la base no admite ids de cobrador con mayúsculas o espacios", async () => {
     await expect(db.update(staff).set({ collector: "Amanda R" }).where(eq(staff.id, ids.ana))).rejects.toThrow();
+  });
+});
+
+describe("cambiar el cobrador desde el panel", () => {
+  it("pone uno del config, lo quita y rechaza lo que no existe", async () => {
+    expect(await setStaffCollector(config, ids.ana, "amanda")).toBe("ok");
+    expect((await collectorForStaff(ids.ana, config)).id).toBe("amanda");
+
+    expect(await setStaffCollector(config, ids.ana, null)).toBe("ok");
+    expect((await collectorForStaff(ids.ana, config)).id).toBe("salon");
+
+    expect(await setStaffCollector(config, ids.ana, "nadie")).toBe("unknownCollector");
+    expect(await setStaffCollector(config, 999_999, "amanda")).toBe("notFound");
+  });
+
+  it("la lista dice quién cobraría sin cobrador propio", async () => {
+    const luz = (await listStaffCollectors(config)).find((r) => r.staffName === "Luz")!;
+    expect(luz.choice.collector.id).toBe("luz");
+    expect(luz.fallback.id).toBe("amanda"); // su cuenta
   });
 });

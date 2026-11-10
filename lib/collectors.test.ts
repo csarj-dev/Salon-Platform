@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { SINGLE_COLLECTOR_ID, chooseCollector, hasSeveralCollectors, resolveCollector, salonCollectors } from "./collectors";
+import {
+  SINGLE_COLLECTOR_ID, chooseCollector, hasSeveralCollectors, isSalonCollector, resolveCollector, salonCollectors,
+  staffCollectorView,
+} from "./collectors";
 import { salonConfigSchema } from "./salon-config";
 
 const base = {
@@ -133,5 +136,27 @@ describe("salonConfigSchema · cobradores", () => {
 
   it("ids de cobrador en minúsculas", () => {
     expect(() => salonConfigSchema.parse({ ...base, payments: { collectors: { Amanda: { label: "A" } } } })).toThrow();
+  });
+});
+
+describe("staffCollectorView", () => {
+  it("con cobrador propio: cobra el suyo, y sin él cobraría el de su cuenta", () => {
+    const v = staffCollectorView(multi, { staffCollector: "luz", koiboxAccount: "amanda" });
+    expect(v.choice.collector.id).toBe("luz");
+    expect(v.choice.source).toBe("staff");
+    expect(v.fallback.id).toBe("amanda");
+  });
+
+  it("sin cuenta ni cobrador propio: el de por defecto en los dos casos", () => {
+    const v = staffCollectorView(multi, {});
+    expect(v.choice.source).toBe("default");
+    expect(v.fallback.id).toBe("salon");
+  });
+});
+
+describe("isSalonCollector", () => {
+  it("solo los del config", () => {
+    expect(isSalonCollector(multi, "amanda")).toBe(true);
+    expect(isSalonCollector(multi, "nadie")).toBe(false);
   });
 });

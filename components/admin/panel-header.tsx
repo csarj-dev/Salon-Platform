@@ -93,6 +93,11 @@ async function PanelNavLinks({ locale }: { locale: string }) {
           )}
         </Link>
       )}
+      {can(role, "settings.manage") && (
+        <Link href="/admin/collectors" className="hover:underline">
+          {tNav("collectors")}
+        </Link>
+      )}
       {can(role, "users.manage") && (
         <Link href="/admin/users" className="hover:underline">
           {tNav("users")}

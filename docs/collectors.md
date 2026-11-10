@@ -121,3 +121,9 @@ Solo admite cobradores que existen en el config. Lo que guarda es la columna `st
 
 - **Pago online (entrega 7):** cada cobrador tendrá su TPV (BBVA/Redsys) para cobrar el depósito en la web. Irá dentro de su entrada en `payments.collectors`.
 - **Panel (entrega 6):** ver y asignar el cobrador de cada profesional desde la pantalla de enlaces, además de con el script.
+
+## Desde el panel
+
+En **Panel → Cobros** (administrador y dirección) se ve cada cobrador, cómo paga la clienta y a quién
+cobra, y se elige quién cobra a cada profesional. Es lo mismo que `db/collectors.ts set/clear`:
+«Según su cuenta» deja la columna vacía. Los cobradores en sí se siguen definiendo en el config.

@@ -3,7 +3,9 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { appointment, staff } from "../db/schema";
-import { chooseCollector, resolveCollector, type Collector, type CollectorChoice } from "./collectors";
+import {
+  isSalonCollector, resolveCollector, staffCollectorView, type Collector, type CollectorChoice,
+} from "./collectors";
 import type { SalonConfig } from "./salon-config";
 
 type Config = Parameters<typeof resolveCollector>[0];
@@ -32,10 +34,13 @@ export type StaffCollectorRow = {
   koiboxAccount: string | null;
   saved: string | null; // lo guardado en su columna
   choice: CollectorChoice;
+  fallback: Collector; // quién cobraría sin cobrador propio
 };
 
-// Todas las profesionales con su cobrador y de dónde sale (para db/collectors.ts list)
-export async function listStaffCollectors(config: Pick<SalonConfig, "name" | "contact" | "booking" | "koibox" | "payments">): Promise<StaffCollectorRow[]> {
+type ListConfig = Pick<SalonConfig, "name" | "contact" | "booking" | "koibox" | "payments">;
+
+// Todas las profesionales con su cobrador y de dónde sale (db/collectors.ts list y el panel de Cobros)
+export async function listStaffCollectors(config: ListConfig): Promise<StaffCollectorRow[]> {
   const rows = await db
     .select({
       id: staff.id,
@@ -46,12 +51,33 @@ export async function listStaffCollectors(config: Pick<SalonConfig, "name" | "co
     })
     .from(staff)
     .orderBy(asc(staff.name));
-  return rows.map((r) => ({
-    staffId: r.id,
-    staffName: r.name,
-    active: r.active,
-    koiboxAccount: r.koiboxAccount,
-    saved: r.collector,
-    choice: chooseCollector(config, { staffCollector: r.collector, koiboxAccount: r.koiboxAccount }),
-  }));
+  return rows.map((r) => {
+    const view = staffCollectorView(config, { staffCollector: r.collector, koiboxAccount: r.koiboxAccount });
+    return {
+      staffId: r.id,
+      staffName: r.name,
+      active: r.active,
+      koiboxAccount: r.koiboxAccount,
+      saved: r.collector,
+      choice: view.choice,
+      fallback: view.fallback,
+    };
+  });
+}
+
+export type SetCollectorResult = "ok" | "unknownCollector" | "notFound";
+
+// Pone (o quita, con null) el cobrador propio de una profesional. Lo usa el panel de Cobros.
+export async function setStaffCollector(
+  config: ListConfig,
+  staffId: number,
+  collector: string | null,
+): Promise<SetCollectorResult> {
+  if (collector !== null && !isSalonCollector(config, collector)) return "unknownCollector";
+  const updated = await db
+    .update(staff)
+    .set({ collector })
+    .where(eq(staff.id, staffId))
+    .returning({ id: staff.id });
+  return updated.length > 0 ? "ok" : "notFound";
 }
