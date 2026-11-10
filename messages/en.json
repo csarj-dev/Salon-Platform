@@ -220,6 +220,34 @@
       "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
       "reason": "Reason: {reason}",
       "whatsapp": "Message on WhatsApp",
+      "koibox": {
+        "synced": "In Koibox · {account}",
+        "syncedCancelled": "Cancelled in Koibox too · {account}",
+        "syncedAt": "Up to date since {date}",
+        "pending": "Pending in Koibox",
+        "missing": "Not in Koibox",
+        "missingText": "This appointment wasn't recorded in Koibox. Retry, or add it there by hand.",
+        "work": {
+          "push": "It couldn't be recorded, or we don't know if it arrived. Retrying looks in Koibox first so it isn't duplicated.",
+          "depositPaid": "Koibox still needs to show the deposit as paid.",
+          "depositExpired": "It still needs cancelling in Koibox: the deposit wasn't paid in time.",
+          "cancelled": "It still needs cancelling in Koibox.",
+          "moved": "It still needs moving in Koibox."
+        },
+        "lastError": "Last error: {error}",
+        "auto": "It's retried automatically every 15 minutes.",
+        "retry": "Retry",
+        "retrying": "Retrying…",
+        "retried": "Done: it's up to date in Koibox.",
+        "nothing": "There was nothing pending.",
+        "errors": {
+          "invalid": "The data isn't valid. Reload the page.",
+          "disabled": "This salon doesn't use Koibox.",
+          "notFound": "That appointment no longer exists. Reload the page.",
+          "koibox": "Koibox didn't accept it: {message}",
+          "server": "Couldn't retry. Try again."
+        }
+      },
       "email": {
         "sent": "{kind} sent on {date}",
         "pending": "{kind}: sending…",
@@ -377,6 +405,18 @@
         "upcoming": "Upcoming",
         "past": "Past (30 days)",
         "cancelled": "Cancelled and expired (30 days)"
+      },
+      "koibox": {
+        "title": "{count, plural, one {# appointment isn't up to date in Koibox.} other {# appointments aren't up to date in Koibox.}}",
+        "show": "Show which",
+        "reference": "appointment #{id}",
+        "retryAll": "Retry all",
+        "retryingAll": "Retrying…",
+        "done": "Checked {checked}: {fixed} up to date, {failed} with errors.",
+        "errors": {
+          "disabled": "This salon doesn't use Koibox.",
+          "server": "Couldn't retry. Try again."
+        }
       },
       "empty": {
         "upcoming": "No upcoming appointments.",

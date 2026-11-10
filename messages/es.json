@@ -233,6 +233,34 @@
           "cancellation": "Cancelación",
           "reminder": "Recordatorio"
         }
+      },
+      "koibox": {
+        "synced": "En Koibox · {account}",
+        "syncedCancelled": "Anulada también en Koibox · {account}",
+        "syncedAt": "Al día desde {date}",
+        "pending": "Pendiente de Koibox",
+        "missing": "No está en Koibox",
+        "missingText": "Esta cita no se apuntó en Koibox. Reinténtalo o apúntala a mano allí.",
+        "work": {
+          "push": "No se pudo apuntar, o no sabemos si llegó. Al reintentar, se busca antes en Koibox para no duplicarla.",
+          "depositPaid": "Falta marcar en Koibox que el depósito está pagado.",
+          "depositExpired": "Falta anularla en Koibox: el depósito no se pagó a tiempo.",
+          "cancelled": "Falta anularla en Koibox.",
+          "moved": "Falta cambiarla de hora en Koibox."
+        },
+        "lastError": "Último error: {error}",
+        "auto": "Se reintenta solo cada 15 minutos.",
+        "retry": "Reintentar",
+        "retrying": "Reintentando…",
+        "retried": "Hecho: ya está al día en Koibox.",
+        "nothing": "No había nada pendiente.",
+        "errors": {
+          "invalid": "Los datos no son válidos. Recarga la página.",
+          "disabled": "Este salón no trabaja con Koibox.",
+          "notFound": "Esa cita ya no existe. Recarga la página.",
+          "koibox": "Koibox no la aceptó: {message}",
+          "server": "No se pudo reintentar. Inténtalo otra vez."
+        }
       }
     },
     "collectors": {
@@ -382,6 +410,18 @@
         "upcoming": "No hay citas próximas.",
         "past": "No hay citas en los últimos 30 días.",
         "cancelled": "No hay citas canceladas ni caducadas."
+      },
+      "koibox": {
+        "title": "{count, plural, one {# cita no está al día en Koibox.} other {# citas no están al día en Koibox.}}",
+        "show": "Ver cuáles",
+        "reference": "cita #{id}",
+        "retryAll": "Reintentar todo",
+        "retryingAll": "Reintentando…",
+        "done": "Revisadas {checked}: {fixed} al día, {failed} con error.",
+        "errors": {
+          "disabled": "Este salón no trabaja con Koibox.",
+          "server": "No se pudo reintentar. Inténtalo otra vez."
+        }
       }
     },
     "whatsapp": {

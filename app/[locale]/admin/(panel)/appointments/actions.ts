@@ -10,7 +10,7 @@ import { appointment } from "@/db/schema";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
-import { syncKoiboxChange } from "@/lib/koibox-sync";
+import { retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox } from "@/lib/koibox-sync";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
@@ -122,4 +122,51 @@ export async function resendEmailAction(appointmentId: number): Promise<ResendRe
   if (outcome.reason === "not_found") return { ok: false, error: "notFound" };
   if (outcome.reason === "no_email") return { ok: false, error: "noEmail" };
   return { ok: false, error: "sendFailed" };
+}
+
+export type KoiboxRetryResult =
+  | { ok: true; done: boolean }
+  | { ok: false; error: "invalid" | "disabled" | "notFound" | "server" }
+  | { ok: false; error: "koibox"; message: string };
+
+// Botón "Reintentar" de una cita: lo que haga falta en Koibox, decidido en el servidor
+export async function retryKoiboxAction(appointmentId: number): Promise<KoiboxRetryResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (!idSchema.safeParse(appointmentId).success) return { ok: false, error: "invalid" };
+
+  const config = await loadSalonConfig();
+  if (!writesToKoibox(config)) return { ok: false, error: "disabled" };
+
+  try {
+    const result = await retryKoiboxSync(appointmentId, config);
+    if (result === null) return { ok: false, error: "notFound" };
+    refresh(locale);
+    return result.ok ? result : { ok: false, error: "koibox", message: result.message };
+  } catch (error) {
+    console.error("[appointments] reintentar Koibox", error);
+    return { ok: false, error: "server" };
+  }
+}
+
+export type KoiboxRetryAllResult =
+  | { ok: true; checked: number; fixed: number; failed: number; expired: number }
+  | { ok: false; error: "disabled" | "server" };
+
+// "Reintentar todo": lo mismo que hace el reintento automático cada 15 minutos
+export async function retryAllKoiboxAction(): Promise<KoiboxRetryAllResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  const config = await loadSalonConfig();
+  if (!writesToKoibox(config)) return { ok: false, error: "disabled" };
+
+  try {
+    const s = await syncPendingKoibox(config);
+    refresh(locale);
+    if ("disabled" in s && s.disabled) return { ok: false, error: "disabled" };
+    return { ok: true, checked: s.checked, fixed: s.fixed, failed: s.failed.length, expired: s.expired };
+  } catch (error) {
+    console.error("[appointments] reintentar todo Koibox", error);
+    return { ok: false, error: "server" };
+  }
 }
