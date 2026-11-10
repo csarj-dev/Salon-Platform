@@ -1,10 +1,10 @@
 // Enlaces de nuestras profesionales con Koibox desde el panel (lo mismo que db/koibox-link.ts staff).
-import { asc, eq } from "drizzle-orm";
+import { asc, and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { koiboxServiceMap, service, staff, staffService } from "../db/schema";
 import { pgErrorCode } from "./booking";
 import { koiboxDriver, type KoiboxEnv } from "./koibox/driver";
-import { koiboxUsersOf, type KoiboxUser } from "./koibox/match";
+import { durationMinutes, koiboxUsersOf, type KoiboxUser } from "./koibox/match";
 import { koiboxApiFor, type KoiboxApiFor } from "./koibox-sync";
 import type { SalonConfig } from "./salon-config";
 
@@ -109,4 +109,90 @@ export async function koiboxUsersForAccount(
 ): Promise<KoiboxUser[]> {
   const services = await apiFor(account).listServices();
   return koiboxUsersOf(account, services.filter((s) => s.is_active !== false));
+}
+
+// ---- Servicios ----
+
+export type ServiceAccountLink = {
+  account: string;
+  koiboxServiceId: number | null;
+  neededBy: string[]; // profesionales de esa cuenta que lo hacen (si hay alguna, el id hace falta)
+};
+
+export type ServiceKoiboxRow = {
+  serviceId: number;
+  name: string;
+  durationMin: number;
+  accounts: ServiceAccountLink[]; // una por cuenta del config, en su orden
+};
+
+export async function loadServiceLinks(config: Config): Promise<ServiceKoiboxRow[]> {
+  const [services, team, skills, links] = await Promise.all([
+    db
+      .select({ id: service.id, name: service.name, durationMin: service.durationMin })
+      .from(service)
+      .orderBy(asc(service.sortOrder), asc(service.name)),
+    db.select({ id: staff.id, name: staff.name, account: staff.koiboxAccount }).from(staff).where(eq(staff.active, true)),
+    db.select().from(staffService),
+    db.select().from(koiboxServiceMap),
+  ]);
+  const accountIds = Object.keys(config.koibox.accounts);
+
+  return services.map((s) => ({
+    serviceId: s.id,
+    name: s.name,
+    durationMin: s.durationMin,
+    accounts: accountIds.map((account) => ({
+      account,
+      koiboxServiceId: links.find((l) => l.serviceId === s.id && l.account === account)?.koiboxServiceId ?? null,
+      neededBy: team
+        .filter((m) => m.account === account && skills.some((k) => k.staffId === m.id && k.serviceId === s.id))
+        .map((m) => m.name)
+        .sort((a, b) => a.localeCompare(b)),
+    })),
+  }));
+}
+
+export type ServiceLinkResult = "ok" | "notFound" | "unknownAccount";
+
+// Pone, cambia o (con null) quita el id de un servicio nuestro en una cuenta de Koibox
+export async function setServiceKoiboxLink(
+  config: Config,
+  serviceId: number,
+  account: string,
+  koiboxServiceId: number | null,
+): Promise<ServiceLinkResult> {
+  if (!hasAccount(config, account)) return "unknownAccount";
+  const [svc] = await db.select({ id: service.id }).from(service).where(eq(service.id, serviceId));
+  if (!svc) return "notFound";
+
+  if (koiboxServiceId === null) {
+    await db
+      .delete(koiboxServiceMap)
+      .where(and(eq(koiboxServiceMap.serviceId, serviceId), eq(koiboxServiceMap.account, account)));
+  } else {
+    await db
+      .insert(koiboxServiceMap)
+      .values({ serviceId, account, koiboxServiceId })
+      .onConflictDoUpdate({
+        target: [koiboxServiceMap.serviceId, koiboxServiceMap.account],
+        set: { koiboxServiceId },
+      });
+  }
+  return "ok";
+}
+
+export type KoiboxServiceOption = { id: number; name: string; minutes: number | null };
+
+// Los servicios activos de una cuenta de Koibox, para elegir con cuál enlazar
+export async function koiboxServicesForAccount(
+  config: Config,
+  account: string,
+  apiFor: KoiboxApiFor = koiboxApiFor(config),
+): Promise<KoiboxServiceOption[]> {
+  const services = await apiFor(account).listServices();
+  return services
+    .filter((s) => s.is_active !== false)
+    .map((s) => ({ id: s.id, name: s.nombre, minutes: durationMinutes(s.duracion) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

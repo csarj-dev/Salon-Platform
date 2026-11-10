@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { StaffKoiboxRow } from "@/components/admin/staff-koibox-row";
-import { loadKoiboxOverview } from "@/lib/koibox-links-db";
+import { KoiboxMatchPanel } from "@/components/admin/koibox-match-panel";
+import { ServiceKoiboxRow } from "@/components/admin/service-koibox-row";
+import { loadKoiboxOverview, loadServiceLinks } from "@/lib/koibox-links-db";
 import { writesToKoibox } from "@/lib/koibox-sync";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
@@ -37,8 +39,9 @@ async function KoiboxContent({ locale }: { locale: string }) {
   // Un salón sin Koibox no tiene esta pantalla
   if (!writesToKoibox(config)) notFound();
 
-  const overview = await loadKoiboxOverview(config);
+  const [overview, services] = await Promise.all([loadKoiboxOverview(config), loadServiceLinks(config)]);
   const accounts = overview.accounts.map((a) => ({ id: a.id, label: a.label }));
+  const accountLabels = Object.fromEntries(accounts.map((a) => [a.id, a.label]));
   const taken = overview.staff
     .filter((s) => s.account !== null && s.userId !== null)
     .map((s) => ({ account: s.account!, userId: s.userId!, staffName: s.staffName }));
@@ -57,6 +60,8 @@ async function KoiboxContent({ locale }: { locale: string }) {
           </li>
         ))}
       </ul>
+
+      <KoiboxMatchPanel accountLabels={accountLabels} />
 
       <div className="space-y-3">
         <div className="space-y-1">
@@ -82,7 +87,27 @@ async function KoiboxContent({ locale }: { locale: string }) {
             ))}
           </ul>
         )}
-        <p className="text-sm text-muted-foreground">{t("servicesNote")}</p>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">{t("servicesTitle")}</h2>
+          <p className="text-sm text-muted-foreground">{t("servicesIntro")}</p>
+        </div>
+        {services.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("noServices")}</p>
+        ) : (
+          <ul className="space-y-3">
+            {services.map((s) => (
+              <ServiceKoiboxRow
+                key={s.serviceId}
+                serviceId={s.serviceId}
+                name={s.name}
+                durationMin={s.durationMin}
+                accounts={s.accounts.map((a) => ({ ...a, label: accountLabels[a.account] ?? a.account }))}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
       </div>
     </>
   );

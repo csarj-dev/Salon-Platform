@@ -9,7 +9,9 @@ import {
 import { createKoiboxClient, type KoiboxApi } from "../lib/koibox/client";
 import { createFakeKoibox } from "../lib/koibox/fake";
 import { RateLimiter } from "../lib/koibox/limits";
-import { koiboxUsersForAccount, loadKoiboxOverview, setStaffKoiboxLink } from "../lib/koibox-links-db";
+import {
+  koiboxServicesForAccount, koiboxUsersForAccount, loadKoiboxOverview, loadServiceLinks, setServiceKoiboxLink, setStaffKoiboxLink,
+} from "../lib/koibox-links-db";
 import type { KoiboxConfig } from "../lib/salon-config";
 
 const koibox: KoiboxConfig = {
@@ -125,5 +127,39 @@ describe("enlazar desde el panel", () => {
     expect(users.map((u) => [u.id, u.name])).toEqual([[11, "Ana"], [12, "Lucía García"]]);
     // Amanda no tiene servicios en la cuenta: no sale nadie
     expect(await koiboxUsersForAccount({ koibox }, "amanda", (a) => apis[a])).toEqual([]);
+  });
+});
+
+describe("servicios desde el panel", () => {
+  const linksOf = async (serviceId: number) =>
+    (await db.select().from(koiboxServiceMap).where(eq(koiboxServiceMap.serviceId, serviceId))).map((l) => [l.account, l.koiboxServiceId]);
+
+  it("dice en cada cuenta su id y quién lo hace", async () => {
+    const rows = await loadServiceLinks({ koibox });
+    const byName = Object.fromEntries(rows.map((r) => [r.name, r]));
+    expect(byName["Laminado de cejas"].accounts).toEqual([
+      { account: "salon", koiboxServiceId: 501, neededBy: ["Ana"] }, // Lucía no está enlazada: no cuenta
+      { account: "amanda", koiboxServiceId: null, neededBy: [] },
+    ]);
+    expect(byName["Diseño de cejas"].accounts[0]).toEqual({ account: "salon", koiboxServiceId: null, neededBy: ["Ana"] });
+  });
+
+  it("pone, cambia y quita el id de un servicio en una cuenta", async () => {
+    const [diseno] = await db.select().from(service).where(eq(service.name, "Diseño de cejas"));
+    expect(await setServiceKoiboxLink({ koibox }, diseno.id, "salon", 502)).toBe("ok");
+    expect(await setServiceKoiboxLink({ koibox }, diseno.id, "salon", 503)).toBe("ok");
+    expect(await linksOf(diseno.id)).toEqual([["salon", 503]]);
+
+    expect(await setServiceKoiboxLink({ koibox }, diseno.id, "nadie", 1)).toBe("unknownAccount");
+    expect(await setServiceKoiboxLink({ koibox }, 999_999, "salon", 1)).toBe("notFound");
+
+    expect(await setServiceKoiboxLink({ koibox }, diseno.id, "salon", null)).toBe("ok");
+    expect(await linksOf(diseno.id)).toEqual([]);
+  });
+
+  it("lista los servicios activos de una cuenta con su duración", async () => {
+    expect(await koiboxServicesForAccount({ koibox }, "salon", (a) => apis[a])).toEqual([
+      { id: 501, name: "Laminado de Cejas", minutes: 60 },
+    ]);
   });
 });
