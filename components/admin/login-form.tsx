@@ -17,7 +17,8 @@ export function LoginForm() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setPending(true);
     setError(false);
     try {
@@ -29,6 +30,9 @@ export function LoginForm() {
         setError(true);
         return;
       }
+      // Next guarda esta página oculta al salir y la recupera al volver tal cual:
+      // se vacía para que la contraseña no siga escrita al cerrar sesión
+      form.reset();
       router.replace("/admin");
       router.refresh();
     } catch {

@@ -6,6 +6,8 @@ import { ResendEmailButton } from "@/components/admin/resend-email-button";
 import type { EmailStatusInfo } from "@/lib/email/email-status";
 import { formatDateTime, formatPrice, formatTime } from "@/lib/format";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
+import { RetryKoiboxButton } from "@/components/admin/retry-koibox-button";
+import type { KoiboxCardState } from "@/lib/koibox/card-state";
 import { cn } from "@/lib/utils";
 
 // Lo mínimo que necesita la tarjeta: lo cumplen tanto las filas de citas como las de depósitos
@@ -29,6 +31,9 @@ export type AppointmentCardData = {
   // Solo en la lista de citas: la clienta tiene email y cómo fue el último correo
   hasEmail?: boolean;
   email?: EmailStatusInfo | null;
+  // Solo con Koibox: su estado allí y el nombre de la cuenta (null = no se enseña nada)
+  koibox?: KoiboxCardState | null;
+  koiboxAccountLabel?: string | null;
 };
 
 type Props = {
@@ -48,6 +53,8 @@ type Props = {
   canCancel: boolean;
   /** Mostrar "Reenviar correo" */
   canResend?: boolean;
+  /** Mostrar "Reintentar" en el estado de Koibox */
+  canRetryKoibox?: boolean;
 };
 
 const URGENT_MS = 3 * 3_600_000;
@@ -74,11 +81,13 @@ export async function AppointmentCard({
   canValidate,
   canCancel,
   canResend = false,
+  canRetryKoibox = false,
 }: Props) {
-  const [t, tStatus, tWa] = await Promise.all([
+  const [t, tStatus, tWa, tK] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.card" }),
     getTranslations({ locale, namespace: "Admin.status" }),
     getTranslations({ locale, namespace: "Admin.whatsapp" }),
+    getTranslations({ locale, namespace: "Admin.card.koibox" }),
   ]);
 
   const when = formatDateTime(data.startsAt, locale, zone);
@@ -104,6 +113,20 @@ export async function AppointmentCard({
     data.depositDueAt !== null &&
     data.depositDueAt.getTime() - now < URGENT_MS;
   const fmt = (d: Date) => formatDateTime(d, locale, zone);
+
+  const k = data.koibox ?? null;
+  const workText =
+    k?.kind === "pending"
+      ? k.work.kind === "push"
+        ? tK("work.push")
+        : k.work.change.kind === "deposit_paid"
+          ? tK("work.depositPaid")
+          : k.work.change.kind === "deposit_expired"
+            ? tK("work.depositExpired")
+            : k.work.change.kind === "moved"
+              ? tK("work.moved")
+              : tK("work.cancelled")
+      : null;
 
   const showValidate = actionable && canValidate && data.status === "pending_deposit";
   const showCancel =
@@ -188,6 +211,38 @@ export async function AppointmentCard({
       )}
       {data.cancelReason && (
         <p className="text-sm text-muted-foreground">{t("reason", { reason: data.cancelReason })}</p>
+      )}
+
+      {k && (
+        <div
+          className={cn(
+            "space-y-1 rounded-md px-3 py-2 text-sm",
+            k.kind === "synced" && "bg-muted/60",
+            k.kind === "pending" && "bg-amber-50 dark:bg-amber-950/30",
+            k.kind === "missing" && "bg-destructive/10",
+          )}
+        >
+          <p className="font-medium">
+            {k.kind === "synced" &&
+              (k.cancelled
+                ? tK("syncedCancelled", { account: data.koiboxAccountLabel ?? k.account })
+                : tK("synced", { account: data.koiboxAccountLabel ?? k.account }))}
+            {k.kind === "pending" && tK("pending")}
+            {k.kind === "missing" && tK("missing")}
+          </p>
+          {k.kind === "synced" && k.syncedAt && (
+            <p className="text-muted-foreground">{tK("syncedAt", { date: fmt(k.syncedAt) })}</p>
+          )}
+          {k.kind === "pending" && (
+            <>
+              <p>{workText}</p>
+              {k.lastError && <p className="text-muted-foreground">{tK("lastError", { error: k.lastError })}</p>}
+              <p className="text-muted-foreground">{tK("auto")}</p>
+            </>
+          )}
+          {k.kind === "missing" && <p>{tK("missingText")}</p>}
+          {canRetryKoibox && k.kind !== "synced" && <RetryKoiboxButton appointmentId={data.id} />}
+        </div>
       )}
 
       <div className="flex flex-wrap items-start gap-2 pt-1">

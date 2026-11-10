@@ -93,3 +93,21 @@ export function chooseCollector(config: CollectorsConfig, hints: CollectorHints 
 export function resolveCollector(config: CollectorsConfig, hints: CollectorHints = {}): Collector {
   return chooseCollector(config, hints).collector;
 }
+
+// ¿Es un cobrador de este salón? (para no guardar un id que no está en el config)
+export function isSalonCollector(config: CollectorsConfig, id: string): boolean {
+  return salonCollectors(config).byId.has(id);
+}
+
+export type StaffCollectorView = {
+  choice: CollectorChoice; // quién cobra hoy y por qué
+  fallback: Collector; // quién cobraría sin cobrador propio (su cuenta o el de por defecto)
+};
+
+// Para el panel de Cobros: lo que hay y lo que habría al dejarlo "según su cuenta"
+export function staffCollectorView(config: CollectorsConfig, hints: CollectorHints = {}): StaffCollectorView {
+  return {
+    choice: chooseCollector(config, hints),
+    fallback: chooseCollector(config, { koiboxAccount: hints.koiboxAccount }).collector,
+  };
+}

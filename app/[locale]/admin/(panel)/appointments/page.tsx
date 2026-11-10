@@ -13,6 +13,9 @@ import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
+import { KoiboxPendingBox } from "@/components/admin/koibox-pending-box";
+import { koiboxCardState } from "@/lib/koibox/card-state";
+import { findPendingKoiboxWork, writesToKoibox } from "@/lib/koibox-sync";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -82,10 +85,21 @@ async function AppointmentsContent({
     },
   };
 
-  const rows = await listAppointments(query[tab]);
+  const koibox = writesToKoibox(config);
+  const [rows, pendingKoibox] = await Promise.all([
+    listAppointments(query[tab]),
+    // Solo con Koibox: las citas que no están al día allí (lo mismo que mira el reintento automático)
+    koibox ? findPendingKoiboxWork(now) : Promise.resolve([]),
+  ]);
   const emails = await latestEmailByAppointment(rows.map((r) => r.id));
+  const accountLabel = (id: string | null) => (id ? (config.koibox.accounts[id]?.label ?? id) : null);
   const groups = groupByDay(
-    rows.map((r) => ({ ...r, email: emails.get(r.id) ?? null })),
+    rows.map((r) => ({
+      ...r,
+      email: emails.get(r.id) ?? null,
+      koibox: koibox ? koiboxCardState(r, now) : null,
+      koiboxAccountLabel: accountLabel(r.koiboxAccount),
+    })),
     config.timezone,
   );
 
@@ -106,6 +120,13 @@ async function AppointmentsContent({
           </Link>
         ))}
       </nav>
+
+      <KoiboxPendingBox
+        items={pendingKoibox}
+        locale={locale}
+        zone={config.timezone}
+        canRetry={can(role, "appointments.manage")}
+      />
 
       {groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(`empty.${tab}`)}</p>
@@ -131,6 +152,7 @@ async function AppointmentsContent({
                   canValidate={can(role, "deposits.manage")}
                   canCancel={can(role, "appointments.manage")}
                   canResend={can(role, "appointments.manage")}
+                  canRetryKoibox={can(role, "appointments.manage")}
                 />
               ))}
             </ul>

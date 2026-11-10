@@ -25,6 +25,13 @@ export type AppointmentListRow = {
   // Quién del equipo canceló / validó el depósito (null si no consta)
   cancelledByName: string | null;
   validatedByName: string | null;
+  // Copia en Koibox (para el estado que se enseña en la tarjeta)
+  koiboxAccount: string | null;
+  koiboxAppointmentId: number | null;
+  koiboxError: string | null;
+  koiboxSyncedAt: Date | null;
+  cancelledBy: string | null;
+  depositPaidAt: Date | null;
 };
 
 export type ListAppointmentsOptions = {
@@ -66,6 +73,12 @@ export async function listAppointments(
       cancelReason: appointment.cancelReason,
       cancelledByName: canceller.name,
       validatedByName: validator.name,
+      koiboxAccount: appointment.koiboxAccount,
+      koiboxAppointmentId: appointment.koiboxAppointmentId,
+      koiboxError: appointment.koiboxError,
+      koiboxSyncedAt: appointment.koiboxSyncedAt,
+      cancelledBy: appointment.cancelledBy,
+      depositPaidAt: appointment.depositPaidAt,
     })
     .from(appointment)
     .innerJoin(client, eq(client.id, appointment.clientId))

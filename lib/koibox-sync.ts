@@ -7,6 +7,7 @@ import { db } from "../db";
 import { appointment, client, koiboxServiceMap, service, staff } from "../db/schema";
 import { expireOverdueDeposits } from "./deposit-db";
 import { findWebAppointment, koiboxPatchFor, toKoiboxAppointment, type WebChange } from "./koibox/booking";
+import { koiboxCardState } from "./koibox/card-state";
 import { findOrCreateClient, type KoiboxApi } from "./koibox/client";
 import type { KoiboxAppointment } from "./koibox/types";
 import { getKoiboxClient } from "./koibox/driver";
@@ -374,4 +375,43 @@ export async function syncPendingKoibox(
     else summary.failed.push({ id: item.id, message: result.message });
   }
   return summary;
+}
+
+export type RetryResult = { ok: true; done: boolean } | { ok: false; message: string };
+
+// El botón "Reintentar" de una cita en el panel. Decide aquí qué hace falta (la misma regla que el
+// reintento automático), sin fiarse de lo que diga el navegador. null = no existe esa cita.
+// "missing" (activa y nunca apuntada) también se intenta apuntar, buscando antes para no duplicar.
+export async function retryKoiboxSync(
+  appointmentId: number,
+  config: SalonConfig,
+  opts: { apiFor?: KoiboxApiFor; now?: Date } = {},
+): Promise<RetryResult | null> {
+  const now = opts.now ?? new Date();
+  const [row] = await db
+    .select({
+      status: appointment.status,
+      startsAt: appointment.startsAt,
+      koiboxAccount: appointment.koiboxAccount,
+      koiboxAppointmentId: appointment.koiboxAppointmentId,
+      koiboxError: appointment.koiboxError,
+      koiboxSyncedAt: appointment.koiboxSyncedAt,
+      cancelledAt: appointment.cancelledAt,
+      cancelledBy: appointment.cancelledBy,
+      cancelReason: appointment.cancelReason,
+      depositDueAt: appointment.depositDueAt,
+      depositPaidAt: appointment.depositPaidAt,
+    })
+    .from(appointment)
+    .where(eq(appointment.id, appointmentId));
+  if (!row) return null;
+
+  const state = koiboxCardState(row, now);
+  if (!state || state.kind === "synced") return { ok: true, done: false };
+
+  const result =
+    state.kind === "missing" || state.work.kind === "push"
+      ? await pushAppointmentToKoibox(appointmentId, config, { ...opts, now, lookFirst: true })
+      : await applyKoiboxChange(appointmentId, state.work.change, config, { ...opts, now });
+  return result.ok ? { ok: true, done: true } : { ok: false, message: result.message };
 }

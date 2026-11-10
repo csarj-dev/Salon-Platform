@@ -7,6 +7,8 @@ export const PERMISSIONS = {
   "appointments.manage": ["admin", "owner", "reception"],
   "deposits.manage": ["admin", "owner", "reception"],
   "reports.view": ["admin", "owner"],
+  // Ajustes del salón desde el panel: cobros y enlaces con Koibox
+  "settings.manage": ["admin", "owner"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

@@ -7,6 +7,8 @@ import { countPendingDeposits } from "@/lib/deposit-db";
 import { can, parseRoles } from "@/lib/permissions";
 import { requireStaff } from "@/lib/session";
 import { PanelRefresh } from "./panel-refresh";
+import { writesToKoibox } from "@/lib/koibox-sync";
+import { loadSalonConfig } from "@/lib/salon-config";
 
 type Props = { locale: string; salonName: string };
 
@@ -67,11 +69,13 @@ async function PanelIdentity({ locale }: { locale: string }) {
 async function PanelNavLinks({ locale }: { locale: string }) {
   const { role } = await requireStaff(locale);
   const showDeposits = can(role, "deposits.manage");
-  const [tNav, pendingDeposits] = await Promise.all([
+  const [tNav, pendingDeposits, config] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.nav" }),
     // Se calcula al cargar el panel; se refresca al validar, cancelar o con "Actualizar"
     showDeposits ? countPendingDeposits() : Promise.resolve(0),
+    loadSalonConfig(),
   ]);
+  const settings = can(role, "settings.manage");
 
   return (
     <>
@@ -91,6 +95,16 @@ async function PanelNavLinks({ locale }: { locale: string }) {
               {pendingDeposits}
             </span>
           )}
+        </Link>
+      )}
+      {settings && (
+        <Link href="/admin/collectors" className="hover:underline">
+          {tNav("collectors")}
+        </Link>
+      )}
+      {settings && writesToKoibox(config) && (
+        <Link href="/admin/koibox" className="hover:underline">
+          {tNav("koibox")}
         </Link>
       )}
       {can(role, "users.manage") && (
