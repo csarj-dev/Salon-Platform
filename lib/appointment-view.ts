@@ -84,3 +84,13 @@ export async function getConfirmation(
     depositDueAt: row.depositDueAt,
   };
 }
+
+// Id de la cita a partir de su token secreto (para lo que hace la clienta desde su enlace)
+export async function findAppointmentIdByToken(token: string): Promise<number | null> {
+  if (typeof token !== "string" || !UUID.test(token)) return null;
+  const [row] = await db
+    .select({ id: appointment.id })
+    .from(appointment)
+    .where(eq(appointment.publicToken, token.toLowerCase()));
+  return row?.id ?? null;
+}

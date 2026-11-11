@@ -143,7 +143,23 @@
     "stepSendProof": "Send us the proof of payment on WhatsApp.",
     "stepPay": "Pay the deposit before the deadline.",
     "stepConfirmed": "Once we receive it, your appointment is confirmed and you get an email.",
-    "stepsKeepPage": "Keep this page: it updates by itself and will show when your appointment is confirmed."
+    "stepsKeepPage": "Keep this page: it updates by itself and will show when your appointment is confirmed.",
+    "selfHelp": "If you can't come, you can cancel the appointment here until {date}. To change it, message us on WhatsApp.",
+    "tooLateHelp": "It's less than {hours, plural, one {# hour} other {# hours}} until the appointment: to change or cancel it, message us on WhatsApp.",
+    "cancel": "Cancel the appointment",
+    "cancelPending": "Cancel the booking",
+    "cancelConfirm": "Are you sure you want to cancel? This can't be undone: the slot becomes free for someone else.",
+    "cancelPendingConfirm": "Are you sure you want to cancel the booking? The slot becomes free for someone else.",
+    "cancelYes": "Yes, cancel",
+    "cancelNo": "No, keep it",
+    "cancelling": "Cancelling…",
+    "cancelErrors": {
+      "notFound": "We can't find this appointment. Check the link in your email.",
+      "disabled": "To cancel, message us on WhatsApp.",
+      "tooLate": "It's too late to cancel from here. Message us on WhatsApp.",
+      "notChangeable": "This appointment can no longer be cancelled. Reload the page to see its status.",
+      "server": "Couldn't cancel. Try again or message us."
+    }
   },
   "Admin": {
     "title": "Dashboard",
@@ -477,7 +493,8 @@
       "price": "Price",
       "deposit": "Deposit",
       "viewAppointment": "View my appointment",
-      "cancelNotice": "If you need to change or cancel your appointment, please let us know at least {hours, plural, one {# hour} other {# hours}} in advance. You can reply to this email."
+      "cancelNotice": "If you need to change or cancel your appointment, please let us know at least {hours, plural, one {# hour} other {# hours}} in advance. You can reply to this email.",
+      "cancelNoticeSelf": "If you can't come, you can cancel the appointment yourself from “View my appointment” up to {hours, plural, one {# hour} other {# hours}} before. To change it, or after that, message us or reply to this email."
     },
     "confirmation": {
       "subject": "Appointment confirmed at {salon}",

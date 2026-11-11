@@ -79,7 +79,11 @@ export function buildAppointmentEmail(
     });
   }
 
-  const cancelNotice = t("common.cancelNotice", { hours: config.booking.cancellationNoticeHours });
+  // Si la clienta puede cancelar sola desde "Ver mi cita", se le dice; si no, que avise al salón
+  const cancelNotice = t(
+    config.booking.clientChanges.cancel ? "common.cancelNoticeSelf" : "common.cancelNotice",
+    { hours: config.booking.cancellationNoticeHours },
+  );
   const appointmentUrl = `${base}/${data.locale}/booking/confirmed/${data.publicToken}`;
 
   const contactLines: string[] = [salon];
