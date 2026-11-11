@@ -262,7 +262,8 @@
           "depositPaid": "Falta marcar en Koibox que el depósito está pagado.",
           "depositExpired": "Falta anularla en Koibox: el depósito no se pagó a tiempo.",
           "cancelled": "Falta anularla en Koibox.",
-          "moved": "Falta cambiarla de hora en Koibox."
+          "moved": "Falta cambiarla de hora en Koibox.",
+          "cleanup": "Falta anular en Koibox la cita de la hora anterior (se cambió de hora)."
         },
         "lastError": "Último error: {error}",
         "auto": "Se reintenta solo cada 15 minutos.",

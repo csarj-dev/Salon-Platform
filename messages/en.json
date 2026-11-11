@@ -248,7 +248,8 @@
           "depositPaid": "Koibox still needs to show the deposit as paid.",
           "depositExpired": "It still needs cancelling in Koibox: the deposit wasn't paid in time.",
           "cancelled": "It still needs cancelling in Koibox.",
-          "moved": "It still needs moving in Koibox."
+          "moved": "It still needs moving in Koibox.",
+          "cleanup": "The appointment at the previous time still needs cancelling in Koibox (it was moved)."
         },
         "lastError": "Last error: {error}",
         "auto": "It's retried automatically every 15 minutes.",

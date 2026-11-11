@@ -337,6 +337,11 @@ export const appointment = pgTable(
     koiboxAppointmentId: integer("koibox_appointment_id"),
     koiboxSyncedAt: timestamp("koibox_synced_at", { withTimezone: true }),
     koiboxError: text("koibox_error"),
+    // Cambio de hora con Koibox: id de la cita de la hora anterior, que falta anular allí.
+    // Se vacía en cuanto se anula; si falla, lo recoge el reintento (lib/koibox/pending.ts).
+    koiboxPreviousId: integer("koibox_previous_id"),
+    // Última vez que se cambió la cita de hora (para el panel)
+    rescheduledAt: timestamp("rescheduled_at", { withTimezone: true }),
   },
   (t) => [
     check("ends_after_starts", sql`${t.endsAt} > ${t.startsAt}`),

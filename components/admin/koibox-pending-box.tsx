@@ -16,13 +16,15 @@ export async function KoiboxPendingBox({ items, locale, zone, canRetry }: Props)
   const workText = (w: KoiboxWork) =>
     w.kind === "push"
       ? tK("work.push")
-      : w.change.kind === "deposit_paid"
-        ? tK("work.depositPaid")
-        : w.change.kind === "deposit_expired"
-          ? tK("work.depositExpired")
-          : w.change.kind === "moved"
-            ? tK("work.moved")
-            : tK("work.cancelled");
+      : w.kind === "cleanup"
+        ? tK("work.cleanup")
+        : w.change.kind === "deposit_paid"
+          ? tK("work.depositPaid")
+          : w.change.kind === "deposit_expired"
+            ? tK("work.depositExpired")
+            : w.change.kind === "moved"
+              ? tK("work.moved")
+              : tK("work.cancelled");
 
   return (
     <div className="space-y-3 rounded-lg bg-amber-50 p-4 text-sm dark:bg-amber-950/30">

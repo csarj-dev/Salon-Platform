@@ -15,6 +15,7 @@ const row = (patch: Partial<KoiboxSyncRow> = {}): KoiboxSyncRow => ({
   cancelReason: null,
   depositDueAt: null,
   depositPaidAt: null,
+  koiboxPreviousId: null,
   ...patch,
 });
 
@@ -67,5 +68,9 @@ describe("koiboxWorkFor", () => {
   it("realizadas y no presentadas las lleva recepción en Koibox", () => {
     expect(koiboxWorkFor(row({ status: "completed", koiboxSyncedAt: null }), NOW)).toBeNull();
     expect(koiboxWorkFor(row({ status: "no_show", koiboxSyncedAt: null }), NOW)).toBeNull();
+  });
+
+  it("un cambio de hora a medias: primero anular la de antes", () => {
+    expect(koiboxWorkFor(row({ koiboxPreviousId: 700 }), NOW)).toEqual({ kind: "cleanup", koiboxAppointmentId: 700 });
   });
 });

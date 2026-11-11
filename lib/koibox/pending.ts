@@ -14,11 +14,18 @@ export type KoiboxSyncRow = {
   cancelReason: string | null;
   depositDueAt: Date | null;
   depositPaidAt: Date | null;
+  koiboxPreviousId: number | null; // cambio de hora: la cita de la hora anterior, sin anular aún
 };
 
-export type KoiboxWork = { kind: "push" } | { kind: "change"; change: WebChange };
+export type KoiboxWork =
+  | { kind: "push" }
+  | { kind: "change"; change: WebChange }
+  | { kind: "cleanup"; koiboxAppointmentId: number }; // anular la de la hora anterior
 
 export function koiboxWorkFor(r: KoiboxSyncRow, now: Date): KoiboxWork | null {
+  // Primero lo que dejó a medias un cambio de hora: hay dos citas en Koibox y una sobra
+  if (r.koiboxPreviousId !== null) return { kind: "cleanup", koiboxAppointmentId: r.koiboxPreviousId };
+
   const linked = r.koiboxAppointmentId !== null;
   // ¿Pasó `t` después de la última vez que se sincronizó con Koibox?
   const notSyncedSince = (t: Date | null) =>

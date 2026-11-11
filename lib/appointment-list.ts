@@ -32,6 +32,7 @@ export type AppointmentListRow = {
   koiboxSyncedAt: Date | null;
   cancelledBy: string | null;
   depositPaidAt: Date | null;
+  koiboxPreviousId: number | null;
 };
 
 export type ListAppointmentsOptions = {
@@ -79,6 +80,7 @@ export async function listAppointments(
       koiboxSyncedAt: appointment.koiboxSyncedAt,
       cancelledBy: appointment.cancelledBy,
       depositPaidAt: appointment.depositPaidAt,
+      koiboxPreviousId: appointment.koiboxPreviousId,
     })
     .from(appointment)
     .innerJoin(client, eq(client.id, appointment.clientId))

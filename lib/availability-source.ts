@@ -4,7 +4,7 @@
 import { DateTime } from "luxon";
 import { getAvailabilityForRange } from "./availability-range";
 import { getAvailabilityForService, type ServiceAvailability } from "./availability-service";
-import { confirmKoiboxSlot, getKoiboxAvailabilityForRange } from "./availability-koibox";
+import { confirmKoiboxSlot, getKoiboxAvailabilityForRange, type SlotIgnore } from "./availability-koibox";
 import { cachedKoiboxSnapshot, freshKoiboxSnapshot } from "./koibox/snapshot-cache";
 import { toAvailabilityOptions, type SalonConfig } from "./salon-config";
 
@@ -18,12 +18,15 @@ export function getBookingAvailability(
   from: string,
   to: string,
   now: Date,
+  ignore?: SlotIgnore, // al cambiar una cita de hora
 ): Promise<Map<string, ServiceAvailability>> {
   const opts = toAvailabilityOptions(config);
   if (config.booking.availability === "koibox") {
-    return getKoiboxAvailabilityForRange(locationId, serviceId, from, to, opts, now, config.koibox, cachedKoiboxSnapshot);
+    return getKoiboxAvailabilityForRange(
+      locationId, serviceId, from, to, opts, now, config.koibox, cachedKoiboxSnapshot, ignore,
+    );
   }
-  return getAvailabilityForRange(locationId, serviceId, from, to, opts, now);
+  return getAvailabilityForRange(locationId, serviceId, from, to, opts, now, ignore?.appointmentId);
 }
 
 // ¿Sigue libre esa hora? Devuelve la profesional que la atiende o null.

@@ -119,7 +119,9 @@ export async function AppointmentCard({
     k?.kind === "pending"
       ? k.work.kind === "push"
         ? tK("work.push")
-        : k.work.change.kind === "deposit_paid"
+        : k.work.kind === "cleanup"
+          ? tK("work.cleanup")
+          : k.work.change.kind === "deposit_paid"
           ? tK("work.depositPaid")
           : k.work.change.kind === "deposit_expired"
             ? tK("work.depositExpired")

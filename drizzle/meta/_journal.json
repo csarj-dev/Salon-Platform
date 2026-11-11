@@ -134,6 +134,13 @@
       "when": 1793794029144,
       "tag": "0018_staff_collector",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794395981669,
+      "tag": "0019_appointment_reschedule",
+      "breakpoints": true
     }
   ]
 }

@@ -63,10 +63,21 @@ async function saveError(appointmentId: number, message: string) {
 export async function pushAppointmentToKoibox(
   appointmentId: number,
   config: SalonConfig,
-  opts: { apiFor?: KoiboxApiFor; now?: Date; lookFirst?: boolean } = {},
+  opts: {
+    apiFor?: KoiboxApiFor;
+    now?: Date;
+    lookFirst?: boolean;
+    // Cambio de hora: crea en Koibox una copia a esta hora y devuelve su id, SIN guardar nada en
+    // nuestra cita (lo guarda moveAppointment cuando todo ha ido bien). No se combina con lookFirst.
+    at?: { startsAt: Date; endsAt: Date };
+  } = {},
 ): Promise<PushResult> {
   const apiFor = opts.apiFor ?? koiboxApiFor(config);
   const now = opts.now ?? new Date();
+  const startsAt = opts.at?.startsAt;
+  const endsAt = opts.at?.endsAt;
+  // Con `at` no se apunta ningún error en la cita: la cita de antes sigue bien en Koibox
+  const recordError = (message: string) => (opts.at ? Promise.resolve() : saveError(appointmentId, message));
 
   const [row] = await db
     .select({
@@ -97,7 +108,7 @@ export async function pushAppointmentToKoibox(
   if (!row) return { ok: false, outcome: "rejected", taken: false, message: `No existe la cita ${appointmentId}` };
 
   // Ya está apuntada: no se crea otra
-  if (row.koiboxAccount && row.koiboxAppointmentId !== null) {
+  if (!opts.at && row.koiboxAccount && row.koiboxAppointmentId !== null) {
     return { ok: true, account: row.koiboxAccount, koiboxAppointmentId: row.koiboxAppointmentId, reused: true };
   }
   if (row.status !== "booked" && row.status !== "pending_deposit") {
@@ -112,12 +123,13 @@ export async function pushAppointmentToKoibox(
     Object.keys(config.koibox.accounts),
   );
   if (!routed.ok) {
-    await saveError(appointmentId, routed.message);
+    await recordError(routed.message);
     return { ok: false, outcome: "rejected", taken: false, message: routed.message };
   }
   const { account, koiboxUserId, koiboxServiceId } = routed.target;
 
   const linked = async (koiboxAppointmentId: number, reused: boolean): Promise<PushResult> => {
+    if (opts.at) return { ok: true, account, koiboxAppointmentId, reused };
     await db
       .update(appointment)
       .set({ koiboxAccount: account, koiboxAppointmentId, koiboxSyncedAt: now, koiboxError: null })
@@ -129,7 +141,7 @@ export async function pushAppointmentToKoibox(
   let koiboxClientId: number;
   try {
     api = apiFor(account);
-    if (opts.lookFirst) {
+    if (opts.lookFirst && !opts.at) {
       const day = DateTime.fromJSDate(row.startsAt, { zone: config.timezone }).toFormat("yyyy-MM-dd");
       const existing = findWebAppointment(
         await api.listAppointments({ from: day, to: day, userIds: [koiboxUserId] }),
@@ -146,7 +158,7 @@ export async function pushAppointmentToKoibox(
   } catch (error) {
     // Hasta aquí no se ha creado ninguna cita: como mucho la ficha de la clienta, que no molesta
     const message = errorText(error);
-    await saveError(appointmentId, message);
+    await recordError(message);
     return { ok: false, outcome: "rejected", taken: false, message };
   }
 
@@ -156,8 +168,8 @@ export async function pushAppointmentToKoibox(
       toKoiboxAppointment({
         ref: row.id,
         serviceName: row.serviceName,
-        startsAt: row.startsAt,
-        endsAt: row.endsAt,
+        startsAt: startsAt ?? row.startsAt,
+        endsAt: endsAt ?? row.endsAt,
         zone: config.timezone,
         koiboxUserId,
         koiboxClientId,
@@ -180,7 +192,7 @@ export async function pushAppointmentToKoibox(
     );
   } catch (error) {
     const message = errorText(error);
-    await saveError(appointmentId, message);
+    await recordError(message);
     if (mayHaveArrived(error)) return { ok: false, outcome: "unknown", message };
     const taken = error instanceof KoiboxError && error.code === "bad_request";
     return { ok: false, outcome: "rejected", taken, message };
@@ -192,7 +204,7 @@ export async function pushAppointmentToKoibox(
     return await linked(created.id, false);
   } catch (error) {
     const message = errorText(`Creada en Koibox (id ${created.id}) pero no se pudo guardar el enlace: ${errorText(error)}`);
-    await saveError(appointmentId, message);
+    await recordError(message);
     return { ok: false, outcome: "unknown", message };
   }
 }
@@ -231,6 +243,39 @@ export async function applyKoiboxChange(
     return { ok: true, applied: patch !== null };
   } catch (error) {
     const message = `${change.kind}: ${errorText(error)}`;
+    await saveError(appointmentId, message);
+    return { ok: false, message };
+  }
+}
+
+// Cambio de hora: anula en Koibox la cita de la hora anterior (koibox_previous_id) con la nota
+// "Cambiada de hora desde la web al …" y lo vacía. Si falla, queda para el reintento.
+export async function cleanupPreviousKoibox(
+  appointmentId: number,
+  config: SalonConfig,
+  opts: { apiFor?: KoiboxApiFor; now?: Date } = {},
+): Promise<ChangeSyncResult> {
+  const apiFor = opts.apiFor ?? koiboxApiFor(config);
+  const now = opts.now ?? new Date();
+  const [row] = await db
+    .select({ account: appointment.koiboxAccount, previousId: appointment.koiboxPreviousId, startsAt: appointment.startsAt })
+    .from(appointment)
+    .where(eq(appointment.id, appointmentId));
+  if (!row?.account || row.previousId === null) return { ok: true, applied: false };
+
+  try {
+    const api = apiFor(row.account);
+    const old = await api.getAppointment(row.previousId);
+    // La borraron en Koibox, o ya estaba anulada: no hay nada que hacer allí
+    const patch = old ? koiboxPatchFor({ kind: "moved", startsAt: row.startsAt, zone: config.timezone }, old) : null;
+    if (patch) await api.updateAppointment(row.previousId, patch);
+    await db
+      .update(appointment)
+      .set({ koiboxPreviousId: null, koiboxSyncedAt: now, koiboxError: null })
+      .where(and(eq(appointment.id, appointmentId), eq(appointment.koiboxPreviousId, row.previousId)));
+    return { ok: true, applied: patch !== null };
+  } catch (error) {
+    const message = `cleanup: ${errorText(error)}`;
     await saveError(appointmentId, message);
     return { ok: false, message };
   }
@@ -326,6 +371,7 @@ export async function findPendingKoiboxWork(now: Date = new Date(), limit = 200)
       cancelReason: appointment.cancelReason,
       depositDueAt: appointment.depositDueAt,
       depositPaidAt: appointment.depositPaidAt,
+      koiboxPreviousId: appointment.koiboxPreviousId,
     })
     .from(appointment)
     .where(
@@ -370,7 +416,9 @@ export async function syncPendingKoibox(
     const result =
       item.work.kind === "push"
         ? await pushAppointmentToKoibox(item.id, config, { ...opts, now, lookFirst: true })
-        : await applyKoiboxChange(item.id, item.work.change, config, { ...opts, now });
+        : item.work.kind === "cleanup"
+          ? await cleanupPreviousKoibox(item.id, config, { ...opts, now })
+          : await applyKoiboxChange(item.id, item.work.change, config, { ...opts, now });
     if (result.ok) summary.fixed++;
     else summary.failed.push({ id: item.id, message: result.message });
   }
@@ -401,6 +449,7 @@ export async function retryKoiboxSync(
       cancelReason: appointment.cancelReason,
       depositDueAt: appointment.depositDueAt,
       depositPaidAt: appointment.depositPaidAt,
+      koiboxPreviousId: appointment.koiboxPreviousId,
     })
     .from(appointment)
     .where(eq(appointment.id, appointmentId));
@@ -412,6 +461,8 @@ export async function retryKoiboxSync(
   const result =
     state.kind === "missing" || state.work.kind === "push"
       ? await pushAppointmentToKoibox(appointmentId, config, { ...opts, now, lookFirst: true })
-      : await applyKoiboxChange(appointmentId, state.work.change, config, { ...opts, now });
+      : state.work.kind === "cleanup"
+        ? await cleanupPreviousKoibox(appointmentId, config, { ...opts, now })
+        : await applyKoiboxChange(appointmentId, state.work.change, config, { ...opts, now });
   return result.ok ? { ok: true, done: true } : { ok: false, message: result.message };
 }

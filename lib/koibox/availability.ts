@@ -30,6 +30,9 @@ export type KoiboxAvailabilityInput = {
   to: string; // incluido
   opts: AvailabilityOptions;
   now: Date;
+  // Al cambiar una cita de hora: su propio hueco no cuenta como ocupado. En Koibox sale como
+  // una cita más, sin nuestro id: se reconoce por profesional, día y hora exactos.
+  ignore?: { staffId: number; start: Date; end: Date };
 };
 
 // Mapa "2026-11-02" -> huecos de ese día. Los días sin ningún hueco no aparecen.
@@ -52,9 +55,17 @@ export function computeKoiboxAvailability(input: KoiboxAvailabilityInput): Map<s
           b.start.getTime() < bounds.end.getTime() &&
           b.end.getTime() > bounds.start.getTime(),
       );
+      const fromKoibox = busyOn(snapshot, member.koiboxUserId, iso, opts.zone);
+      const ignore = input.ignore;
+      const own =
+        ignore && ignore.staffId === member.staffId
+          ? fromKoibox.findIndex(
+              (b) => b.start.getTime() === ignore.start.getTime() && b.end.getTime() === ignore.end.getTime(),
+            )
+          : -1;
       const slots = getAvailableSlots({
         workingHours: workingHoursOn(snapshot, member.koiboxUserId, iso, opts.zone),
-        busy: [...busyOn(snapshot, member.koiboxUserId, iso, opts.zone), ...local],
+        busy: [...(own === -1 ? fromKoibox : fromKoibox.filter((_, i) => i !== own)), ...local],
         durationMin: input.durationMin,
         stepMin: opts.stepMin,
         bufferMin: opts.bufferMin,

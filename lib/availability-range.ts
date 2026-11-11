@@ -26,6 +26,7 @@ export async function getAvailabilityForRange(
   toDate: string, // incluido
   opts: AvailabilityOptions,
   now: Date = new Date(),
+  ignoreAppointmentId?: number,
 ): Promise<Map<string, ServiceAvailability>> {
   const result = new Map<string, ServiceAvailability>();
   if (toDate < fromDate) return result;
@@ -83,6 +84,7 @@ export async function getAvailabilityForRange(
           or(ne(appointment.status, "pending_deposit"), gt(appointment.depositDueAt, now)),
           lt(appointment.startsAt, range.end),
           gt(appointment.endsAt, range.start),
+          ignoreAppointmentId !== undefined ? ne(appointment.id, ignoreAppointmentId) : undefined,
         ),
       ),
 
