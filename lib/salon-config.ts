@@ -207,6 +207,15 @@ export const salonConfigSchema = z
       minNoticeHours: z.number().min(0).default(2),
       maxDaysAhead: z.number().int().positive().default(60),
       cancellationNoticeHours: z.number().min(0).default(24),
+      // Qué puede hacer la clienta con su cita desde el enlace del correo (siempre fuera del
+      // plazo de cancelación; una cita que espera el depósito se puede cancelar siempre).
+      // Apagado: tiene que escribir al salón.
+      clientChanges: z
+        .object({
+          cancel: z.boolean().default(true),
+          reschedule: z.boolean().default(true),
+        })
+        .prefault({}),
       deposit: depositSchema.prefault({}),
       availability: z.enum(AVAILABILITY_SOURCES).default("local"),
     }),

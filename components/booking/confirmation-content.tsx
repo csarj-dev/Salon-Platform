@@ -14,6 +14,8 @@ import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { OpenWhatsAppOnce } from "@/components/booking/open-whatsapp-once";
+import { ClientCancel } from "@/components/booking/client-cancel";
+import { clientChangeState } from "@/lib/client-changes";
 
 type Props = { params: Promise<{ locale: string; token: string }> };
 
@@ -37,10 +39,13 @@ export async function ConfirmationContent({ params }: Props) {
   ]);
   if (!config.booking.channels.includes("online")) notFound();
 
-    // La hora actual cambia en cada visita: se excluye del prerenderizado con io() antes de leerla
+  // La hora actual cambia en cada visita: se excluye del prerenderizado con io() antes de leerla
   await io();
-  const view = await getConfirmation(token, locale, config.defaultLocale, new Date());
+  const now = new Date();
+  const view = await getConfirmation(token, locale, config.defaultLocale, now);
   if (!view) notFound();
+  // Qué puede hacer la clienta desde aquí (de momento, cancelar; cambiar de hora llega después)
+  const changes = clientChangeState(view, config, now);
 
   const zone = config.timezone;
   const when = formatDateTime(view.startsAt, locale, zone);
@@ -141,7 +146,11 @@ export async function ConfirmationContent({ params }: Props) {
 
       {view.status === "booked" && (
         <p className="mt-6 text-sm text-muted-foreground">
-          {t("bookedHelp", { hours: config.booking.cancellationNoticeHours })}
+          {changes.cancel === "allowed"
+            ? t("selfHelp", { date: formatDateTime(changes.deadline, locale, zone) })
+            : changes.cancel === "too_late"
+              ? t("tooLateHelp", { hours: config.booking.cancellationNoticeHours })
+              : t("bookedHelp", { hours: config.booking.cancellationNoticeHours })}
         </p>
       )}
       {view.status === "expired" && (
@@ -152,6 +161,10 @@ export async function ConfirmationContent({ params }: Props) {
       )}
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
+        {view.status === "booked" && changes.cancel === "allowed" && <ClientCancel token={token} kind="booked" />}
+        {view.status === "pending_deposit" && changes.cancel === "allowed" && (
+          <ClientCancel token={token} kind="pending" />
+        )}
         {(view.status === "expired" || view.status === "cancelled") && (
           <Link href="/booking" className={cn(buttonVariants({ size: "lg" }), "h-11 px-5")}>
             {t("bookAgain")}

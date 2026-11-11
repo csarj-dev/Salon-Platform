@@ -109,3 +109,23 @@ describe("otros correos", () => {
     expect(mail.text).toContain("https://salon.example.com/en/booking/confirmed/");
   });
 });
+
+describe("aviso de cancelación", () => {
+  it("si la clienta puede cancelar sola, se lo dice", () => {
+    expect(build("confirmation").text).toContain("puedes cancelar la cita tú misma");
+  });
+
+  it("si el salón no lo permite, le pide que avise", () => {
+    const strict = salonConfigSchema.parse({
+      name: "The Room",
+      timezone: "Atlantic/Canary",
+      locales: ["es", "en"],
+      defaultLocale: "es",
+      contact: { email: "hola@theroom.test", whatsapp: "34600000000" },
+      booking: { cancellationNoticeHours: 24, clientChanges: { cancel: false } },
+    });
+    const { text } = buildAppointmentEmail("confirmation", data, strict, es, now, env);
+    expect(text).not.toContain("tú misma");
+    expect(text).toContain("avísanos");
+  });
+});
