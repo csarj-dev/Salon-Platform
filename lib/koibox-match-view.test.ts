@@ -61,4 +61,13 @@ describe("matchPlanView", () => {
       { kind: "service", account: "salon", theirId: 503, theirName: "Tinte de pestañas", minutes: 30 },
     ]);
   });
+
+  it("cuenta lo que ya estaba enlazado (profesionales y servicios de todas las cuentas)", () => {
+    const v = matchPlanView({
+      ...plan,
+      staff: { ...plan.staff, alreadyLinked: 2 },
+      services: [{ ...plan.services[0], alreadyLinked: 3 }],
+    });
+    expect(v.alreadyLinked).toBe(5);
+  });
 });

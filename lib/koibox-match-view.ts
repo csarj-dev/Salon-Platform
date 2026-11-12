@@ -20,6 +20,7 @@ export type UnmatchedItem = { kind: MatchKind; account: string; theirId: number;
 
 export type MatchView = {
   errors: { account: string; message: string }[];
+  alreadyLinked: number; // profesionales y servicios que ya tenían enlace (no se tocan)
   safe: MatchItem[];
   review: MatchItem[];
   similar: MatchItem[];
@@ -58,6 +59,7 @@ export function matchPlanView(plan: Plan): MatchView {
   const s = plan.staff;
   return {
     errors: plan.errors,
+    alreadyLinked: s.alreadyLinked + plan.services.reduce((n, p) => n + p.alreadyLinked, 0),
     safe: [
       ...s.link.map((l) => staffItem(l.ours, l.theirs)),
       ...plan.services.flatMap((p) => p.link.map((l) => serviceItem(p.account, l.ours, l.theirs))),

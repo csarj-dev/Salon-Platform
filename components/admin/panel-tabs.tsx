@@ -23,7 +23,7 @@ export function PanelTabs({ tabs, label }: { tabs: Tab[]; label: string }) {
             aria-selected={tab.id === active}
             aria-controls={`${base}-panel-${tab.id}`}
             onClick={() => setActive(tab.id)}
-            className={segmentItem(tab.id === active)}
+            className={cn(segmentItem(tab.id === active), "cursor-pointer")}
           >
             {tab.label}
           </button>

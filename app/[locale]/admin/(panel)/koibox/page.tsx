@@ -2,13 +2,11 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { KoiboxMatchPanel } from "@/components/admin/koibox-match-panel";
 import { PanelTabs } from "@/components/admin/panel-tabs";
 import { Dot, PageHeader, StatusPill, Surface } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { RetryAllKoiboxButton } from "@/components/admin/retry-all-koibox-button";
 import { RetryKoiboxButton } from "@/components/admin/retry-koibox-button";
-import { ServiceKoiboxRow } from "@/components/admin/service-koibox-row";
 import { StaffKoiboxDialog } from "@/components/admin/staff-koibox-dialog";
 import { chooseCollector } from "@/lib/collectors";
 import { listStaffCollectors } from "@/lib/collectors-db";
@@ -20,6 +18,9 @@ import { findPendingKoiboxWork, writesToKoibox } from "@/lib/koibox-sync";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { ServiceKoiboxDialog, type ServiceCellDisplay } from "@/components/admin/service-koibox-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -30,7 +31,15 @@ export default async function KoiboxPage({ params }: Props) {
 
   return (
     <section className="space-y-6">
-      <PageHeader title={t("title")} description={t("intro")} />
+      <PageHeader
+        title={t("title")}
+        description={t("intro")}
+        action={
+          <Link href="/admin/koibox/match" className={cn(buttonVariants(), "h-11 px-4")}>
+            {t("matchOpen")}
+          </Link>
+        }
+      />
       <Suspense fallback={<PanelSkeleton />}>
         <KoiboxContent locale={locale} />
       </Suspense>
@@ -182,24 +191,88 @@ async function KoiboxContent({ locale }: { locale: string }) {
       </div>
     );
 
-  // ---- Servicios (se rehace en la D4b) ----
+  // ---- Servicios: una columna por cuenta; cada casilla se pulsa para enlazar o cambiar ----
+  const catalogOf = (account: string) => {
+    const s = status.get(account);
+    return s?.ok ? s.catalog.services : null;
+  };
+  const cellDisplay = (
+    link: (typeof services)[number]["accounts"][number],
+    durationMin: number,
+  ): ServiceCellDisplay => {
+    if (link.koiboxServiceId !== null) {
+      const theirs = catalogOf(link.account)?.find((o) => o.id === link.koiboxServiceId);
+      if (!theirs) return { kind: "linked", text: t("serviceLinked", { id: link.koiboxServiceId }) };
+      // Enlazado, pero en Koibox dura distinto: en la web se reserva con nuestra duración
+      if (theirs.minutes !== null && theirs.minutes !== durationMin) {
+        return {
+          kind: "review",
+          text: t("serviceReview", { id: theirs.id, name: theirs.name, minutes: t("minutes", { count: theirs.minutes }) }),
+        };
+      }
+      return { kind: "linked", text: t("serviceNamed", { id: theirs.id, name: theirs.name }) };
+    }
+    if (link.neededBy.length > 0) return { kind: "missing", text: t("neededBy", { names: link.neededBy.join(", ") }) };
+    return { kind: "none" };
+  };
+
   const servicesPanel =
     services.length === 0 ? (
       <p className="text-sm text-muted-foreground">{t("noServices")}</p>
     ) : (
-      <div className="max-w-3xl space-y-3">
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">{t("servicesIntro")}</p>
-        <ul className="space-y-3">
-          {services.map((s) => (
-            <ServiceKoiboxRow
-              key={s.serviceId}
-              serviceId={s.serviceId}
-              name={s.name}
-              durationMin={s.durationMin}
-              accounts={s.accounts.map((a) => ({ ...a, label: accountLabel(a.account) }))}
-            />
-          ))}
-        </ul>
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <table className="w-full border-collapse text-sm">
+            <caption className="sr-only">{t("servicesTitle")}</caption>
+            <thead className="hidden md:table-header-group">
+              <tr className="text-left text-xs tracking-[0.06em] text-muted-foreground uppercase">
+                <th scope="col" className={th}>{t("table.service")}</th>
+                <th scope="col" className={th}>{t("table.duration")}</th>
+                {accounts.map((a) => (
+                  <th key={a.id} scope="col" className={th}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Dot color={accountCollector(a.id).color} />
+                      {a.label}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((s) => (
+                <tr
+                  key={s.serviceId}
+                  className="block space-y-2 border-b py-4 last:border-b-0 md:table-row md:space-y-0 md:py-0 md:[&:last-child>td]:border-b-0"
+                >
+                  <td className={cell}>
+                    <p className="font-medium">{s.name}</p>
+                  </td>
+                  <td className={cn(cell, "md:whitespace-nowrap")}>
+                    <span className={mobileLabel}>{t("table.duration")}: </span>
+                    {t("minutes", { count: s.durationMin })}
+                  </td>
+                  {s.accounts.map((link) => (
+                    <td key={link.account} className={cn(cell, "md:py-2")}>
+                      <span className={mobileLabel}>{accountLabel(link.account)}: </span>
+                      <ServiceKoiboxDialog
+                        serviceId={s.serviceId}
+                        serviceName={s.name}
+                        durationMin={s.durationMin}
+                        account={link.account}
+                        accountLabel={accountLabel(link.account)}
+                        koiboxServiceId={link.koiboxServiceId}
+                        display={cellDisplay(link, s.durationMin)}
+                        options={catalogOf(link.account)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-sm text-muted-foreground">{t("servicesHint")}</p>
       </div>
     );
 
@@ -279,9 +352,6 @@ async function KoiboxContent({ locale }: { locale: string }) {
           { id: "pending", label: t("tabs.pending", { count: pending.length }), content: pendingPanel },
         ]}
       />
-
-      {/* Se va a su propia página en la D4b */}
-      <KoiboxMatchPanel accountLabels={accountLabels} />
     </>
   );
 }
