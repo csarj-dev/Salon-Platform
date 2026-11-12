@@ -17,6 +17,7 @@ const row = (over: Partial<KoiboxCardRow> = {}): KoiboxCardRow => ({
   cancelReason: null,
   depositDueAt: null,
   depositPaidAt: null,
+  koiboxPreviousId: null,
   ...over,
 });
 

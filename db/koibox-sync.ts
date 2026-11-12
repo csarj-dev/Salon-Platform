@@ -13,6 +13,8 @@ const WHAT: Record<string, string> = {
   deposit_expired: "anularla: no pagó el depósito a tiempo",
   cancelled_by_staff: "anularla: la canceló el equipo",
   cancelled_by_client: "anularla: la canceló la clienta",
+  moved: "cambiarla de hora en Koibox",
+  cleanup: "anular la cita de la hora anterior (se cambió de hora)",
 };
 
 async function main() {
@@ -28,7 +30,7 @@ async function main() {
     const pending = await findPendingKoiboxWork();
     if (pending.length === 0) console.log("Koibox está al día.");
     for (const p of pending) {
-      const what = WHAT[p.work.kind === "push" ? "push" : p.work.change.kind];
+      const what = WHAT[p.work.kind === "change" ? p.work.change.kind : p.work.kind];
       console.log(`#${p.id}  ${formatDateTime(p.startsAt, config.defaultLocale, config.timezone)}  ${p.clientName}  → ${what}`);
       if (p.lastError) console.log(`      último error: ${p.lastError}`);
     }

@@ -25,6 +25,8 @@ export class KoiboxUnavailableError extends Error {
 
 // Cómo conseguir los datos de una cuenta: con caché (calendario) o sin ella (al confirmar)
 export type SnapshotLoader = (account: string, from: string, to: string) => Promise<KoiboxSnapshot>;
+// Al cambiar una cita de hora: esa cita no ocupa (ni en nuestra base ni en Koibox)
+export type SlotIgnore = { appointmentId: number; staffId: number; startsAt: Date; endsAt: Date };
 
 // Profesionales que hacen el servicio en este local, enlazadas con Koibox, y la duración del servicio.
 // null si el servicio no existe o este local no lo ofrece.
@@ -85,7 +87,14 @@ export async function loadKoiboxTeam(
 // Citas de nuestra base que ocupan hueco (las de la web pueden no estar aún en Koibox).
 // Mismo criterio que el modo local: canceladas y caducadas no ocupan; una pendiente de
 // depósito, solo hasta que vence su plazo.
-async function localBusy(staffIds: number[], from: string, to: string, zone: string, now: Date) {
+async function localBusy(
+  staffIds: number[],
+  from: string,
+  to: string,
+  zone: string,
+  now: Date,
+  ignoreAppointmentId?: number,
+) {
   if (staffIds.length === 0) return [];
   const start = dayRange(from, zone).start;
   const end = dayRange(to, zone).end;
@@ -99,6 +108,7 @@ async function localBusy(staffIds: number[], from: string, to: string, zone: str
         or(ne(appointment.status, "pending_deposit"), gt(appointment.depositDueAt, now)),
         lt(appointment.startsAt, end),
         gt(appointment.endsAt, start),
+        ignoreAppointmentId !== undefined ? ne(appointment.id, ignoreAppointmentId) : undefined,
       ),
     );
 }
@@ -135,13 +145,14 @@ export async function getKoiboxAvailabilityForRange(
   now: Date,
   koibox: KoiboxConfig,
   load: SnapshotLoader,
+  ignore?: SlotIgnore,
 ): Promise<Map<string, ServiceAvailability>> {
   const info = await loadKoiboxTeam(locationId, serviceId, koibox);
   if (!info || info.team.length === 0 || to < from) return new Map();
 
   const [snapshots, busy] = await Promise.all([
     snapshotsFor(info.team, from, to, load),
-    localBusy(info.team.map((m) => m.staffId), from, to, opts.zone, now),
+    localBusy(info.team.map((m) => m.staffId), from, to, opts.zone, now, ignore?.appointmentId),
   ]);
 
   return computeKoiboxAvailability({
@@ -153,6 +164,7 @@ export async function getKoiboxAvailabilityForRange(
     to,
     opts,
     now,
+    ignore: ignore && { staffId: ignore.staffId, start: ignore.startsAt, end: ignore.endsAt },
   });
 }
 
@@ -168,6 +180,7 @@ export async function confirmKoiboxSlot(
   now: Date,
   koibox: KoiboxConfig,
   loadFresh: SnapshotLoader,
+  ignore?: SlotIgnore
 ): Promise<number | null> {
   const info = await loadKoiboxTeam(locationId, serviceId, koibox);
   if (!info) return null;
@@ -177,7 +190,7 @@ export async function confirmKoiboxSlot(
   const date = DateTime.fromJSDate(at, { zone: opts.zone }).toFormat(DAY_FORMAT);
   const [snapshots, busy] = await Promise.all([
     snapshotsFor(team, date, date, loadFresh),
-    localBusy(team.map((m) => m.staffId), date, date, opts.zone, now),
+    localBusy(team.map((m) => m.staffId), date, date, opts.zone, now, ignore?.appointmentId),
   ]);
 
   const day = computeKoiboxAvailability({
@@ -189,6 +202,7 @@ export async function confirmKoiboxSlot(
     to: date,
     opts,
     now,
+    ignore: ignore && { staffId: ignore.staffId, start: ignore.startsAt, end: ignore.endsAt },
   }).get(date);
   const slot = day?.any.find((s) => s.startsAt.getTime() === at.getTime());
   return slot ? slot.staffIds[0] : null;

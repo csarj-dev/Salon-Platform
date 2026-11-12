@@ -23,6 +23,7 @@ export type ConfirmationView = {
   priceCents: number;
   depositCents: number | null;
   depositDueAt: Date | null;
+  rescheduledAt: Date | null; // última vez que se cambió de hora
 };
 
 // Datos de la página de confirmación. Se llega solo con el token secreto de la cita
@@ -50,6 +51,7 @@ export async function getConfirmation(
       priceCents: appointment.priceAppliedCents,
       depositCents: appointment.depositCents,
       depositDueAt: appointment.depositDueAt,
+      rescheduledAt: appointment.rescheduledAt,
     })
     .from(appointment)
     .innerJoin(service, eq(service.id, appointment.serviceId))
@@ -82,6 +84,7 @@ export async function getConfirmation(
     priceCents: row.priceCents,
     depositCents: row.depositCents,
     depositDueAt: row.depositDueAt,
+    rescheduledAt: row.rescheduledAt,
   };
 }
 
@@ -93,4 +96,53 @@ export async function findAppointmentIdByToken(token: string): Promise<number | 
     .from(appointment)
     .where(eq(appointment.publicToken, token.toLowerCase()));
   return row?.id ?? null;
+}
+
+// Lo que necesita la página de cambiar de hora (enlace de la clienta, con su token)
+export type ChangeTarget = {
+  id: number;
+  status: AppointmentStatus;
+  startsAt: Date;
+  endsAt: Date;
+  staffId: number;
+  staffName: string;
+  locationId: number;
+  serviceId: number;
+  serviceName: string;
+};
+
+export async function getChangeTarget(
+  token: string,
+  locale: string,
+  defaultLocale: string,
+): Promise<ChangeTarget | null> {
+  if (typeof token !== "string" || !UUID.test(token)) return null;
+  const [row] = await db
+    .select({
+      id: appointment.id,
+      status: appointment.status,
+      startsAt: appointment.startsAt,
+      endsAt: appointment.endsAt,
+      staffId: appointment.staffId,
+      staffName: staff.name,
+      locationId: appointment.locationId,
+      serviceId: appointment.serviceId,
+      serviceName: service.name,
+    })
+    .from(appointment)
+    .innerJoin(service, eq(service.id, appointment.serviceId))
+    .innerJoin(staff, eq(staff.id, appointment.staffId))
+    .where(eq(appointment.publicToken, token.toLowerCase()));
+  if (!row) return null;
+
+  const translations = await db
+    .select()
+    .from(serviceTranslation)
+    .where(
+      and(
+        eq(serviceTranslation.serviceId, row.serviceId),
+        inArray(serviceTranslation.locale, [...new Set([locale, defaultLocale])]),
+      ),
+    );
+  return { ...row, serviceName: pickTranslation(translations, locale, defaultLocale, row.serviceName).name };
 }

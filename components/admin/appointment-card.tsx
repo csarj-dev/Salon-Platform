@@ -28,6 +28,7 @@ export type AppointmentCardData = {
   cancelReason?: string | null;
   cancelledByName?: string | null;
   validatedByName?: string | null;
+  rescheduledAt?: Date | null;
   // Solo en la lista de citas: la clienta tiene email y cómo fue el último correo
   hasEmail?: boolean;
   email?: EmailStatusInfo | null;
@@ -119,7 +120,9 @@ export async function AppointmentCard({
     k?.kind === "pending"
       ? k.work.kind === "push"
         ? tK("work.push")
-        : k.work.change.kind === "deposit_paid"
+        : k.work.kind === "cleanup"
+          ? tK("work.cleanup")
+          : k.work.change.kind === "deposit_paid"
           ? tK("work.depositPaid")
           : k.work.change.kind === "deposit_expired"
             ? tK("work.depositExpired")
@@ -201,6 +204,9 @@ export async function AppointmentCard({
 
       {data.validatedByName && (
         <p className="text-sm text-muted-foreground">{t("validatedBy", { name: data.validatedByName })}</p>
+      )}
+      {data.rescheduledAt && (
+        <p className="text-sm text-muted-foreground">{t("rescheduledAt", { date: fmt(data.rescheduledAt) })}</p>
       )}
       {data.status === "cancelled" && data.cancelledAt && (
         <p className="text-sm text-muted-foreground">

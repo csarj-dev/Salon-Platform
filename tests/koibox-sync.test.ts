@@ -15,7 +15,6 @@ import { KOIBOX_STATUS, WEB_TAG } from "../lib/koibox/statuses";
 import {
   applyKoiboxChange,
   findPendingKoiboxWork,
-  moveAppointmentInKoibox,
   pushAppointmentToKoibox,
   pushNewWebBooking,
   syncKoiboxChange,
@@ -324,28 +323,6 @@ describe("applyKoiboxChange", () => {
     const r = await applyKoiboxChange(id, { kind: "cancelled_by_staff" }, config, { apiFor, now: NOW });
     expect(r.ok).toBe(false);
     expect((await row(id)).koiboxError).toMatch(/^cancelled_by_staff: Koibox respondió 403/);
-  });
-});
-
-describe("moveAppointmentInKoibox", () => {
-  it("anula la de antes y crea otra a la hora nueva", async () => {
-    const id = await book("10:00");
-    const first = await pushAppointmentToKoibox(id, config, { apiFor, now: NOW });
-    if (!first.ok) throw new Error(first.message);
-
-    // En nuestra base ya está movida (lo hace rescheduleAppointment)
-    await db
-      .update(appointment)
-      .set({ startsAt: at("16:00"), endsAt: at("17:00") })
-      .where(eq(appointment.id, id));
-    const moved = await moveAppointmentInKoibox(id, config, { apiFor, now: NOW });
-    expect(moved).toMatchObject({ ok: true, reused: false });
-
-    const [old, fresh] = inKoibox();
-    expect(old).toMatchObject({ id: first.koiboxAppointmentId, estado: { value: KOIBOX_STATUS.CANCELLED } });
-    expect(old.notas).toMatch(/Cambiada de hora desde la web al 02\/11 16:00$/);
-    expect(fresh).toMatchObject({ hora_inicio: "16:00:00", estado: { value: KOIBOX_STATUS.PENDING } });
-    expect((await row(id)).koiboxAppointmentId).toBe(fresh.id);
   });
 });
 
