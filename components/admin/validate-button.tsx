@@ -21,7 +21,7 @@ export function ValidateButton({ appointmentId }: { appointmentId: number }) {
 
   return (
     <div className="space-y-1">
-      <Button size="sm" disabled={pending} onClick={onClick}>
+      <Button className="h-10 px-4" disabled={pending} onClick={onClick}>
         {pending ? t("validating") : t("validate")}
       </Button>
       {error && (

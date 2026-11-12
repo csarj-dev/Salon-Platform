@@ -3,19 +3,19 @@ import { io } from "next/cache";
 import { DateTime } from "luxon";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentCard } from "@/components/admin/appointment-card";
+import { AppointmentTabs } from "@/components/admin/appointment-tabs";
+import { KoiboxPendingBox } from "@/components/admin/koibox-pending-box";
+import { PageHeader, SectionLabel, SegmentLinks } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
-import { Link } from "@/i18n/navigation";
 import { listAppointments, type AppointmentStatus } from "@/lib/appointment-list";
+import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong } from "@/lib/format";
 import { groupByDay } from "@/lib/group-by-day";
+import { koiboxCardState } from "@/lib/koibox/card-state";
+import { findPendingKoiboxWork, writesToKoibox } from "@/lib/koibox-sync";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
-import { cn } from "@/lib/utils";
-import { latestEmailByAppointment } from "@/lib/email/email-status";
-import { KoiboxPendingBox } from "@/components/admin/koibox-pending-box";
-import { koiboxCardState } from "@/lib/koibox/card-state";
-import { findPendingKoiboxWork, writesToKoibox } from "@/lib/koibox-sync";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -31,10 +31,22 @@ export default async function AppointmentsPage({ params, searchParams }: Props) 
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Admin.appointments" });
+  const tabs = TABS.map((id) => ({ id, label: t(`tabs.${id}`) }));
 
   return (
-      <section className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+    <section className="mx-auto max-w-3xl space-y-4">
+      <PageHeader title={t("title")} />
+      {/* Fuera del <Suspense> de la lista: al cambiar de pestaña no desaparecen ni saltan */}
+      <Suspense
+        fallback={
+          <SegmentLinks
+            label={t("tabsLabel")}
+            items={tabs.map((tab) => ({ href: `/admin/appointments?tab=${tab.id}`, label: tab.label, active: false }))}
+          />
+        }
+      >
+        <AppointmentTabs label={t("tabsLabel")} tabs={tabs} />
+      </Suspense>
       <Suspense fallback={<PanelSkeleton />}>
         <AppointmentsContent locale={locale} searchParams={searchParams} />
       </Suspense>
@@ -104,23 +116,7 @@ async function AppointmentsContent({
   );
 
   return (
-    <>
-      <nav aria-label={t("tabsLabel")} className="flex flex-wrap gap-2">
-        {TABS.map((id) => (
-          <Link
-            key={id}
-            href={`/admin/appointments?tab=${id}`}
-            aria-current={id === tab ? "page" : undefined}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm",
-              id === tab ? "bg-primary text-primary-foreground" : "hover:bg-muted",
-            )}
-          >
-            {t(`tabs.${id}`)}
-          </Link>
-        ))}
-      </nav>
-
+    <div className="space-y-4">
       <KoiboxPendingBox
         items={pendingKoibox}
         locale={locale}
@@ -129,13 +125,11 @@ async function AppointmentsContent({
       />
 
       {groups.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t(`empty.${tab}`)}</p>
+        <p className="py-2 text-sm text-muted-foreground">{t(`empty.${tab}`)}</p>
       ) : (
         groups.map((group) => (
-          <div key={group.day} className="space-y-3">
-            <h2 className="text-sm font-semibold capitalize text-muted-foreground">
-              {formatDayLong(group.date, locale, config.timezone)}
-            </h2>
+          <div key={group.day} className="space-y-3 pt-2">
+            <SectionLabel>{formatDayLong(group.date, locale, config.timezone)}</SectionLabel>
             <ul className="space-y-3">
               {group.rows.map((row) => (
                 <AppointmentCard
@@ -159,6 +153,6 @@ async function AppointmentsContent({
           </div>
         ))
       )}
-    </>
+    </div>
   );
 }

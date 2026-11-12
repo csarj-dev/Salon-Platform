@@ -1,14 +1,14 @@
 import { getTranslations } from "next-intl/server";
-import { buttonVariants } from "@/components/ui/button";
 import { CancelButton } from "@/components/admin/cancel-button";
-import { ValidateButton } from "@/components/admin/validate-button";
+import { StatusPill, textAction, type Tone } from "@/components/admin/panel-ui";
 import { ResendEmailButton } from "@/components/admin/resend-email-button";
+import { RetryKoiboxButton } from "@/components/admin/retry-koibox-button";
+import { ValidateButton } from "@/components/admin/validate-button";
 import type { EmailStatusInfo } from "@/lib/email/email-status";
 import { formatDateTime, formatPrice, formatTime } from "@/lib/format";
-import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
-import { RetryKoiboxButton } from "@/components/admin/retry-koibox-button";
 import type { KoiboxCardState } from "@/lib/koibox/card-state";
 import { cn } from "@/lib/utils";
+import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
 
 // Lo mínimo que necesita la tarjeta: lo cumplen tanto las filas de citas como las de depósitos
 export type AppointmentCardData = {
@@ -60,14 +60,22 @@ type Props = {
 
 const URGENT_MS = 3 * 3_600_000;
 
-const statusClass: Record<AppointmentCardData["status"], string> = {
-  booked: "text-foreground",
-  completed: "text-muted-foreground",
-  no_show: "text-muted-foreground",
-  pending_deposit: "border-amber-500 text-amber-700 dark:text-amber-400",
-  cancelled: "border-destructive text-destructive",
-  expired: "border-destructive text-destructive",
+// Color de la pastilla de estado (colores del tema del salón)
+const STATUS_TONE: Record<AppointmentCardData["status"], Tone> = {
+  booked: "ok",
+  pending_deposit: "wait",
+  completed: "neutral",
+  no_show: "bad",
+  cancelled: "bad",
+  expired: "bad",
 };
+
+// Franja de Koibox: verde = al día, ámbar = le falta algo, rojo = no está
+const KOIBOX_TONE = {
+  synced: { box: "bg-success/10", dot: "bg-success" },
+  pending: { box: "bg-warning/12", dot: "bg-warning" },
+  missing: { box: "bg-danger/10", dot: "bg-danger" },
+} as const;
 
 export async function AppointmentCard({
   data,
@@ -123,12 +131,12 @@ export async function AppointmentCard({
         : k.work.kind === "cleanup"
           ? tK("work.cleanup")
           : k.work.change.kind === "deposit_paid"
-          ? tK("work.depositPaid")
-          : k.work.change.kind === "deposit_expired"
-            ? tK("work.depositExpired")
-            : k.work.change.kind === "moved"
-              ? tK("work.moved")
-              : tK("work.cancelled")
+            ? tK("work.depositPaid")
+            : k.work.change.kind === "deposit_expired"
+              ? tK("work.depositExpired")
+              : k.work.change.kind === "moved"
+                ? tK("work.moved")
+                : tK("work.cancelled")
       : null;
 
   const showValidate = actionable && canValidate && data.status === "pending_deposit";
@@ -144,123 +152,102 @@ export async function AppointmentCard({
     data.hasEmail === false && (data.status === "booked" || data.status === "cancelled");
 
   return (
-    <li className="space-y-2 rounded-lg border p-4">
-      {data.email && (
-        <p
-          className={cn(
-            "text-sm",
-            data.email.status === "failed" ? "text-destructive" : "text-muted-foreground",
-          )}
-        >
-          {data.email.status === "sent" &&
-            t("email.sent", { kind: t(`email.kinds.${data.email.kind}`), date: fmt(data.email.at) })}
-          {data.email.status === "pending" &&
-            t("email.pending", { kind: t(`email.kinds.${data.email.kind}`) })}
-          {data.email.status === "failed" &&
-            t("email.failed", {
-              kind: t(`email.kinds.${data.email.kind}`),
-              error: data.email.error ?? "—",
-            })}
-        </p>
-      )}
-      {showNoEmail && <p className="text-sm text-muted-foreground">{t("email.none")}</p>}
-      <div className="flex items-start justify-between gap-3">
+    <li className="flex flex-col gap-2.5 rounded-xl border bg-card px-4 py-4 sm:px-[1.125rem]">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium">
+          <p className="text-base font-semibold">
             {timeOnly ? formatTime(data.startsAt, locale, zone) : when} · {data.serviceName}
           </p>
           <p className="text-sm text-muted-foreground">
             {t("with", { staff: data.staffName })} · {data.locationName} · {t("reference", { id: data.id })}
           </p>
         </div>
-        <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-xs", statusClass[data.status])}>
-          {tStatus(data.status)}
-        </span>
+        <StatusPill tone={STATUS_TONE[data.status]}>{tStatus(data.status)}</StatusPill>
       </div>
 
       <p className="text-sm">
-        {data.clientName} · {data.clientPhone}
+        <span className="font-medium">{data.clientName}</span>{" "}
+        <span className="text-muted-foreground">· {data.clientPhone}</span>
       </p>
 
-      {data.depositCents !== null && (
-        <p className="text-sm text-muted-foreground">
-          {t("deposit", { amount: formatPrice(data.depositCents, locale, currency) })}
-          {data.collectorLabel ? ` · ${t("collector", { name: data.collectorLabel })}` : ""}
-          {data.status === "pending_deposit" && data.depositDueAt && (
-            <span className={dueSoon ? "font-medium text-destructive" : undefined}>
-              {" · "}
-              {t("dueUntil", { date: fmt(data.depositDueAt) })}
-              {dueSoon ? ` · ${t("urgent")}` : ""}
-            </span>
-          )}
-          {data.status === "expired" && data.depositDueAt && (
-            <span>
-              {" · "}
-              {t("expiredOn", { date: fmt(data.depositDueAt) })}
-            </span>
-          )}
-        </p>
-      )}
-
-      {data.validatedByName && (
-        <p className="text-sm text-muted-foreground">{t("validatedBy", { name: data.validatedByName })}</p>
-      )}
-      {data.rescheduledAt && (
-        <p className="text-sm text-muted-foreground">{t("rescheduledAt", { date: fmt(data.rescheduledAt) })}</p>
-      )}
-      {data.status === "cancelled" && data.cancelledAt && (
-        <p className="text-sm text-muted-foreground">
-          {data.cancelledByName
-            ? t("cancelledBy", { name: data.cancelledByName, date: fmt(data.cancelledAt) })
-            : t("cancelledNoAuthor", { date: fmt(data.cancelledAt) })}
-        </p>
-      )}
-      {data.cancelReason && (
-        <p className="text-sm text-muted-foreground">{t("reason", { reason: data.cancelReason })}</p>
-      )}
+      {/* Líneas de detalle; si no hay ninguna, el bloque no ocupa sitio (empty:hidden) */}
+      <div className="space-y-0.5 text-sm text-muted-foreground empty:hidden">
+        {data.depositCents !== null && (
+          <p>
+            {t("deposit", { amount: formatPrice(data.depositCents, locale, currency) })}
+            {data.collectorLabel ? ` · ${t("collector", { name: data.collectorLabel })}` : ""}
+            {data.status === "pending_deposit" && data.depositDueAt && (
+              <span className={dueSoon ? "font-medium text-danger" : undefined}>
+                {" · "}
+                {t("dueUntil", { date: fmt(data.depositDueAt) })}
+                {dueSoon ? ` · ${t("urgent")}` : ""}
+              </span>
+            )}
+            {data.status === "expired" && data.depositDueAt && (
+              <span>
+                {" · "}
+                {t("expiredOn", { date: fmt(data.depositDueAt) })}
+              </span>
+            )}
+          </p>
+        )}
+        {data.validatedByName && <p>{t("validatedBy", { name: data.validatedByName })}</p>}
+        {data.rescheduledAt && <p>{t("rescheduledAt", { date: fmt(data.rescheduledAt) })}</p>}
+        {data.status === "cancelled" && data.cancelledAt && (
+          <p>
+            {data.cancelledByName
+              ? t("cancelledBy", { name: data.cancelledByName, date: fmt(data.cancelledAt) })
+              : t("cancelledNoAuthor", { date: fmt(data.cancelledAt) })}
+          </p>
+        )}
+        {data.cancelReason && <p>{t("reason", { reason: data.cancelReason })}</p>}
+        {data.email && (
+          <p className={data.email.status === "failed" ? "text-danger" : undefined}>
+            {data.email.status === "sent" &&
+              t("email.sent", { kind: t(`email.kinds.${data.email.kind}`), date: fmt(data.email.at) })}
+            {data.email.status === "pending" && t("email.pending", { kind: t(`email.kinds.${data.email.kind}`) })}
+            {data.email.status === "failed" &&
+              t("email.failed", { kind: t(`email.kinds.${data.email.kind}`), error: data.email.error ?? "—" })}
+          </p>
+        )}
+        {showNoEmail && <p>{t("email.none")}</p>}
+      </div>
 
       {k && (
         <div
           className={cn(
-            "space-y-1 rounded-md px-3 py-2 text-sm",
-            k.kind === "synced" && "bg-muted/60",
-            k.kind === "pending" && "bg-amber-50 dark:bg-amber-950/30",
-            k.kind === "missing" && "bg-destructive/10",
+            "flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm",
+            KOIBOX_TONE[k.kind].box,
           )}
         >
-          <p className="font-medium">
-            {k.kind === "synced" &&
-              (k.cancelled
-                ? tK("syncedCancelled", { account: data.koiboxAccountLabel ?? k.account })
-                : tK("synced", { account: data.koiboxAccountLabel ?? k.account }))}
-            {k.kind === "pending" && tK("pending")}
-            {k.kind === "missing" && tK("missing")}
-          </p>
-          {k.kind === "synced" && k.syncedAt && (
-            <p className="text-muted-foreground">{tK("syncedAt", { date: fmt(k.syncedAt) })}</p>
-          )}
-          {k.kind === "pending" && (
-            <>
-              <p>{workText}</p>
-              {k.lastError && <p className="text-muted-foreground">{tK("lastError", { error: k.lastError })}</p>}
-              <p className="text-muted-foreground">{tK("auto")}</p>
-            </>
-          )}
-          {k.kind === "missing" && <p>{tK("missingText")}</p>}
+          <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-0.5">
+            <p className="inline-flex items-center gap-2 font-medium">
+              <span aria-hidden className={cn("size-2.5 shrink-0 rounded-full", KOIBOX_TONE[k.kind].dot)} />
+              {k.kind === "synced" && (k.cancelled ? tK("syncedCancelled") : tK("synced"))}
+              {k.kind === "pending" && tK("pending")}
+              {k.kind === "missing" && tK("missing")}
+            </p>
+            {k.kind === "synced" && (
+              <p className="text-muted-foreground">
+                {data.koiboxAccountLabel ?? k.account}
+                {k.syncedAt ? ` · ${tK("syncedAt", { date: fmt(k.syncedAt) })}` : ""}
+              </p>
+            )}
+            {k.kind === "pending" && <p className="text-muted-foreground">{workText}</p>}
+            {k.kind === "pending" && k.lastError && (
+              <p className="text-danger">{tK("lastError", { error: k.lastError })}</p>
+            )}
+            {k.kind === "missing" && <p className="text-muted-foreground">{tK("missingText")}</p>}
+          </div>
           {canRetryKoibox && k.kind !== "synced" && <RetryKoiboxButton appointmentId={data.id} />}
         </div>
       )}
 
-      <div className="flex flex-wrap items-start gap-2 pt-1">
-        <a
-          href={whatsappHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 pt-1">
+        {showValidate && <ValidateButton appointmentId={data.id} />}
+        <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className={textAction()}>
           {t("whatsapp")}
         </a>
-        {showValidate && <ValidateButton appointmentId={data.id} />}
         {showResend && <ResendEmailButton appointmentId={data.id} />}
         {showCancel && <CancelButton appointmentId={data.id} />}
       </div>

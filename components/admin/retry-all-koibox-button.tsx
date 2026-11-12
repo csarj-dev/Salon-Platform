@@ -24,11 +24,11 @@ export function RetryAllKoiboxButton() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={onClick} disabled={pending}>
+      <Button type="button" variant="outline" className="h-10 border-foreground bg-card px-4" onClick={onClick} disabled={pending}>
         {pending ? t("retryingAll") : t("retryAll")}
       </Button>
       {message && (
-        <span role="status" className={message.ok ? "text-muted-foreground" : "text-destructive"}>
+        <span role="status" className={message.ok ? "text-muted-foreground" : "text-danger"}>
           {message.text}
         </span>
       )}

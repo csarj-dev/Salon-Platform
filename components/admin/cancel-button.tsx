@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { cancelAppointmentAction } from "@/app/[locale]/admin/(panel)/appointments/actions";
 import { Button } from "@/components/ui/button";
+import { textAction } from "@/components/admin/panel-ui";
 
 export function CancelButton({ appointmentId }: { appointmentId: number }) {
   const t = useTranslations("Admin.actions");
@@ -23,9 +24,9 @@ export function CancelButton({ appointmentId }: { appointmentId: number }) {
 
   if (!open) {
     return (
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <button type="button" className={textAction("danger")} onClick={() => setOpen(true)}>
         {t("cancel")}
-      </Button>
+      </button>
     );
   }
 

@@ -268,9 +268,9 @@
       "reason": "Reason: {reason}",
       "whatsapp": "Message on WhatsApp",
       "koibox": {
-        "synced": "In Koibox · {account}",
-        "syncedCancelled": "Cancelled in Koibox too · {account}",
-        "syncedAt": "Up to date since {date}",
+        "synced": "In Koibox",
+        "syncedCancelled": "Also cancelled in Koibox",
+        "syncedAt": "up to date since {date}",
         "pending": "Pending in Koibox",
         "missing": "Not in Koibox",
         "missingText": "This appointment wasn't recorded in Koibox. Retry, or add it there by hand.",
