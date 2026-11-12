@@ -11,6 +11,7 @@ import { formatDateTime, formatPrice } from "@/lib/format";
 import { koiboxWorkKey } from "@/lib/koibox/card-state";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
+import { Link } from "@/i18n/navigation";
 
 type Props = {
   data: AppointmentCardData;
@@ -170,6 +171,11 @@ export async function AppointmentDetail({
           <section className="space-y-1 text-sm">
             <h3 className={sectionLabel}>{t("client")}</h3>
             <p className="font-medium">{data.clientName}</p>
+            {data.clientId !== undefined && (
+              <Link href={`/admin/appointments?client=${data.clientId}`} className={cn(textAction(), "min-h-9")}>
+                {t("allClientAppointments")}
+              </Link>
+            )}
             <p className="text-muted-foreground">
               {data.clientPhone}
               {data.clientEmail ? ` · ${data.clientEmail}` : ""}

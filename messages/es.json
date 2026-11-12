@@ -287,6 +287,7 @@
       "nothingMore": "Sin depósito ni correos.",
       "showDetail": "Ver el detalle de la cita #{id}",
       "hideDetail": "Ocultar el detalle de la cita #{id}",
+      "allClientAppointments": "Ver todas sus citas →",
       "koibox": {
         "synced": "En Koibox",
         "syncedCancelled": "Anulada también en Koibox",
@@ -537,6 +538,42 @@
         "status": "Estado",
         "koibox": "Koibox",
         "detail": "Detalle"
+      },
+      "filters": {
+        "search": "Buscar",
+        "searchPlaceholder": "Buscar clienta, teléfono o nº de cita",
+        "staff": "Profesional",
+        "allStaff": "Todas",
+        "location": "Local",
+        "allLocations": "Todos",
+        "searching": "Buscando…"
+      },
+      "summary": {
+        "label": "Resumen",
+        "today": "Hoy",
+        "week": "Próximos 7 días",
+        "count": "{count, plural, one {# cita} other {# citas}}",
+        "range": "Primera {first} · última {last}",
+        "none": "Sin citas",
+        "deposits": "Falta el depósito",
+        "dueSoon": "{count, plural, one {# vence en menos de 3 h} other {# vencen en menos de 3 h}}",
+        "noneUrgent": "Ninguno urgente",
+        "koibox": "No al día en Koibox"
+      },
+      "filtered": "{count, plural, =0 {Ninguna cita con estos filtros.} one {# cita con estos filtros.} other {# citas con estos filtros.}}",
+      "clearFilters": "Quitar filtros",
+      "client": {
+        "since": "Primera cita el {date}",
+        "total": "Citas",
+        "upcoming": "Próximas",
+        "cancelled": "Canceladas",
+        "noShow": "No vino",
+        "clear": "Ver todas las citas",
+        "upcomingTitle": "Próximas",
+        "previousTitle": "Anteriores",
+        "noneUpcoming": "No tiene citas próximas.",
+        "nonePrevious": "No tiene citas anteriores.",
+        "notFound": "No encontramos esa clienta."
       },
       "empty": {
         "upcoming": "No hay citas próximas.",

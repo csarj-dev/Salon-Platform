@@ -216,3 +216,19 @@ export async function clientSummary(clientId: number, now: Date): Promise<Client
 
   return { ...c, ...a };
 }
+
+// ---- Opciones de los filtros de Citas ----
+
+export type FilterOption = { id: number; name: string };
+
+export async function listFilterOptions(): Promise<{ staff: FilterOption[]; locations: FilterOption[] }> {
+  const [staffRows, locationRows] = await Promise.all([
+    db.select({ id: staff.id, name: staff.name }).from(staff).where(eq(staff.active, true)).orderBy(asc(staff.name)),
+    db
+      .select({ id: location.id, name: location.name })
+      .from(location)
+      .where(eq(location.active, true))
+      .orderBy(asc(location.name)),
+  ]);
+  return { staff: staffRows, locations: locationRows };
+}

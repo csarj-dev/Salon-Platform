@@ -9,6 +9,7 @@ import type { KoiboxCardState } from "@/lib/koibox/card-state";
 // Lo mínimo que necesita una cita para pintarse: lo cumplen las filas de citas y las de depósitos
 export type AppointmentCardData = {
   id: number;
+  clientId?: number; // para "Ver todas sus citas"
   startsAt: Date;
   status: "booked" | "completed" | "cancelled" | "no_show" | "pending_deposit" | "expired";
   clientName: string;

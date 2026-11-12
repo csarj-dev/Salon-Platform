@@ -6,7 +6,7 @@ import {
   appointment, client, location, locationService, schedule, service, staff, staffService, timeOff,
 } from "../db/schema";
 import {
-  appointmentSummary, clientSummary, listAppointments, type AppointmentStatus,
+  appointmentSummary, clientSummary, listAppointments, listFilterOptions, type AppointmentStatus,
 } from "../lib/appointment-list";
 
 const ALL: AppointmentStatus[] = ["booked", "pending_deposit", "completed", "cancelled", "no_show", "expired"];
@@ -162,6 +162,12 @@ describe("resumen de Citas", () => {
       depositsDueSoon: 1,
       week: 3,
     });
+  });
+
+  it("las opciones de los filtros son las profesionales y los locales activos, por nombre", async () => {
+    const o = await listFilterOptions();
+    expect(o.staff.map((s) => s.name)).toEqual(["Profesional A", "Profesional B"]);
+    expect(o.locations.map((l) => l.name)).toEqual(["Local dos", "Local uno"]);
   });
 });
 
