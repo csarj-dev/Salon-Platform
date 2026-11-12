@@ -42,7 +42,8 @@ export function getKoiboxClient(
   account: string,
   config: KoiboxConfig,
   env: KoiboxEnv = process.env,
-  opts: { limiter?: RateLimiter } = {},
+  // timeoutMs / maxRetries: para preguntas rápidas (el estado de la cuenta en el panel)
+  opts: { limiter?: RateLimiter; timeoutMs?: number; maxRetries?: number } = {},
 ): KoiboxApi {
   const settings = config.accounts[account];
   if (!settings) {
@@ -56,12 +57,18 @@ export function getKoiboxClient(
 
   if (koiboxDriver(env) === "fake") {
     const fake = fakeFor(Object.keys(config.accounts));
-    return createKoiboxClient({ apiKey: fakeKey(account), fetchImpl: fake.fetch, limiter: opts.limiter });
+    return createKoiboxClient({
+      apiKey: fakeKey(account),
+      fetchImpl: fake.fetch,
+      limiter: opts.limiter,
+      timeoutMs: opts.timeoutMs,
+      maxRetries: opts.maxRetries,
+    });
   }
 
   const apiKey = env[settings.keyEnv]?.trim();
   if (!apiKey) throw new Error(`Falta ${settings.keyEnv} (clave de Koibox de "${settings.label}")`);
-  return createKoiboxClient({ apiKey, limiter: opts.limiter });
+  return createKoiboxClient({ apiKey, limiter: opts.limiter, timeoutMs: opts.timeoutMs, maxRetries: opts.maxRetries });
 }
 
 // Solo para los tests: vacía el Koibox de mentira del proceso

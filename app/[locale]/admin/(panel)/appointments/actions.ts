@@ -25,6 +25,7 @@ const reasonSchema = z.string().trim().max(300).optional();
 function refresh(locale: string) {
   revalidatePath(`/${locale}/admin/deposits`);
   revalidatePath(`/${locale}/admin/appointments`);
+  revalidatePath(`/${locale}/admin/koibox`); // la pestaña "Pendiente" de Koibox
 }
 
 // Recepción confirma que recibió el depósito. Queda guardado quién lo validó.

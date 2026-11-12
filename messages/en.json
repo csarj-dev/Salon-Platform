@@ -364,12 +364,46 @@
     },
     "koibox": {
       "title": "Koibox",
-      "intro": "How each professional is connected to her Koibox account. When linked, her hours on the website come from Koibox shifts, appointments and blocks, and web bookings are recorded there.",
+      "intro": "Which account each professional and service uses, and what hasn't reached Koibox yet.",
       "accountStaff": "{count, plural, =0 {No professionals linked} one {# professional linked} other {# professionals linked}}",
       "accountServices": "{count, plural, =0 {No services linked} one {# service linked} other {# services linked}}",
       "keyFake": "Test mode: fake Koibox, no key needed",
       "keyOk": "Key set",
       "keyMissing": "Key missing ({env}): bookings for this account can't be recorded",
+      "collects": "Collects for {name}",
+      "checkedAt": "Checked at {time}",
+      "status": {
+        "ok": "Connected",
+        "noKey": "No key",
+        "badKey": "Invalid key",
+        "noResponse": "Not responding",
+        "other": "Error"
+      },
+      "statusDetail": {
+        "noKey": "The key ({env}) is missing: bookings for this account can't be added.",
+        "badKey": "Koibox doesn't accept the key ({message}). Check it in Vercel.",
+        "noResponse": "Koibox didn't respond ({message}). Meanwhile, her times don't show on the website.",
+        "other": "Koibox error: {message}"
+      },
+      "tabsLabel": "Koibox sections",
+      "tabs": {
+        "staff": "Professionals · {count}",
+        "services": "Services · {count}",
+        "pending": "Pending · {count}"
+      },
+      "table": {
+        "staff": "Professional",
+        "account": "Koibox account",
+        "user": "In Koibox",
+        "collector": "Collects"
+      },
+      "userNamed": "{name} · {id}",
+      "userId": "user {id}",
+      "notLinkedShort": "Not linked",
+      "editTitle": "Edit {name}",
+      "pendingTitle": "Waiting to reach Koibox · {count}",
+      "pendingEmpty": "Everything is up to date in Koibox.",
+      "pendingItem": "Appointment #{id} · {name} · {when}",
       "staffTitle": "Professionals",
       "staffIntro": "Each professional is linked to a user in a Koibox account. Without a link, her hours come from our own schedule.",
       "noStaff": "There are no active professionals.",

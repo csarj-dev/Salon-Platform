@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { koiboxCardState, type KoiboxCardRow } from "./card-state";
+import { koiboxCardState, koiboxWorkKey, type KoiboxCardRow } from "./card-state";
 
 const now = new Date("2026-11-10T12:00:00Z");
 const future = new Date("2026-11-12T10:00:00Z");
@@ -62,5 +62,15 @@ describe("koiboxCardState", () => {
   it("pasada y nunca apuntada: no se enseña nada", () => {
     const r = row({ startsAt: past, koiboxAccount: null, koiboxAppointmentId: null, koiboxSyncedAt: null });
     expect(koiboxCardState(r, now)).toBeNull();
+  });
+});
+
+describe("koiboxWorkKey", () => {
+  it("da la clave del texto de cada trabajo pendiente", () => {
+    expect(koiboxWorkKey({ kind: "push" })).toBe("push");
+    expect(koiboxWorkKey({ kind: "cleanup", koiboxAppointmentId: 1 })).toBe("cleanup");
+    expect(koiboxWorkKey({ kind: "change", change: { kind: "deposit_paid" } })).toBe("depositPaid");
+    expect(koiboxWorkKey({ kind: "change", change: { kind: "deposit_expired" } })).toBe("depositExpired");
+    expect(koiboxWorkKey({ kind: "change", change: { kind: "cancelled_by_client" } })).toBe("cancelled");
   });
 });

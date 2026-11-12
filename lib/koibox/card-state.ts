@@ -29,3 +29,21 @@ export function koiboxCardState(r: KoiboxCardRow, now: Date): KoiboxCardState | 
   // Pasada, o cancelada sin haber llegado a Koibox: no hay nada que enseñar
   return null;
 }
+
+export type KoiboxWorkKey = "push" | "cleanup" | "depositPaid" | "depositExpired" | "moved" | "cancelled";
+
+// Qué texto explica lo que le falta a una cita en Koibox (Admin.card.koibox.work.*)
+export function koiboxWorkKey(work: KoiboxWork): KoiboxWorkKey {
+  if (work.kind === "push") return "push";
+  if (work.kind === "cleanup") return "cleanup";
+  switch (work.change.kind) {
+    case "deposit_paid":
+      return "depositPaid";
+    case "deposit_expired":
+      return "depositExpired";
+    case "moved":
+      return "moved";
+    default:
+      return "cancelled";
+  }
+}
