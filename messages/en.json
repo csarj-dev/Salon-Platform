@@ -159,6 +159,35 @@
       "tooLate": "It's too late to cancel from here. Message us on WhatsApp.",
       "notChangeable": "This appointment can no longer be cancelled. Reload the page to see its status.",
       "server": "Couldn't cancel. Try again or message us."
+    },
+    "selfHelpBoth": "If you need to, you can change or cancel the appointment here until {date}.",
+    "change": "Change day or time",
+    "rescheduledOn": "You changed the time on {date}."
+  },
+  "Reschedule": {
+    "title": "Change day or time",
+    "back": "Back to my appointment",
+    "current": "Your appointment now",
+    "with": "with {staff}",
+    "sameStaff": "The change keeps the same professional, service and location.",
+    "newTitle": "New time",
+    "confirmHelp": "When you confirm, your appointment moves to this time and the old one becomes free. We'll email you the change.",
+    "confirm": "Confirm the change",
+    "confirming": "Changing…",
+    "chooseOther": "Choose another time",
+    "tooLate": "It's less than {hours, plural, one {# hour} other {# hours}} until the appointment: to change it, message us on WhatsApp.",
+    "notAllowed": "This appointment can't be changed from here. If you need to, message us on WhatsApp.",
+    "contact": "Message us on WhatsApp",
+    "errors": {
+      "notFound": "We can't find this appointment. Check the link in your email.",
+      "disabled": "To change the appointment, message us on WhatsApp.",
+      "invalid": "That time isn't valid. Choose another one.",
+      "tooLate": "It's too late to change it from here. Message us on WhatsApp.",
+      "notChangeable": "This appointment can no longer be changed. Go back to your appointment to see its status.",
+      "slotUnavailable": "That time is no longer free. Choose another one.",
+      "slotTaken": "Someone has just booked that time. Choose another one.",
+      "koiboxUnavailable": "We can't confirm the change right now. Your appointment is unchanged: try again in a while or message us.",
+      "server": "Couldn't change it. Your appointment is unchanged: try again or message us."
     }
   },
   "Admin": {
@@ -232,6 +261,7 @@
       "urgent": "expires soon",
       "expiredOn": "expired on {date}",
       "validatedBy": "Deposit validated by {name}",
+      "rescheduledAt": "Time changed on {date}",
       "cancelledBy": "Cancelled by {name} on {date}",
       "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
       "reason": "Reason: {reason}",
@@ -276,7 +306,8 @@
         "kinds": {
           "confirmation": "Confirmation",
           "cancellation": "Cancellation",
-          "reminder": "Reminder"
+          "reminder": "Reminder",
+          "rescheduled": "Change confirmation"
         }
       }
     },
@@ -495,13 +526,20 @@
       "deposit": "Deposit",
       "viewAppointment": "View my appointment",
       "cancelNotice": "If you need to change or cancel your appointment, please let us know at least {hours, plural, one {# hour} other {# hours}} in advance. You can reply to this email.",
-      "cancelNoticeSelf": "If you can't come, you can cancel the appointment yourself from “View my appointment” up to {hours, plural, one {# hour} other {# hours}} before. To change it, or after that, message us or reply to this email."
+      "cancelNoticeSelf": "If you can't come, you can cancel the appointment yourself from “View my appointment” up to {hours, plural, one {# hour} other {# hours}} before. To change it, or after that, message us or reply to this email.",
+      "changeNoticeSelf": "If you need to, you can change or cancel the appointment yourself from “View my appointment” up to {hours, plural, one {# hour} other {# hours}} before. After that, message us or reply to this email."
     },
     "confirmation": {
       "subject": "Appointment confirmed at {salon}",
       "preheader": "We look forward to seeing you on {when}.",
       "intro": "Your appointment is confirmed. Here are the details:",
       "calendar": "We have attached a file so you can add the appointment to your calendar."
+    },
+    "rescheduled": {
+      "subject": "Your appointment at {salon} has changed",
+      "preheader": "We now look forward to seeing you on {when}.",
+      "intro": "We've changed your appointment. Here are the new details:",
+      "calendar": "We've attached the updated calendar file: opening it moves the appointment to the new time."
     },
     "cancellation": {
       "subject": "Your appointment at {salon} has been cancelled",

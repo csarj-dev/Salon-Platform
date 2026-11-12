@@ -90,6 +90,11 @@ export async function ConfirmationContent({ params }: Props) {
       )}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("reference", { id: view.id })}</p>
+      {view.status === "booked" && view.rescheduledAt && (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("rescheduledOn", { date: formatDateTime(view.rescheduledAt, locale, zone) })}
+        </p>
+      )}
 
       <dl className="mt-6 divide-y rounded-lg border px-4">
         <Row label={t("service")}>{view.serviceName}</Row>
@@ -146,11 +151,13 @@ export async function ConfirmationContent({ params }: Props) {
 
       {view.status === "booked" && (
         <p className="mt-6 text-sm text-muted-foreground">
-          {changes.cancel === "allowed"
-            ? t("selfHelp", { date: formatDateTime(changes.deadline, locale, zone) })
-            : changes.cancel === "too_late"
-              ? t("tooLateHelp", { hours: config.booking.cancellationNoticeHours })
-              : t("bookedHelp", { hours: config.booking.cancellationNoticeHours })}
+          {changes.cancel === "allowed" && changes.reschedule === "allowed"
+            ? t("selfHelpBoth", { date: formatDateTime(changes.deadline, locale, zone) })
+            : changes.cancel === "allowed"
+              ? t("selfHelp", { date: formatDateTime(changes.deadline, locale, zone) })
+              : changes.cancel === "too_late"
+                ? t("tooLateHelp", { hours: config.booking.cancellationNoticeHours })
+                : t("bookedHelp", { hours: config.booking.cancellationNoticeHours })}
         </p>
       )}
       {view.status === "expired" && (
@@ -161,6 +168,11 @@ export async function ConfirmationContent({ params }: Props) {
       )}
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
+        {view.status === "booked" && changes.reschedule === "allowed" && (
+          <Link href={`/booking/confirmed/${token}/change`} className={cn(buttonVariants({ size: "lg" }), "h-11 px-5")}>
+            {t("change")}
+          </Link>
+        )}
         {view.status === "booked" && changes.cancel === "allowed" && <ClientCancel token={token} kind="booked" />}
         {view.status === "pending_deposit" && changes.cancel === "allowed" && (
           <ClientCancel token={token} kind="pending" />

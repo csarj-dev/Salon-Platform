@@ -10,6 +10,9 @@ export type IcsEvent = {
   location?: string;
   // Cuándo se generó el archivo
   now: Date;
+  // Versión del evento: con el mismo UID y un número mayor, el calendario mueve la cita
+  // en vez de crear otra (al cambiarla de hora)
+  sequence?: number;
 };
 
 // 20261102T100000Z
@@ -61,6 +64,7 @@ export function buildIcs(event: IcsEvent): string {
     `DTEND:${utc(event.endsAt)}`,
     `SUMMARY:${escapeText(event.summary)}`,
   ];
+  if (event.sequence !== undefined) lines.push(`SEQUENCE:${event.sequence}`);
   if (event.description) lines.push(`DESCRIPTION:${escapeText(event.description)}`);
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
   lines.push("END:VEVENT", "END:VCALENDAR");

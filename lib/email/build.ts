@@ -9,7 +9,7 @@ import { renderEmail, type EmailRow } from "./render";
 // Mensajes de la carpeta messages/ (se cargan por idioma, igual que hace la web)
 export type Messages = Record<string, unknown>;
 
-export type EmailKind = "confirmation" | "cancellation" | "reminder";
+export type EmailKind = "confirmation" | "cancellation" | "reminder" | "rescheduled";
 
 export type EmailData = {
   appointmentId: number;
@@ -79,9 +79,11 @@ export function buildAppointmentEmail(
     });
   }
 
-  // Si la clienta puede cancelar sola desde "Ver mi cita", se le dice; si no, que avise al salón
+  // Lo que la clienta puede hacer sola desde "Ver mi cita" (cambiar y cancelar, solo cancelar,
+  // o nada: entonces que avise al salón)
+  const { cancel, reschedule } = config.booking.clientChanges;
   const cancelNotice = t(
-    config.booking.clientChanges.cancel ? "common.cancelNoticeSelf" : "common.cancelNotice",
+    cancel && reschedule ? "common.changeNoticeSelf" : cancel ? "common.cancelNoticeSelf" : "common.cancelNotice",
     { hours: config.booking.cancellationNoticeHours },
   );
   const appointmentUrl = `${base}/${data.locale}/booking/confirmed/${data.publicToken}`;
@@ -115,9 +117,11 @@ export function buildAppointmentEmail(
   const intro = [t(`${kind}.intro`)];
   const outro = [cancelNotice];
   const attachments: EmailMessage["attachments"] = [];
-  if (kind === "confirmation") {
-    outro.push(t("confirmation.calendar"));
+  if (kind === "confirmation" || kind === "rescheduled") {
+    outro.push(t(`${kind}.calendar`));
     const ics = buildIcs({
+      // Al cambiar de hora, el mismo UID con una versión mayor: el calendario mueve el evento
+      ...(kind === "rescheduled" ? { sequence: Math.floor(now.getTime() / 1000) } : {}),
       uid: `appointment-${data.appointmentId}@${new URL(base).hostname}`,
       startsAt: data.startsAt,
       endsAt: data.endsAt,

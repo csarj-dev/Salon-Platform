@@ -159,6 +159,35 @@
       "tooLate": "Ya ha pasado el plazo para cancelar desde aquí. Escríbenos por WhatsApp.",
       "notChangeable": "Esta cita ya no se puede cancelar. Recarga la página para ver cómo está.",
       "server": "No se pudo cancelar. Inténtalo otra vez o escríbenos."
+    },
+    "selfHelpBoth": "Si lo necesitas, puedes cambiar o cancelar la cita aquí hasta el {date}.",
+    "change": "Cambiar día u hora",
+    "rescheduledOn": "Cambiaste la hora el {date}."
+  },
+  "Reschedule": {
+    "title": "Cambiar día u hora",
+    "back": "Volver a mi cita",
+    "current": "Tu cita ahora",
+    "with": "con {staff}",
+    "sameStaff": "El cambio es con la misma profesional, el mismo servicio y en el mismo local.",
+    "newTitle": "Nueva hora",
+    "confirmHelp": "Al confirmar, tu cita pasa a esta hora y la de antes queda libre. Te mandamos un correo con el cambio.",
+    "confirm": "Confirmar el cambio",
+    "confirming": "Cambiando…",
+    "chooseOther": "Elegir otra hora",
+    "tooLate": "Faltan menos de {hours, plural, one {# hora} other {# horas}} para la cita: para cambiarla, escríbenos por WhatsApp.",
+    "notAllowed": "Esta cita no se puede cambiar desde aquí. Si lo necesitas, escríbenos por WhatsApp.",
+    "contact": "Escribir por WhatsApp",
+    "errors": {
+      "notFound": "No encontramos esta cita. Revisa el enlace del correo.",
+      "disabled": "Para cambiar la cita, escríbenos por WhatsApp.",
+      "invalid": "Esa hora no es válida. Elige otra.",
+      "tooLate": "Ya ha pasado el plazo para cambiarla desde aquí. Escríbenos por WhatsApp.",
+      "notChangeable": "Esta cita ya no se puede cambiar. Vuelve a tu cita para ver cómo está.",
+      "slotUnavailable": "Esa hora ya no está libre. Elige otra.",
+      "slotTaken": "Alguien acaba de reservar esa hora. Elige otra.",
+      "koiboxUnavailable": "Ahora mismo no podemos confirmar el cambio. Tu cita sigue como estaba: inténtalo en un rato o escríbenos.",
+      "server": "No se pudo cambiar. Tu cita sigue como estaba: inténtalo otra vez o escríbenos."
     }
   },
   "Admin": {
@@ -232,6 +261,7 @@
       "urgent": "vence pronto",
       "expiredOn": "caducó el {date}",
       "validatedBy": "Depósito validado por {name}",
+      "rescheduledAt": "Cambiada de hora el {date}",
       "cancelledBy": "Cancelada por {name} el {date}",
       "cancelledNoAuthor": "Cancelada el {date} (por la clienta o sin registro)",
       "reason": "Motivo: {reason}",
@@ -247,7 +277,8 @@
         "kinds": {
           "confirmation": "Confirmación",
           "cancellation": "Cancelación",
-          "reminder": "Recordatorio"
+          "reminder": "Recordatorio",
+          "rescheduled": "Confirmación del cambio"
         }
       },
       "koibox": {
@@ -495,13 +526,20 @@
       "deposit": "Depósito",
       "viewAppointment": "Ver mi cita",
       "cancelNotice": "Si necesitas cambiar o cancelar la cita, avísanos con al menos {hours, plural, one {# hora} other {# horas}} de antelación. Puedes responder a este correo.",
-      "cancelNoticeSelf": "Si no puedes venir, puedes cancelar la cita tú misma desde «Ver mi cita» hasta {hours, plural, one {# hora} other {# horas}} antes. Para cambiarla, o pasado ese plazo, escríbenos o responde a este correo."
+      "cancelNoticeSelf": "Si no puedes venir, puedes cancelar la cita tú misma desde «Ver mi cita» hasta {hours, plural, one {# hora} other {# horas}} antes. Para cambiarla, o pasado ese plazo, escríbenos o responde a este correo.",
+      "changeNoticeSelf": "Si lo necesitas, puedes cambiar o cancelar la cita tú misma desde «Ver mi cita» hasta {hours, plural, one {# hora} other {# horas}} antes. Pasado ese plazo, escríbenos o responde a este correo."
     },
     "confirmation": {
       "subject": "Cita confirmada en {salon}",
       "preheader": "Te esperamos el {when}.",
       "intro": "Tu cita está confirmada. Estos son los detalles:",
       "calendar": "Adjuntamos un archivo para añadir la cita a tu calendario."
+    },
+    "rescheduled": {
+      "subject": "Tu cita en {salon} ha cambiado",
+      "preheader": "Ahora te esperamos el {when}.",
+      "intro": "Hemos cambiado tu cita. Estos son los nuevos detalles:",
+      "calendar": "Adjuntamos el calendario actualizado: al abrirlo, la cita se mueve a la nueva hora."
     },
     "cancellation": {
       "subject": "Tu cita en {salon} ha sido cancelada",

@@ -112,7 +112,7 @@ describe("otros correos", () => {
 
 describe("aviso de cancelación", () => {
   it("si la clienta puede cancelar sola, se lo dice", () => {
-    expect(build("confirmation").text).toContain("puedes cancelar la cita tú misma");
+    expect(build("confirmation").text).toContain("puedes cambiar o cancelar la cita tú misma");
   });
 
   it("si el salón no lo permite, le pide que avise", () => {
@@ -127,5 +127,16 @@ describe("aviso de cancelación", () => {
     const { text } = buildAppointmentEmail("confirmation", data, strict, es, now, env);
     expect(text).not.toContain("tú misma");
     expect(text).toContain("avísanos");
+  });
+});
+
+describe("correo de cambio de hora", () => {
+  it("lleva la hora nueva y el calendario con una versión nueva del mismo evento", () => {
+    const email = build("rescheduled");
+    expect(email.subject).toBe("Tu cita en The Room ha cambiado");
+    expect(email.text).toContain("Estos son los nuevos detalles");
+    const ics = Buffer.from(email.attachments![0].content, "base64").toString("utf8");
+    expect(ics).toContain("UID:appointment-7@salon.example.com");
+    expect(ics).toMatch(/SEQUENCE:\d+/);
   });
 });

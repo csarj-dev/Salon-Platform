@@ -281,32 +281,6 @@ export async function cleanupPreviousKoibox(
   }
 }
 
-// Cambio de hora: el PATCH de Koibox no mueve citas, así que se anula la de antes y se crea
-// otra con la hora nueva (que ya está guardada en nuestra cita).
-export async function moveAppointmentInKoibox(
-  appointmentId: number,
-  config: SalonConfig,
-  opts: { apiFor?: KoiboxApiFor; now?: Date } = {},
-): Promise<PushResult> {
-  const [row] = await db
-    .select({ startsAt: appointment.startsAt })
-    .from(appointment)
-    .where(eq(appointment.id, appointmentId));
-  if (!row) return { ok: false, outcome: "rejected", taken: false, message: `No existe la cita ${appointmentId}` };
-
-  const cancelled = await applyKoiboxChange(
-    appointmentId,
-    { kind: "moved", startsAt: row.startsAt, zone: config.timezone },
-    config,
-    opts,
-  );
-  // Si no se pudo anular la de antes, no se crea la nueva (quedarían las dos ocupando)
-  if (!cancelled.ok) return { ok: false, outcome: "rejected", taken: false, message: cancelled.message };
-
-  await db.update(appointment).set({ koiboxAppointmentId: null }).where(eq(appointment.id, appointmentId));
-  return pushAppointmentToKoibox(appointmentId, config, opts);
-}
-
 export type NewBookingResult =
   | { ok: true; synced: boolean } // synced: false = no se sabe si llegó; se reintenta más tarde
   | { ok: false; reason: "slot_taken" | "server" };

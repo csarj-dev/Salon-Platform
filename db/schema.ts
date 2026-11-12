@@ -373,7 +373,7 @@ export const appointment = pgTable(
 );
 
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
-export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder"]);
+export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);
 
 export const emailLog = pgTable(

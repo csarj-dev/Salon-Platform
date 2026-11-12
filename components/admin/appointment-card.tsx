@@ -28,6 +28,7 @@ export type AppointmentCardData = {
   cancelReason?: string | null;
   cancelledByName?: string | null;
   validatedByName?: string | null;
+  rescheduledAt?: Date | null;
   // Solo en la lista de citas: la clienta tiene email y cómo fue el último correo
   hasEmail?: boolean;
   email?: EmailStatusInfo | null;
@@ -203,6 +204,9 @@ export async function AppointmentCard({
 
       {data.validatedByName && (
         <p className="text-sm text-muted-foreground">{t("validatedBy", { name: data.validatedByName })}</p>
+      )}
+      {data.rescheduledAt && (
+        <p className="text-sm text-muted-foreground">{t("rescheduledAt", { date: fmt(data.rescheduledAt) })}</p>
       )}
       {data.status === "cancelled" && data.cancelledAt && (
         <p className="text-sm text-muted-foreground">
