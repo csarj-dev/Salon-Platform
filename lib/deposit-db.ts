@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import { appointment, client, location, service, staff } from "../db/schema";
 
@@ -47,6 +47,7 @@ export async function markDepositPaid(
 
 export type DepositRow = {
   id: number;
+  clientId: number; // para "Ver todas sus citas"
   status: "pending_deposit" | "expired";
   startsAt: Date;
   depositCents: number;
@@ -74,6 +75,7 @@ export async function listDeposits(
   const rows = await db
     .select({
       id: appointment.id,
+      clientId: appointment.clientId,
       startsAt: appointment.startsAt,
       depositCents: appointment.depositCents,
       depositDueAt: appointment.depositDueAt,
@@ -113,4 +115,16 @@ export async function countPendingDeposits(now: Date = new Date()): Promise<numb
     .from(appointment)
     .where(and(eq(appointment.status, "pending_deposit"), gt(appointment.depositDueAt, now)));
   return row?.n ?? 0;
+}
+
+// Depósitos validados desde una fecha: cuántos y cuánto (recuadro "Validados (7 días)")
+export async function depositsValidatedSince(since: Date): Promise<{ count: number; cents: number }> {
+  const [row] = await db
+    .select({
+      count: count(),
+      cents: sql<number>`coalesce(sum(${appointment.depositCents}), 0)`.mapWith(Number),
+    })
+    .from(appointment)
+    .where(gte(appointment.depositPaidAt, since));
+  return row;
 }

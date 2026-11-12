@@ -13,7 +13,7 @@ import { cancelAppointment } from "../lib/appointment-changes";
 import { getConfirmation } from "../lib/appointment-view";
 import { createAppointment, type BookingOptions } from "../lib/booking";
 import {
-  countPendingDeposits, expireOverdueDeposits, listDeposits, markDepositPaid,
+  countPendingDeposits, depositsValidatedSince, expireOverdueDeposits, listDeposits, markDepositPaid,
 } from "../lib/deposit-db";
 
 const opts: BookingOptions = {
@@ -485,5 +485,12 @@ describe("listados del panel", () => {
     // Plazos: día 20 a las 10:00 y a las 13:00
     expect(await countPendingDeposits(NOW)).toBe(2);
     expect(await countPendingDeposits(LATER)).toBe(1);
+  });
+
+    it("suma los depósitos validados desde una fecha", async () => {
+    const r = await bookDeposit();
+    await markDepositPaid(r.appointmentId, NOW);
+    expect(await depositsValidatedSince(new Date(NOW.getTime() - 86_400_000))).toEqual({ count: 1, cents: 1500 });
+    expect(await depositsValidatedSince(new Date(NOW.getTime() + 1000))).toEqual({ count: 0, cents: 0 });
   });
 });

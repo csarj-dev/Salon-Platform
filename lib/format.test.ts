@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDateTime, formatDayChip, formatDayLong, formatPrice, formatTime } from "./format";
+import { formatDateTime, formatDayChip, formatDayLong, formatPrice, formatTime, timeLeftParts } from "./format";
 
 describe("formatPrice", () => {
   it("formatea en euros según el idioma", () => {
@@ -43,3 +43,14 @@ describe("fechas en la zona horaria del salón", () => {
   });
 });
 
+describe("timeLeftParts", () => {
+  const min = 60_000;
+  it("plazo vencido, minutos, horas y días", () => {
+    expect(timeLeftParts(0)).toEqual({ kind: "overdue" });
+    expect(timeLeftParts(-5 * min)).toEqual({ kind: "overdue" });
+    expect(timeLeftParts(30_000)).toEqual({ kind: "minutes", minutes: 1 });
+    expect(timeLeftParts(80 * min)).toEqual({ kind: "hours", hours: 1, minutes: 20 });
+    expect(timeLeftParts(21 * 60 * min)).toEqual({ kind: "hours", hours: 21, minutes: 0 });
+    expect(timeLeftParts(26 * 60 * min)).toEqual({ kind: "days", days: 1, hours: 2 });
+  });
+});

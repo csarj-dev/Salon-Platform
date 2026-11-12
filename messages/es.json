@@ -521,7 +521,33 @@
       "pendingEmpty": "No hay depósitos pendientes.",
       "expiredTitle": "Caducadas (últimos 14 días)",
       "expiredIntro": "El hueco ya se liberó. Escribe a la clienta por si quiere otra hora; si ya había pagado, habla con ella antes de volver a reservar.",
-      "expiredEmpty": "No hay reservas caducadas recientes."
+      "expiredEmpty": "No hay reservas caducadas recientes.",
+      "tiles": {
+        "pending": "Esperando pago",
+        "dueSoon": "Vencen en menos de 3 h",
+        "validated": "Validados (7 días)",
+        "expired": "Caducadas (14 días)",
+        "countAmount": "{count} · {amount}"
+      },
+      "groups": {
+        "soon": "Vence pronto · menos de 3 h",
+        "soonSub": "Escríbele ya o se libera el hueco",
+        "today": "Hoy",
+        "todaySub": "Vencen antes de medianoche",
+        "later": "Más adelante",
+        "laterSub": "Hay tiempo"
+      },
+      "left": {
+        "minutes": "en {minutes} min",
+        "hours": "en {hours} h {minutes} min",
+        "days": "en {days} d {hours} h",
+        "overdue": "plazo vencido"
+      },
+      "until": "hasta {when}",
+      "todayAt": "hoy {time}",
+      "askPayment": "Pedir pago",
+      "write": "Escribir",
+      "expiredAt": "caducó el {when}"
     },
     "appointments": {
       "title": "Citas",

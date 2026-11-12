@@ -40,3 +40,20 @@ export function formatDayChip(
 export function formatDateTime(date: Date, locale: string, zone: string): string {
   return `${formatDayLong(date, locale, zone)}, ${formatTime(date, locale, zone)}`;
 }
+
+// Cuánto falta para un plazo, para decirlo como "en 1 h 20 min". Redondea hacia arriba:
+// con 30 segundos por delante se dice "en 1 min", no "en 0 min".
+export type TimeLeft =
+  | { kind: "overdue" }
+  | { kind: "minutes"; minutes: number }
+  | { kind: "hours"; hours: number; minutes: number }
+  | { kind: "days"; days: number; hours: number };
+
+export function timeLeftParts(ms: number): TimeLeft {
+  if (ms <= 0) return { kind: "overdue" };
+  const totalMinutes = Math.ceil(ms / 60_000);
+  if (totalMinutes < 60) return { kind: "minutes", minutes: totalMinutes };
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours < 24) return { kind: "hours", hours: totalHours, minutes: totalMinutes % 60 };
+  return { kind: "days", days: Math.floor(totalHours / 24), hours: totalHours % 24 };
+}
