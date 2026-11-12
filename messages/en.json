@@ -539,7 +539,33 @@
       "pendingEmpty": "No pending deposits.",
       "expiredTitle": "Expired (last 14 days)",
       "expiredIntro": "The slot has already been released. Message the client in case she wants another time; if she had already paid, talk to her before booking again.",
-      "expiredEmpty": "No recently expired bookings."
+      "expiredEmpty": "No recently expired bookings.",
+      "tiles": {
+        "pending": "Awaiting payment",
+        "dueSoon": "Due in under 3 h",
+        "validated": "Validated (7 days)",
+        "expired": "Expired (14 days)",
+        "countAmount": "{count} · {amount}"
+      },
+      "groups": {
+        "soon": "Due soon · under 3 h",
+        "soonSub": "Message her now or the slot is released",
+        "today": "Today",
+        "todaySub": "Due before midnight",
+        "later": "Later",
+        "laterSub": "There's time"
+      },
+      "left": {
+        "minutes": "in {minutes} min",
+        "hours": "in {hours} h {minutes} min",
+        "days": "in {days} d {hours} h",
+        "overdue": "past due"
+      },
+      "until": "until {when}",
+      "todayAt": "today {time}",
+      "askPayment": "Ask for payment",
+      "write": "Message",
+      "expiredAt": "expired on {when}"
     },
     "appointments": {
       "title": "Appointments",
