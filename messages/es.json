@@ -282,6 +282,11 @@
           "rescheduled": "Confirmación del cambio"
         }
       },
+      "client": "Clienta",
+      "depositAndEmail": "Depósito y correo",
+      "nothingMore": "Sin depósito ni correos.",
+      "showDetail": "Ver el detalle de la cita #{id}",
+      "hideDetail": "Ocultar el detalle de la cita #{id}",
       "koibox": {
         "synced": "En Koibox",
         "syncedCancelled": "Anulada también en Koibox",
@@ -309,6 +314,12 @@
           "notFound": "Esa cita ya no existe. Recarga la página.",
           "koibox": "Koibox no la aceptó: {message}",
           "server": "No se pudo reintentar. Inténtalo otra vez."
+        },
+        "short": {
+          "synced": "Al día",
+          "cancelled": "Anulada",
+          "pending": "Pendiente",
+          "missing": "No está"
         }
       }
     },
@@ -518,6 +529,14 @@
         "upcoming": "Próximas",
         "past": "Pasadas (30 días)",
         "cancelled": "Canceladas y caducadas (30 días)"
+      },
+      "table": {
+        "time": "Hora",
+        "client": "Clienta",
+        "service": "Servicio",
+        "status": "Estado",
+        "koibox": "Koibox",
+        "detail": "Detalle"
       },
       "empty": {
         "upcoming": "No hay citas próximas.",

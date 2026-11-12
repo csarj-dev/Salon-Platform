@@ -267,6 +267,11 @@
       "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
       "reason": "Reason: {reason}",
       "whatsapp": "Message on WhatsApp",
+      "client": "Client",
+      "depositAndEmail": "Deposit and email",
+      "nothingMore": "No deposit or emails.",
+      "showDetail": "Show the details of appointment #{id}",
+      "hideDetail": "Hide the details of appointment #{id}",
       "koibox": {
         "synced": "In Koibox",
         "syncedCancelled": "Also cancelled in Koibox",
@@ -294,6 +299,12 @@
           "notFound": "That appointment no longer exists. Reload the page.",
           "koibox": "Koibox didn't accept it: {message}",
           "server": "Couldn't retry. Try again."
+        },
+        "short": {
+          "synced": "Up to date",
+          "cancelled": "Cancelled",
+          "pending": "Pending",
+          "missing": "Not there"
         }
       },
       "email": {
@@ -548,6 +559,14 @@
           "disabled": "This salon doesn't use Koibox.",
           "server": "Couldn't retry. Try again."
         }
+      },
+      "table": {
+        "time": "Time",
+        "client": "Client",
+        "service": "Service",
+        "status": "Status",
+        "koibox": "Koibox",
+        "detail": "Details"
       },
       "empty": {
         "upcoming": "No upcoming appointments.",
