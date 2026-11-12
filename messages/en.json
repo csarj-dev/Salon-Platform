@@ -267,6 +267,12 @@
       "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",
       "reason": "Reason: {reason}",
       "whatsapp": "Message on WhatsApp",
+      "client": "Client",
+      "depositAndEmail": "Deposit and email",
+      "nothingMore": "No deposit or emails.",
+      "showDetail": "Show the details of appointment #{id}",
+      "hideDetail": "Hide the details of appointment #{id}",
+      "allClientAppointments": "See all her appointments →",
       "koibox": {
         "synced": "In Koibox",
         "syncedCancelled": "Also cancelled in Koibox",
@@ -294,6 +300,12 @@
           "notFound": "That appointment no longer exists. Reload the page.",
           "koibox": "Koibox didn't accept it: {message}",
           "server": "Couldn't retry. Try again."
+        },
+        "short": {
+          "synced": "Up to date",
+          "cancelled": "Cancelled",
+          "pending": "Pending",
+          "missing": "Not there"
         }
       },
       "email": {
@@ -548,6 +560,50 @@
           "disabled": "This salon doesn't use Koibox.",
           "server": "Couldn't retry. Try again."
         }
+      },
+      "table": {
+        "time": "Time",
+        "client": "Client",
+        "service": "Service",
+        "status": "Status",
+        "koibox": "Koibox",
+        "detail": "Details"
+      },
+      "filters": {
+        "search": "Search",
+        "searchPlaceholder": "Search client, phone or appointment no.",
+        "staff": "Professional",
+        "allStaff": "All",
+        "location": "Location",
+        "allLocations": "All",
+        "searching": "Searching…"
+      },
+      "summary": {
+        "label": "Summary",
+        "today": "Today",
+        "week": "Next 7 days",
+        "count": "{count, plural, one {# appointment} other {# appointments}}",
+        "range": "First {first} · last {last}",
+        "none": "No appointments",
+        "deposits": "Deposit missing",
+        "dueSoon": "{count, plural, one {# due in under 3 h} other {# due in under 3 h}}",
+        "noneUrgent": "None urgent",
+        "koibox": "Not up to date in Koibox"
+      },
+      "filtered": "{count, plural, =0 {No appointments match these filters.} one {# appointment matches these filters.} other {# appointments match these filters.}}",
+      "clearFilters": "Clear filters",
+      "client": {
+        "since": "First appointment on {date}",
+        "total": "Appointments",
+        "upcoming": "Upcoming",
+        "cancelled": "Cancelled",
+        "noShow": "No-show",
+        "clear": "See all appointments",
+        "upcomingTitle": "Upcoming",
+        "previousTitle": "Previous",
+        "noneUpcoming": "No upcoming appointments.",
+        "nonePrevious": "No previous appointments.",
+        "notFound": "We can't find that client."
       },
       "empty": {
         "upcoming": "No upcoming appointments.",
