@@ -331,6 +331,12 @@
       "none": "None",
       "configNote": "Collectors and how they're paid are set in the salon configuration. Here you choose who collects for each professional.",
       "staffTitle": "Who collects for each professional",
+      "table": {
+        "staff": "Professional",
+        "collector": "Collects",
+        "why": "Why",
+        "change": "Change"
+      },
       "noStaff": "There are no active professionals.",
       "single": "All deposits are collected by {name}. If several people collect one day, add them in the configuration (docs/collectors.md) and you'll be able to choose here.",
       "noAccount": "No Koibox account",
@@ -340,7 +346,7 @@
         "account": "From her Koibox account",
         "default": "Default"
       },
-      "ignored": "She had “{id}”, which is no longer in the configuration: her account's or the default one is used. Save to clear it.",
+      "ignored": "She had “{id}”, which is no longer in the configuration: her account's or the default one is used. Choose who collects to clear it.",
       "selectLabel": "Who collects for {name}",
       "followAccount": "From her account · {name}",
       "followDefault": "Default · {name}",

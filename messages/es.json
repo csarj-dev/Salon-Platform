@@ -331,6 +331,12 @@
       "none": "Ninguna",
       "configNote": "Los cobradores y su forma de pago se definen en la configuración del salón. Aquí se elige quién cobra a cada profesional.",
       "staffTitle": "Quién cobra a cada profesional",
+      "table": {
+        "staff": "Profesional",
+        "collector": "Cobra",
+        "why": "Por qué",
+        "change": "Cambiar"
+      },
       "noStaff": "No hay profesionales activas.",
       "single": "Todos los depósitos los cobra {name}. Si algún día cobran varias personas, se añaden en la configuración (docs/collectors.md) y aquí podrás elegir.",
       "noAccount": "Sin cuenta de Koibox",
@@ -340,7 +346,7 @@
         "account": "Por su cuenta de Koibox",
         "default": "Por defecto"
       },
-      "ignored": "Tenía «{id}», que ya no está en la configuración: se usa el de su cuenta o el de por defecto. Guarda para limpiarlo.",
+      "ignored": "Tenía «{id}», que ya no está en la configuración: se usa el de su cuenta o el de por defecto. Elige quién cobra para limpiarlo.",
       "selectLabel": "Quién cobra a {name}",
       "followAccount": "Según su cuenta · {name}",
       "followDefault": "El de por defecto · {name}",

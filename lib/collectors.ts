@@ -11,6 +11,7 @@ import type { SalonConfig } from "./salon-config";
 export type Collector = {
   id: string;
   label: string;
+  color: string | null; // punto de color en el panel (payments.collectors.<id>.color)
   deposit: {
     mode: DepositMode;
     whatsapp: string | null; // número al que pedir el enlace de pago (el suyo o el del salón)
@@ -29,6 +30,7 @@ export function salonCollectors(config: CollectorsConfig): { defaultId: string; 
     const single: Collector = {
       id: SINGLE_COLLECTOR_ID,
       label: config.name,
+      color: null,
       deposit: { mode: "instructions", whatsapp: config.contact.whatsapp ?? null, instructions: null },
     };
     return { defaultId: single.id, byId: new Map([[single.id, single]]) };
@@ -40,6 +42,7 @@ export function salonCollectors(config: CollectorsConfig): { defaultId: string; 
       {
         id,
         label: c.label,
+        color: c.color ?? null,
         deposit: {
           mode: c.deposit.mode,
           whatsapp: c.deposit.whatsapp ?? config.contact.whatsapp ?? null,

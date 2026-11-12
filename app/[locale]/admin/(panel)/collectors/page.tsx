@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Dot, PageHeader, StatusPill } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { StaffCollectorRow } from "@/components/admin/staff-collector-row";
 import { salonCollectors } from "@/lib/collectors";
@@ -16,11 +17,8 @@ export default async function CollectorsPage({ params }: Props) {
   const t = await getTranslations({ locale, namespace: "Admin.collectors" });
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("intro")}</p>
-      </div>
+    <section className="space-y-6">
+      <PageHeader title={t("title")} description={t("intro")} />
       <Suspense fallback={<PanelSkeleton />}>
         <CollectorsContent locale={locale} />
       </Suspense>
@@ -42,12 +40,13 @@ async function CollectorsContent({ locale }: { locale: string }) {
 
   const accountLabel = (id: string) => config.koibox.accounts[id]?.label ?? id;
   const namesOrNone = (names: string[]) => (names.length > 0 ? names.join(", ") : t("none"));
+  const th = "border-b px-4 py-3 font-medium";
 
   return (
     <>
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t("collectorsTitle")}</h2>
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <h2 className="sr-only">{t("collectorsTitle")}</h2>
+        <ul className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(17.5rem,1fr))]">
           {collectors.map((c) => {
             // ¿Número propio en el config o el de recepción (contact.whatsapp)?
             const own = Boolean(config.payments.collectors[c.id]?.deposit?.whatsapp);
@@ -57,13 +56,14 @@ async function CollectorsContent({ locale }: { locale: string }) {
             const staffNames = rows.filter((r) => r.choice.collector.id === c.id).map((r) => r.staffName);
 
             return (
-              <li key={c.id} className="space-y-3 rounded-lg border p-4">
+              <li key={c.id} className="flex flex-col gap-2.5 rounded-xl border bg-card p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">{c.label}</p>
+                  <p className="inline-flex min-w-0 items-center gap-2 text-base font-semibold">
+                    <Dot color={c.color} />
+                    {c.label}
+                  </p>
                   {c.id === defaultId && collectors.length > 1 && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {t("default")}
-                    </span>
+                    <StatusPill tone="neutral">{t("default")}</StatusPill>
                   )}
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
@@ -103,23 +103,37 @@ async function CollectorsContent({ locale }: { locale: string }) {
           <p className="text-sm text-muted-foreground">{t("noStaff")}</p>
         ) : (
           <>
-            <ul className="space-y-3">
-              {rows.map((r) => (
-                <StaffCollectorRow
-                  key={r.staffId}
-                  staffId={r.staffId}
-                  name={r.staffName}
-                  detail={koibox ? (r.koiboxAccount ? accountLabel(r.koiboxAccount) : t("noAccount")) : null}
-                  saved={r.choice.source === "staff" ? r.saved : null}
-                  currentLabel={r.choice.collector.label}
-                  source={r.choice.source}
-                  ignored={r.choice.ignored}
-                  fallbackLabel={r.fallback.label}
-                  followKey={koibox ? "followAccount" : "followDefault"}
-                  collectors={collectors.map((c) => ({ id: c.id, label: c.label }))}
-                />
-              ))}
-            </ul>
+            {/* Tabla en ordenador; en el móvil cada fila se ve como una tarjeta (staff-collector-row.tsx) */}
+            <div className="overflow-hidden rounded-xl border bg-card">
+              <table className="w-full border-collapse text-sm">
+                <caption className="sr-only">{t("staffTitle")}</caption>
+                <thead className="hidden md:table-header-group">
+                  <tr className="text-left text-xs tracking-[0.06em] text-muted-foreground uppercase">
+                    <th scope="col" className={th}>{t("table.staff")}</th>
+                    <th scope="col" className={th}>{t("table.collector")}</th>
+                    <th scope="col" className={th}>{t("table.why")}</th>
+                    <th scope="col" className={`${th} w-[19rem]`}>{t("table.change")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <StaffCollectorRow
+                      key={r.staffId}
+                      staffId={r.staffId}
+                      name={r.staffName}
+                      detail={koibox ? (r.koiboxAccount ? accountLabel(r.koiboxAccount) : t("noAccount")) : null}
+                      saved={r.choice.source === "staff" ? r.saved : null}
+                      current={{ label: r.choice.collector.label, color: r.choice.collector.color }}
+                      source={r.choice.source}
+                      ignored={r.choice.ignored}
+                      fallbackLabel={r.fallback.label}
+                      followKey={koibox ? "followAccount" : "followDefault"}
+                      collectors={collectors.map((c) => ({ id: c.id, label: c.label }))}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <p className="text-sm text-muted-foreground">{t(koibox ? "footnote" : "footnoteLocal")}</p>
           </>
         )}
