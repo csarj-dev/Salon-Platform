@@ -283,9 +283,9 @@
         }
       },
       "koibox": {
-        "synced": "En Koibox · {account}",
-        "syncedCancelled": "Anulada también en Koibox · {account}",
-        "syncedAt": "Al día desde {date}",
+        "synced": "En Koibox",
+        "syncedCancelled": "Anulada también en Koibox",
+        "syncedAt": "al día desde {date}",
         "pending": "Pendiente de Koibox",
         "missing": "No está en Koibox",
         "missingText": "Esta cita no se apuntó en Koibox. Reinténtalo o apúntala a mano allí.",

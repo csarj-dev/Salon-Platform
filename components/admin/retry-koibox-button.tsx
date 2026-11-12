@@ -22,11 +22,11 @@ export function RetryKoiboxButton({ appointmentId }: { appointmentId: number }) 
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={onClick} disabled={pending}>
+      <Button type="button" variant="outline" className="h-10 border-foreground bg-card px-4" onClick={onClick} disabled={pending}>
         {pending ? t("retrying") : t("retry")}
       </Button>
       {message && (
-        <span role="status" className={message.ok ? "text-sm text-muted-foreground" : "text-sm text-destructive"}>
+        <span role="status" className={message.ok ? "text-sm text-muted-foreground" : "text-sm text-danger"}>
           {message.text}
         </span>
       )}

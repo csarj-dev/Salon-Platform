@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { resendEmailAction } from "@/app/[locale]/admin/(panel)/appointments/actions";
-import { Button } from "@/components/ui/button";
+import { textAction } from "@/components/admin/panel-ui";
 
 export function ResendEmailButton({ appointmentId }: { appointmentId: number }) {
   const t = useTranslations("Admin");
@@ -24,13 +24,13 @@ export function ResendEmailButton({ appointmentId }: { appointmentId: number }) 
 
   return (
     <div className="space-y-1">
-      <Button size="sm" variant="outline" disabled={pending} onClick={onClick}>
+      <button type="button" className={textAction()} disabled={pending} onClick={onClick}>
         {pending ? t("card.email.resending") : t("card.email.resend")}
-      </Button>
+      </button>
       {message && (
         <p
           role={message.ok ? "status" : "alert"}
-          className={message.ok ? "text-sm text-muted-foreground" : "text-sm text-destructive"}
+          className={message.ok ? "text-sm text-muted-foreground" : "text-sm text-danger"}
         >
           {message.text}
         </p>
