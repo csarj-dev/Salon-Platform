@@ -33,7 +33,7 @@ export default async function AppointmentsPage({ params, searchParams }: Props) 
   const t = await getTranslations({ locale, namespace: "Admin.appointments" });
 
   return (
-    <section className="space-y-6">
+      <section className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <Suspense fallback={<PanelSkeleton />}>
         <AppointmentsContent locale={locale} searchParams={searchParams} />

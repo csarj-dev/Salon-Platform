@@ -20,7 +20,7 @@ export default async function PanelLayout({ children, params }: Props) {
   return (
     <>
       <PanelHeader locale={locale} salonName={config.name} />
-      <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[75rem] px-4 py-6 md:px-8 md:py-8">{children}</main>
     </>
   );
 }

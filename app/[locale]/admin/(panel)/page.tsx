@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { parseRoles } from "@/lib/permissions";
 import { requireStaff } from "@/lib/session";
+import { PageHeader } from "@/components/admin/panel-ui";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -26,14 +27,12 @@ async function Welcome({ locale }: { locale: string }) {
   const firstRole = parseRoles(role)[0];
 
   return (
-    <section className="space-y-2">
-      <h1 className="text-2xl font-semibold">{t("welcome", { name: user.name })}</h1>
-      {firstRole && (
-        <p className="text-sm text-muted-foreground">
-          {t("role", { role: tRoles(firstRole) })}
-        </p>
-      )}
-      <p className="pt-4 text-sm">{t("soon")}</p>
+    <section className="space-y-4">
+      <PageHeader
+        title={t("welcome", { name: user.name })}
+        description={firstRole ? t("role", { role: tRoles(firstRole) }) : undefined}
+      />
+      <p className="text-sm">{t("soon")}</p>
     </section>
   );
 }

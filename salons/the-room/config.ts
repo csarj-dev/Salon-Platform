@@ -39,9 +39,9 @@ const config = {
   payments: {
     defaultCollector: "salon",
     collectors: {
-      salon: { label: "The Room Studio", deposit: { mode: "whatsapp" } },
-      amanda: { label: "Amanda", deposit: { mode: "whatsapp" } },
-      luz: { label: "The Room Micropigmentación", deposit: { mode: "whatsapp" } },
+      salon: { label: "The Room Studio", color: "#8a9a7b", deposit: { mode: "whatsapp" } },
+      amanda: { label: "Amanda", color: "#c9a27e", deposit: { mode: "whatsapp" } },
+      luz: { label: "The Room Micropigmentación", color: "#7a5c46", deposit: { mode: "whatsapp" } },
     },
   },
   // Una cuenta de Koibox por titular: cada cita se guarda en la de quien hace el servicio.
@@ -69,6 +69,9 @@ const config = {
     muted: "#efe6dc",
     mutedForeground: "#6b5a4e",
     border: "#dacab7",
+    success: "#3f6b4a",
+    warning: "#8a6230",
+    danger: "#8a3b2e",
     radius: "0.25rem",
   },
   contact: {

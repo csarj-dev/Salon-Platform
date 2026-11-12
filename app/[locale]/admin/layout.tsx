@@ -24,7 +24,7 @@ export default async function AdminLayout({ children, params }: Props) {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-3xl space-y-4 px-6 py-10">
+        <div className="mx-auto max-w-[75rem] space-y-4 px-4 py-10 md:px-8">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-32 w-full" />
         </div>

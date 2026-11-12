@@ -37,4 +37,29 @@ describe("tema del salón", () => {
     expect(vars["--ring"]).toBe("#8b5e3c");
     expect(vars["--radius"]).toBe("0.5rem");
   });
+
+  it("trae colores de estado por defecto y danger es también el rojo de shadcn", () => {
+    const vars = themeToCssVars(
+      salonConfigSchema.parse({ ...base, theme: { danger: "#8a3b2e" } }).theme,
+    );
+    expect(vars["--success"]).toBe("#2f7d4a");
+    expect(vars["--warning"]).toBe("#a16207");
+    expect(vars["--danger"]).toBe("#8a3b2e");
+    expect(vars["--destructive"]).toBe("#8a3b2e");
+  });
+});
+
+describe("color de cada cobrador", () => {
+  const withCollector = (color: string) => ({
+    ...base,
+    payments: { collectors: { salon: { label: "Salón", color } } },
+  });
+
+  it("se guarda si es hexadecimal", () => {
+    expect(salonConfigSchema.parse(withCollector("#8a9a7b")).payments.collectors.salon.color).toBe("#8a9a7b");
+  });
+
+  it("rechaza un color que no es hexadecimal", () => {
+    expect(() => salonConfigSchema.parse(withCollector("verde"))).toThrow();
+  });
 });

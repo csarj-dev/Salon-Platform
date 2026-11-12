@@ -8,6 +8,7 @@ import { expireOverdueDeposits, listDeposits } from "@/lib/deposit-db";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
+import { PageHeader } from "@/components/admin/panel-ui";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -17,11 +18,8 @@ export default async function DepositsPage({ params }: Props) {
   const t = await getTranslations({ locale, namespace: "Admin.deposits" });
 
   return (
-    <section className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("intro")}</p>
-      </div>
+    <section className="mx-auto max-w-3xl space-y-8">
+      <PageHeader title={t("title")} description={t("intro")} />
       <Suspense fallback={<PanelSkeleton />}>
         <DepositsContent locale={locale} />
       </Suspense>

@@ -1,6 +1,6 @@
 import type { SalonConfig } from "./salon-config";
 
-// Traduce el tema del salón a las variables CSS que usa shadcn/ui
+// Traduce el tema del salón a las variables CSS que usa shadcn/ui (y las de estado del panel)
 export function themeToCssVars(t: SalonConfig["theme"]): Record<string, string> {
   return {
     "--background": t.background,
@@ -21,5 +21,9 @@ export function themeToCssVars(t: SalonConfig["theme"]): Record<string, string> 
     "--input": t.border,
     "--ring": t.primary,
     "--radius": t.radius,
+    "--success": t.success,
+    "--warning": t.warning,
+    "--danger": t.danger,
+    "--destructive": t.danger,
   };
 }

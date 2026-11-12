@@ -14,11 +14,10 @@ const initialLocation = z.object({
   phone: z.string().optional(),
 });
 
-const hex = (fallback: string) =>
-  z
-    .string()
-    .regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, "Color en hexadecimal, por ejemplo #1a1a1a")
-    .default(fallback);
+const hexColor = z
+  .string()
+  .regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, "Color en hexadecimal, por ejemplo #1a1a1a");
+const hex = (fallback: string) => hexColor.default(fallback);
 
 // Tema neutro por defecto; cada salón sobrescribe lo que quiera
 const themeSchema = z.object({
@@ -32,6 +31,11 @@ const themeSchema = z.object({
   muted: hex("#f5f5f5"),
   mutedForeground: hex("#737373"),
   border: hex("#e5e5e5"),
+  // Estados en el panel (al día / pendiente / error): texto, puntos y fondos suaves.
+  // danger es también el rojo de los errores y de "Cancelar" en toda la web.
+  success: hex("#2f7d4a"),
+  warning: hex("#a16207"),
+  danger: hex("#b42318"),
   radius: z
     .string()
     .regex(/^\d+(\.\d+)?(rem|px)$/, "Ejemplo: 0.5rem")
@@ -118,6 +122,8 @@ const collectorId = z.string().regex(COLLECTOR_ID, "Id de cobrador en minúscula
 
 const collectorSchema = z.object({
   label: z.string().min(1), // nombre que ve recepción ("The Room Studio", "Amanda")
+  // Punto de color con el que se le reconoce en el panel (Cobros, Koibox). Opcional.
+  color: hexColor.optional(),
   deposit: z
     .object({
       // Igual que en booking.deposit: con instrucciones (Bizum, transferencia) o pidiendo

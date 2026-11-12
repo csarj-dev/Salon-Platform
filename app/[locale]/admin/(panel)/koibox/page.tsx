@@ -18,7 +18,7 @@ export default async function KoiboxPage({ params }: Props) {
   const t = await getTranslations({ locale, namespace: "Admin.koibox" });
 
   return (
-    <section className="space-y-8">
+    <section className="mx-auto max-w-3xl space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
