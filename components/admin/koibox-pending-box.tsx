@@ -28,7 +28,7 @@ export async function KoiboxPendingBox({ items, locale, zone, canRetry }: Props)
               : tK("work.cancelled");
 
   return (
-    <div className="space-y-2 rounded-xl bg-warning/12 px-4 py-3 text-sm">
+    <div className="space-y-2 rounded-xl border-l-4 border-warning bg-warning/15 px-4 py-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p>
           <span className="font-semibold">{t("title", { count: items.length })}</span> {tK("auto")}

@@ -71,6 +71,7 @@ export async function setStaffKoiboxLinkAction(
   }
 
   revalidatePath(`/${locale}/admin/koibox`);
+  revalidatePath(`/${locale}/admin/koibox/match`);
   revalidatePath(`/${locale}/admin/collectors`);
   return { ok: true };
 }
@@ -120,6 +121,7 @@ export async function setServiceKoiboxLinkAction(
   }
 
   revalidatePath(`/${locale}/admin/koibox`);
+  revalidatePath(`/${locale}/admin/koibox/match`);
   return { ok: true };
 }
 
@@ -148,6 +150,7 @@ export async function applyKoiboxMatchesAction(): Promise<ApplyMatchesResult> {
   try {
     const summary = await applyKoiboxMatches(await planKoiboxMatches(config, koiboxApiFor(config)));
     revalidatePath(`/${locale}/admin/koibox`);
+    revalidatePath(`/${locale}/admin/koibox/match`);
     revalidatePath(`/${locale}/admin/collectors`);
     return { ok: true, ...summary };
   } catch (error) {

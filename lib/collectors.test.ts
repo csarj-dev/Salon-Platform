@@ -43,6 +43,7 @@ describe("salonCollectors", () => {
       {
         id: SINGLE_COLLECTOR_ID,
         label: "Salón de prueba",
+        color: null,
         deposit: { mode: "instructions", whatsapp: "34600000000", instructions: null },
       },
     ]);
@@ -64,6 +65,19 @@ describe("salonCollectors", () => {
       whatsapp: "34600000000",
       instructions: { es: "Bizum al 622 222 222" },
     });
+  });
+
+  it("lleva el color del config, o null si no tiene", () => {
+    const c = salonConfigSchema.parse({
+      ...base,
+      payments: {
+        defaultCollector: "salon",
+        collectors: { salon: { label: "Salón", color: "#8a9a7b" }, luz: { label: "Luz" } },
+      },
+    });
+    const { byId } = salonCollectors(c);
+    expect(byId.get("salon")?.color).toBe("#8a9a7b");
+    expect(byId.get("luz")?.color).toBeNull();
   });
 });
 

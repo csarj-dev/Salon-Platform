@@ -89,7 +89,7 @@ export type SegmentLink = { href: string; label: ReactNode; active: boolean };
 /** Pestañas que son enlaces (?tab=…): la página sabe cuál está activa. */
 export function SegmentLinks({ items, label, className }: { items: SegmentLink[]; label: string; className?: string }) {
   return (
-    <nav aria-label={label} className={cn(segmentTrack, "self-start", className)}>
+    <nav aria-label={label} className={cn(segmentTrack, "w-fit", className)}>
       {items.map((item) => (
         <Link
           key={item.href}
