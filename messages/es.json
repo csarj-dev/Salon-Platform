@@ -210,7 +210,8 @@
       "refresh": "Actualizar",
       "refreshing": "Actualizando…",
       "refreshHint": "El panel se actualiza solo cada 30 segundos",
-      "loading": "Cargando…"
+      "loading": "Cargando…",
+      "brand": "Panel"
     },
     "roles": { "admin": "Administrador", "owner": "Dirección", "reception": "Recepción" },
     "nav": {

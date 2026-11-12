@@ -1,117 +1,90 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { PanelNav, type PanelNavItem } from "@/components/admin/panel-nav";
 import { SignOutButton } from "@/components/admin/sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { countPendingDeposits } from "@/lib/deposit-db";
+import { writesToKoibox } from "@/lib/koibox-sync";
 import { can, parseRoles } from "@/lib/permissions";
+import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { PanelRefresh } from "./panel-refresh";
-import { writesToKoibox } from "@/lib/koibox-sync";
-import { loadSalonConfig } from "@/lib/salon-config";
 
 type Props = { locale: string; salonName: string };
 
 /**
- * Cabecera del panel. Lo que no depende de quién eres se pinta al momento;
- * el nombre, el rol y los enlaces según permisos llegan en <Suspense>.
+ * Cabecera del panel: «SALÓN · Panel», las secciones en cápsula y el usuario a la derecha.
+ * Lo que no depende de quién eres se pinta al momento; el usuario y las secciones según
+ * permisos llegan en <Suspense>.
  */
 export async function PanelHeader({ locale, salonName }: Props) {
-  const [t, tNav] = await Promise.all([
-    getTranslations({ locale, namespace: "Admin.panel" }),
-    getTranslations({ locale, namespace: "Admin.nav" }),
-  ]);
+  const t = await getTranslations({ locale, namespace: "Admin.panel" });
   return (
-    <header className="border-b bg-background">
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-6 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">
-            {salonName} · {t("label")}
-          </p>
-          <Suspense fallback={<Skeleton className="mt-1 h-3 w-32" />}>
+    <header className="border-b bg-card">
+      <div className="mx-auto flex max-w-[75rem] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 md:px-8">
+        <Link
+          href="/admin"
+          className="flex shrink-0 items-baseline gap-3 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="text-base font-semibold tracking-[0.12em] uppercase md:text-lg">{salonName}</span>
+          <span className="text-base font-medium text-muted-foreground md:text-lg">{t("brand")}</span>
+        </Link>
+        <nav aria-label={t("label")} className="order-last w-full lg:order-none lg:w-auto">
+          <Suspense fallback={<Skeleton className="h-12 w-full max-w-md" />}>
+            <PanelNavLinks locale={locale} />
+          </Suspense>
+        </nav>
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          <Suspense fallback={<Skeleton className="hidden h-4 w-32 sm:block" />}>
             <PanelIdentity locale={locale} />
           </Suspense>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
           <PanelRefresh />
           <SignOutButton />
         </div>
       </div>
-      <nav
-        aria-label={t("label")}
-        className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-5 gap-y-1 px-6 pb-3 text-sm"
-      >
-        <Link href="/admin" className="hover:underline">
-          {tNav("home")}
-        </Link>
-        <Suspense fallback={<Skeleton className="h-4 w-40" />}>
-          <PanelNavLinks locale={locale} />
-        </Suspense>
-      </nav>
     </header>
   );
 }
 
-/** "César · Administrador" */
+/** "Admin · Administrador" */
 async function PanelIdentity({ locale }: { locale: string }) {
   const { user, role } = await requireStaff(locale);
   const tRoles = await getTranslations({ locale, namespace: "Admin.roles" });
   const firstRole = parseRoles(role)[0];
   return (
-    <p className="truncate text-xs text-muted-foreground">
+    <p className="hidden truncate text-sm text-muted-foreground sm:block">
       {user.name}
       {firstRole ? ` · ${tRoles(firstRole)}` : ""}
     </p>
   );
 }
 
-/** Enlaces que dependen de los permisos, con el contador de depósitos pendientes. */
+/** Secciones según los permisos, con el contador de depósitos pendientes. */
 async function PanelNavLinks({ locale }: { locale: string }) {
   const { role } = await requireStaff(locale);
   const showDeposits = can(role, "deposits.manage");
+  const settings = can(role, "settings.manage");
   const [tNav, pendingDeposits, config] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.nav" }),
     // Se calcula al cargar el panel; se refresca al validar, cancelar o con "Actualizar"
     showDeposits ? countPendingDeposits() : Promise.resolve(0),
     loadSalonConfig(),
   ]);
-  const settings = can(role, "settings.manage");
 
-  return (
-    <>
-      {can(role, "appointments.view") && (
-        <Link href="/admin/appointments" className="hover:underline">
-          {tNav("appointments")}
-        </Link>
-      )}
-      {showDeposits && (
-        <Link href="/admin/deposits" className="inline-flex items-center gap-1.5 hover:underline">
-          {tNav("deposits")}
-          {pendingDeposits > 0 && (
-            <span
-              aria-label={tNav("pendingCount", { count: pendingDeposits })}
-              className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground"
-            >
-              {pendingDeposits}
-            </span>
-          )}
-        </Link>
-      )}
-      {settings && (
-        <Link href="/admin/collectors" className="hover:underline">
-          {tNav("collectors")}
-        </Link>
-      )}
-      {settings && writesToKoibox(config) && (
-        <Link href="/admin/koibox" className="hover:underline">
-          {tNav("koibox")}
-        </Link>
-      )}
-      {can(role, "users.manage") && (
-        <Link href="/admin/users" className="hover:underline">
-          {tNav("users")}
-        </Link>
-      )}
-    </>
-  );
+  const items: PanelNavItem[] = [];
+  if (can(role, "appointments.view")) items.push({ href: "/admin/appointments", label: tNav("appointments") });
+  if (showDeposits) {
+    items.push({
+      href: "/admin/deposits",
+      label: tNav("deposits"),
+      count: pendingDeposits,
+      countLabel: tNav("pendingCount", { count: pendingDeposits }),
+    });
+  }
+  if (settings) items.push({ href: "/admin/collectors", label: tNav("collectors") });
+  if (settings && writesToKoibox(config)) items.push({ href: "/admin/koibox", label: tNav("koibox") });
+  if (can(role, "users.manage")) items.push({ href: "/admin/users", label: tNav("users") });
+
+  return <PanelNav items={items} />;
 }

@@ -210,7 +210,8 @@
       "refresh": "Refresh",
       "refreshing": "Refreshing…",
       "refreshHint": "The panel refreshes by itself every 30 seconds",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "brand": "Panel"
     },
     "roles": { "admin": "Administrator", "owner": "Management", "reception": "Reception" },
     "nav": {
