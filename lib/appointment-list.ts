@@ -12,6 +12,8 @@ export type AppointmentListRow = {
   status: AppointmentStatus;
   source: "web" | "phone" | "whatsapp";
   clientId: number;
+  staffId: number;
+  locationId: number;
   clientName: string;
   clientPhone: string;
   clientEmail: string | null;
@@ -104,6 +106,8 @@ export async function listAppointments(
       status: appointment.status,
       source: appointment.source,
       clientId: appointment.clientId,
+      staffId: appointment.staffId,
+      locationId: appointment.locationId,
       clientName: appointment.clientName,
       clientPhone: client.phone,
       clientEmail: appointment.clientEmail,
