@@ -4,8 +4,6 @@ import { db } from "../db";
 import { koiboxServiceMap, service, staff, staffService } from "../db/schema";
 import { pgErrorCode } from "./booking";
 import { koiboxDriver, type KoiboxEnv } from "./koibox/driver";
-import { durationMinutes, koiboxUsersOf, type KoiboxUser } from "./koibox/match";
-import { koiboxApiFor, type KoiboxApiFor } from "./koibox-sync";
 import type { SalonConfig } from "./salon-config";
 
 type Config = Pick<SalonConfig, "koibox">;
@@ -101,16 +99,6 @@ export async function setStaffKoiboxLink(
   }
 }
 
-// Koibox no tiene lista de empleadas: salen de quién hace cada servicio activo de la cuenta
-export async function koiboxUsersForAccount(
-  config: Config,
-  account: string,
-  apiFor: KoiboxApiFor = koiboxApiFor(config),
-): Promise<KoiboxUser[]> {
-  const services = await apiFor(account).listServices();
-  return koiboxUsersOf(account, services.filter((s) => s.is_active !== false));
-}
-
 // ---- Servicios ----
 
 export type ServiceAccountLink = {
@@ -180,19 +168,4 @@ export async function setServiceKoiboxLink(
       });
   }
   return "ok";
-}
-
-export type KoiboxServiceOption = { id: number; name: string; minutes: number | null };
-
-// Los servicios activos de una cuenta de Koibox, para elegir con cuál enlazar
-export async function koiboxServicesForAccount(
-  config: Config,
-  account: string,
-  apiFor: KoiboxApiFor = koiboxApiFor(config),
-): Promise<KoiboxServiceOption[]> {
-  const services = await apiFor(account).listServices();
-  return services
-    .filter((s) => s.is_active !== false)
-    .map((s) => ({ id: s.id, name: s.nombre, minutes: durationMinutes(s.duracion) }))
-    .sort((a, b) => a.name.localeCompare(b.name));
 }

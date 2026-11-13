@@ -16,6 +16,8 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
+  // Último inicio de sesión. Lo rellena el hook de lib/auth.ts.
+  lastLoginAt: timestamp("last_login_at"),
 });
 
 export const session = pgTable(

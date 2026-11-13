@@ -35,3 +35,21 @@ export function can(raw: string | null | undefined, permission: Permission): boo
 export function isStaff(raw: string | null | undefined): boolean {
   return parseRoles(raw).length > 0;
 }
+
+export type PermissionRow = { permission: Permission; allowed: Record<Role, boolean> };
+
+/**
+ * «Qué puede hacer cada rol», sacado de PERMISSIONS. La página de Usuarios lo
+ * pinta tal cual, así nunca dice algo distinto de lo que el código comprueba.
+ */
+export function permissionMatrix(): PermissionRow[] {
+  return (Object.keys(PERMISSIONS) as Permission[]).map((permission) => {
+    const allowedRoles: readonly Role[] = PERMISSIONS[permission];
+    return {
+      permission,
+      allowed: Object.fromEntries(
+        ROLES.map((role) => [role, allowedRoles.includes(role)]),
+      ) as Record<Role, boolean>,
+    };
+  });
+}

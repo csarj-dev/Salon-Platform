@@ -352,7 +352,6 @@
       "noStaff": "No hay profesionales activas.",
       "single": "Todos los depósitos los cobra {name}. Si algún día cobran varias personas, se añaden en la configuración (docs/collectors.md) y aquí podrás elegir.",
       "noAccount": "Sin cuenta de Koibox",
-      "chargedBy": "Cobra {name}",
       "source": {
         "staff": "Puesto a ella",
         "account": "Por su cuenta de Koibox",
@@ -362,7 +361,6 @@
       "selectLabel": "Quién cobra a {name}",
       "followAccount": "Según su cuenta · {name}",
       "followDefault": "El de por defecto · {name}",
-      "save": "Guardar",
       "saving": "Guardando…",
       "saved": "Guardado.",
       "footnote": "«Según su cuenta» usa el cobrador de su cuenta de Koibox; si no tiene cuenta, el de por defecto. Elige otro solo si esa profesional cobra con un TPV distinto.",
@@ -380,7 +378,6 @@
       "accountStaff": "{count, plural, =0 {Ninguna profesional enlazada} one {# profesional enlazada} other {# profesionales enlazadas}}",
       "accountServices": "{count, plural, =0 {Ningún servicio enlazado} one {# servicio enlazado} other {# servicios enlazados}}",
       "keyFake": "Modo de pruebas: Koibox de mentira, no hace falta clave",
-      "keyOk": "Clave puesta",
       "keyMissing": "Falta la clave ({env}): las reservas de esta cuenta no se pueden apuntar",
       "collects": "Cobra {name}",
       "checkedAt": "Comprobado a las {time}",
@@ -421,15 +418,12 @@
       "staffTitle": "Profesionales",
       "staffIntro": "Cada profesional va enlazada a una usuaria de una cuenta de Koibox. Sin enlace, sus horas salen del horario de nuestra base.",
       "noStaff": "No hay profesionales activas.",
-      "linkedTo": "{account} · usuaria {user}",
-      "notLinked": "Sin enlazar con Koibox",
       "unknownAccount": "Está en la cuenta «{account}», que ya no está en la configuración. Enlázala a otra o quítala.",
       "missingServices": "En su cuenta faltan estos servicios: {services}. Mientras, esos servicios no se pueden reservar con ella.",
       "edit": "Editar",
       "accountLabel": "Cuenta de Koibox",
       "noAccount": "Sin cuenta",
       "userLabel": "Quién es en esa cuenta",
-      "loadingUsers": "Pidiendo a Koibox sus usuarias…",
       "pickUser": "Elige una usuaria…",
       "userOption": "{name} · usuaria {id}",
       "userTaken": "{name} · usuaria {id} (ya es {staff})",
@@ -441,7 +435,6 @@
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando…",
-      "saved": "Guardado.",
       "minutes": "{count} min",
       "matchTitle": "Emparejar con Koibox",
       "matchIntro": "Comparamos por nombre nuestras profesionales y servicios con los de cada cuenta de Koibox. Solo se guarda lo seguro, y nunca se cambia un enlace que ya existe.",
@@ -468,7 +461,6 @@
         "unknownAccount": "Esa cuenta ya no está en la configuración. Recarga la página.",
         "userTaken": "Esa usuaria de Koibox ya es otra profesional.",
         "notFound": "Esa profesional ya no existe. Recarga la página.",
-        "koibox": "Koibox no ha respondido.",
         "pickUser": "Elige quién es en esa cuenta.",
         "server": "No se pudo guardar. Inténtalo otra vez.",
         "pickService": "Elige el servicio de Koibox."
@@ -627,29 +619,78 @@
     "users": {
       "title": "Usuarios",
       "intro": "Quién puede entrar al panel y con qué rol. Solo el administrador ve esta página.",
+      "newUser": "Nuevo usuario",
       "createTitle": "Nuevo usuario",
       "name": "Nombre",
       "email": "Correo electrónico",
       "password": "Contraseña inicial",
-      "passwordHint": "Mínimo 10 caracteres. Entrégasela en persona; luego puede cambiarse aquí.",
+      "passwordHint": "Entrégasela en persona; luego puede cambiarse aquí.",
+      "passwordMin": "Mínimo {min} caracteres",
+      "newPassword": "Nueva contraseña",
+      "optional": "opcional",
+      "newPasswordHint": "Déjala vacía para no cambiarla. Entrégasela en persona.",
       "role": "Rol",
+      "roleHints": {
+        "admin": "Todo, también los usuarios.",
+        "owner": "Además de citas y depósitos: Cobros, Koibox e informes.",
+        "reception": "Citas y depósitos."
+      },
+      "selfRoleNote": "No puedes cambiar tu propio rol. Pídeselo a otro administrador.",
       "create": "Crear usuario",
       "creating": "Creando…",
-      "created": "Usuario creado.",
+      "edit": "Editar",
+      "save": "Guardar cambios",
+      "saving": "Guardando…",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "back": "Volver",
       "you": "(tú)",
       "active": "Activo",
       "inactive": "Desactivado",
-      "saveRole": "Guardar rol",
-      "roleChanged": "Rol actualizado.",
+      "since": "desde el {date}",
+      "table": {
+        "user": "Usuario",
+        "role": "Rol",
+        "state": "Estado",
+        "lastSeen": "Último acceso",
+        "actions": "Acciones"
+      },
+      "seen": {
+        "never": "Nunca ha entrado",
+        "today": "Hoy, {time}",
+        "yesterday": "Ayer, {time}"
+      },
+      "deactivateTitle": "Desactivar a {name}",
+      "deactivateHint": "No podrá entrar y se cerrarán sus sesiones. Se puede reactivar.",
       "deactivate": "Desactivar",
+      "confirmDeactivate": "Sí, desactivar",
+      "deactivating": "Desactivando…",
+      "inactiveTitle": "{name} está desactivado",
+      "reactivateHint": "No puede entrar. Al reactivarlo, vuelve a entrar con su contraseña.",
       "reactivate": "Reactivar",
-      "confirmDeactivate": "¿Desactivar a {name}? No podrá entrar y se cerrarán sus sesiones.",
-      "deactivated": "Usuario desactivado.",
-      "reactivated": "Usuario reactivado.",
-      "resetPassword": "Cambiar contraseña",
-      "newPassword": "Nueva contraseña (mín. 10)",
-      "setPassword": "Guardar contraseña",
-      "passwordChanged": "Contraseña cambiada.",
+      "permsTitle": "Qué puede hacer cada rol",
+      "permsIntro": "Así lo decide el panel. Cambiar el rol de alguien cambia lo que ve al entrar.",
+      "permission": "Permiso",
+      "yes": "Sí",
+      "no": "No",
+      "perms": {
+        "users": {
+          "manage": { "label": "Usuarios", "hint": "Crear, cambiar rol, contraseña y desactivar" }
+        },
+        "appointments": {
+          "view": { "label": "Ver citas", "hint": "La lista de citas y la ficha de cada clienta" },
+          "manage": { "label": "Gestionar citas", "hint": "Cancelar, reenviar correos, reintentar Koibox" }
+        },
+        "deposits": {
+          "manage": { "label": "Validar depósitos", "hint": "Confirmar que se recibió el pago" }
+        },
+        "reports": {
+          "view": { "label": "Informes", "hint": "Cuando existan" }
+        },
+        "settings": {
+          "manage": { "label": "Cobros y Koibox", "hint": "Quién cobra a cada profesional y enlaces con Koibox" }
+        }
+      },
       "errors": {
         "invalid": "Revisa los datos: la contraseña necesita al menos 10 caracteres.",
         "emailTaken": "Ya existe un usuario con ese correo.",

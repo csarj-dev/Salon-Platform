@@ -11,7 +11,7 @@ import { koiboxCardState } from "./koibox/card-state";
 import { findOrCreateClient, type KoiboxApi } from "./koibox/client";
 import type { KoiboxAppointment } from "./koibox/types";
 import { getKoiboxClient } from "./koibox/driver";
-import { KoiboxError } from "./koibox/limits";
+import { KoiboxError, RateLimiter } from "./koibox/limits";
 import { hasSeveralCollectors, resolveCollector } from "./collectors";
 import { koiboxWorkFor } from "./koibox/pending";
 import { resolveKoiboxTarget } from "./koibox/routing";
@@ -28,6 +28,30 @@ export type KoiboxApiFor = (account: string) => KoiboxApi;
 
 export function koiboxApiFor(config: Pick<SalonConfig, "koibox">): KoiboxApiFor {
   return (account) => getKoiboxClient(account, config.koibox);
+}
+
+// Para las páginas y acciones del panel: una cola propia (no esperan detrás de la
+// sincronización) y un tiempo máximo, para no dejar la página esperando si Koibox no
+// responde. Koibox limita a 60 peticiones/minuto POR IP: una sola cola para todas las
+// cuentas, con margen para que quepa la sincronización a la vez.
+export function koiboxPanelApiFor(
+  config: Pick<SalonConfig, "koibox">,
+  opts: { limit?: number; timeoutMs?: number; maxRetries?: number } = {},
+): KoiboxApiFor {
+  const limiter = new RateLimiter(opts.limit ?? 15);
+  const clients = new Map<string, KoiboxApi>();
+  return (account) => {
+    let api = clients.get(account);
+    if (!api) {
+      api = getKoiboxClient(account, config.koibox, process.env, {
+        limiter,
+        timeoutMs: opts.timeoutMs ?? 8_000,
+        maxRetries: opts.maxRetries ?? 1,
+      });
+      clients.set(account, api);
+    }
+    return api;
+  };
 }
 
 export type PushResult =

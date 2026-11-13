@@ -107,7 +107,32 @@ export function SegmentLinks({ items, label, className }: { items: SegmentLink[]
 /** Acción como texto (fila de acciones de una tarjeta). 44 px de alto para pulsarla con el dedo. */
 export function textAction(tone: "default" | "danger" = "default") {
   return cn(
-    "inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:underline disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:underline disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
     tone === "danger" ? "text-danger" : "text-foreground",
+  );
+}
+
+/** Iniciales de un nombre: «Pepa Ortiz» → «PO». */
+export function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/** Círculo con las iniciales de un usuario. Decorativo: el nombre va al lado. */
+export function UserAvatar({ name, className }: { name: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground",
+        className,
+      )}
+    >
+      {initials(name)}
+    </span>
   );
 }

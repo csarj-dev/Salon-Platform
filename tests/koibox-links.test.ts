@@ -6,11 +6,8 @@ import { db, pgClient } from "../db";
 import {
   appointment, client, koiboxServiceMap, location, locationService, schedule, service, staff, staffService, timeOff,
 } from "../db/schema";
-import { createKoiboxClient, type KoiboxApi } from "../lib/koibox/client";
-import { createFakeKoibox } from "../lib/koibox/fake";
-import { RateLimiter } from "../lib/koibox/limits";
 import {
-  koiboxServicesForAccount, koiboxUsersForAccount, loadKoiboxOverview, loadServiceLinks, setServiceKoiboxLink, setStaffKoiboxLink,
+  loadKoiboxOverview, loadServiceLinks, setServiceKoiboxLink, setStaffKoiboxLink,
 } from "../lib/koibox-links-db";
 import type { KoiboxConfig } from "../lib/salon-config";
 
@@ -22,7 +19,6 @@ const koibox: KoiboxConfig = {
 };
 
 let ids: { ana: number; lucia: number };
-let apis: Record<string, KoiboxApi>;
 
 async function wipe() {
   await db.delete(appointment);
@@ -60,16 +56,6 @@ beforeEach(async () => {
   ]);
   await db.insert(koiboxServiceMap).values({ serviceId: laminado.id, account: "salon", koiboxServiceId: 501 });
   ids = { ana: ana.id, lucia: lucia.id };
-
-  const fake = createFakeKoibox({
-    salon: {
-      users: [{ id: 11, name: "Ana" }, { id: 12, name: "Lucía García" }],
-      services: [{ id: 501, name: "Laminado de Cejas", duration: "01:00:00", userIds: [11, 12] }],
-    },
-    amanda: { users: [{ id: 7, name: "Amanda" }], services: [] },
-  });
-  const make = (key: string) => createKoiboxClient({ apiKey: key, fetchImpl: fake.fetch, limiter: new RateLimiter(1000) });
-  apis = { salon: make("salon"), amanda: make("amanda") };
 });
 
 afterAll(async () => {
@@ -121,13 +107,6 @@ describe("enlazar desde el panel", () => {
     expect(await setStaffKoiboxLink({ koibox }, ids.lucia, null)).toBe("ok");
     expect(await linkOf(ids.lucia)).toEqual([null, null]);
   });
-
-  it("saca las usuarias de una cuenta de quién hace cada servicio", async () => {
-    const users = await koiboxUsersForAccount({ koibox }, "salon", (a) => apis[a]);
-    expect(users.map((u) => [u.id, u.name])).toEqual([[11, "Ana"], [12, "Lucía García"]]);
-    // Amanda no tiene servicios en la cuenta: no sale nadie
-    expect(await koiboxUsersForAccount({ koibox }, "amanda", (a) => apis[a])).toEqual([]);
-  });
 });
 
 describe("servicios desde el panel", () => {
@@ -155,11 +134,5 @@ describe("servicios desde el panel", () => {
 
     expect(await setServiceKoiboxLink({ koibox }, diseno.id, "salon", null)).toBe("ok");
     expect(await linksOf(diseno.id)).toEqual([]);
-  });
-
-  it("lista los servicios activos de una cuenta con su duración", async () => {
-    expect(await koiboxServicesForAccount({ koibox }, "salon", (a) => apis[a])).toEqual([
-      { id: 501, name: "Laminado de Cejas", minutes: 60 },
-    ]);
   });
 });

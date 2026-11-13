@@ -74,7 +74,7 @@ export function ServiceKoiboxDialog(props: Props) {
       <button
         type="button"
         onClick={open}
-        className="group inline-flex min-h-11 flex-col items-start justify-center gap-1 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group inline-flex min-h-11 flex-col items-start justify-center gap-1 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
       >
         <span className="sr-only">{t("cellLabel", { service: props.serviceName, account: props.accountLabel })}: </span>
         {d.kind === "linked" && <span className="underline-offset-4 group-hover:underline">{d.text}</span>}
