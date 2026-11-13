@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agendaWindow, placeInColumn, weekOf } from "./agenda-layout";
+import { agendaWindow, placeInColumn, weekOf, subtractIntervals, minutesOf, daySummary } from "./agenda-layout";
 
 const at = (iso: string) => new Date(iso);
 const iv = (from: string, to: string) => ({ start: at(from), end: at(to) });
@@ -75,5 +75,58 @@ describe("weekOf", () => {
   it("cruza de mes y de año", () => {
     expect(weekOf("2026-12-01")).toEqual({ from: "2026-11-30", to: "2026-12-06" });
     expect(weekOf("2027-01-01")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
+  });
+});
+
+describe("subtractIntervals y minutesOf", () => {
+  it("quita los tramos ocupados de un turno partido", () => {
+    const left = subtractIntervals(
+      [iv("2026-11-16T09:00:00Z", "2026-11-16T14:00:00Z"), iv("2026-11-16T16:00:00Z", "2026-11-16T20:00:00Z")],
+      [iv("2026-11-16T10:00:00Z", "2026-11-16T11:00:00Z"), iv("2026-11-16T13:30:00Z", "2026-11-16T16:30:00Z")],
+    );
+    expect(left.map((i) => [i.start.toISOString().slice(11, 16), i.end.toISOString().slice(11, 16)])).toEqual([
+      ["09:00", "10:00"],
+      ["11:00", "13:30"],
+      ["16:30", "20:00"],
+    ]);
+    expect(minutesOf(left)).toBe(60 + 150 + 210);
+  });
+
+  it("los ocupados que se pisan entre sí no restan dos veces", () => {
+    const left = subtractIntervals(
+      [iv("2026-11-16T09:00:00Z", "2026-11-16T12:00:00Z")],
+      [iv("2026-11-16T09:30:00Z", "2026-11-16T10:30:00Z"), iv("2026-11-16T10:00:00Z", "2026-11-16T11:00:00Z")],
+    );
+    expect(minutesOf(left)).toBe(30 + 60);
+  });
+});
+
+describe("daySummary", () => {
+  const shift = [iv("2026-11-16T09:00:00Z", "2026-11-16T14:00:00Z")];
+  const day = (over: Partial<Parameters<typeof daySummary>[0]> = {}) => ({
+    working: true, shifts: shift, timeOff: [], blocks: [], ...over,
+  });
+
+  it("no trabaja", () => {
+    expect(daySummary(day({ working: false, shifts: [] }), []).summary).toEqual({ kind: "off" });
+  });
+  it("ausencia que tapa el turno entero", () => {
+    expect(daySummary(day({ timeOff: [iv("2026-11-16T00:00:00Z", "2026-11-17T00:00:00Z")] }), []).summary)
+      .toEqual({ kind: "absent" });
+  });
+  it("huecos libres, quitando citas y bloqueos", () => {
+    const r = daySummary(
+      day({ blocks: [iv("2026-11-16T13:00:00Z", "2026-11-16T14:00:00Z")] }),
+      [iv("2026-11-16T09:00:00Z", "2026-11-16T10:30:00Z")],
+    );
+    expect(r.summary).toEqual({ kind: "free", minutes: 150 });
+    expect(r.free.map((i) => i.start.toISOString().slice(11, 16))).toEqual(["10:30"]);
+  });
+  it("un hueco de 10 minutos no cuenta: completo", () => {
+    const r = daySummary(day(), [
+      iv("2026-11-16T09:00:00Z", "2026-11-16T11:00:00Z"),
+      iv("2026-11-16T11:10:00Z", "2026-11-16T14:00:00Z"),
+    ]);
+    expect(r.summary).toEqual({ kind: "full" });
   });
 });

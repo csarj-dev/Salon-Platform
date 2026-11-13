@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { db } from "../db";
 import { location, schedule, staff, timeOff } from "../db/schema";
 import type { Interval } from "./availability";
-import { blockOccursOn, workingHoursOn, type KoiboxSnapshot } from "./koibox/schedule";
+import { blockOccursOn, busyOn, workingHoursOn, type KoiboxSnapshot } from "./koibox/schedule";
 import type { KoiboxConfig } from "./salon-config";
 import { localToInstant } from "./timezone";
 import { buildWorkingHours, dayRange } from "./working-hours";
@@ -26,6 +26,10 @@ export type AgendaColumn = {
   source: "local" | "koibox";
   /** Modo Koibox y sin enlazar: la web no le da huecos */
   unlinked: boolean;
+  /** Su cuenta de Koibox (el punto de color junto a su nombre). null = sin enlazar */
+  koiboxAccount: string | null;
+  /** Modo Koibox: lo que tiene ocupado en Koibox ese día (citas, también las creadas allí) */
+  koiboxBusy: Interval[];
 };
 
 /** Modo Koibox: los datos de cada cuenta para ese día (sin una cuenta, sus profesionales usan nuestro horario). */
@@ -100,6 +104,7 @@ export async function loadAgendaColumns(opts: {
 
     let shifts: AgendaShift[];
     let blocks: Interval[] = [];
+    let koiboxBusy: Interval[] = [];
     let belongsHere: boolean;
 
     if (snapshot) {
@@ -120,6 +125,10 @@ export async function loadAgendaColumns(opts: {
         ? snapshot.blocks
             .filter((b) => b.userId === s.koiboxUserId && b.start < b.end && blockOccursOn(b, opts.date))
             .map(toInstants)
+        : [];
+      // Solo citas: los bloqueos ya van aparte (busyOn junta las dos cosas)
+      koiboxBusy = belongsHere
+        ? subtractBlocks(busyOn(snapshot, s.koiboxUserId!, opts.date, opts.zone), blocks)
         : [];
     } else {
       // ---- Modo local (o Koibox sin datos de esa cuenta): nuestro horario ----
@@ -154,7 +163,87 @@ export async function loadAgendaColumns(opts: {
       working,
       source: snapshot ? "koibox" : "local",
       unlinked: Boolean(opts.koibox) && !linked,
+      koiboxAccount: linked ? s.koiboxAccount : null,
+      koiboxBusy: s.active ? koiboxBusy : [],
     });
   }
   return columns;
+}
+
+// busyOn devuelve citas y bloqueos juntos: se quitan los que coinciden exactamente con un bloqueo
+function subtractBlocks(busy: Interval[], blocks: Interval[]): Interval[] {
+  return busy.filter(
+    (b) => !blocks.some((k) => k.start.getTime() === b.start.getTime() && k.end.getTime() === b.end.getTime()),
+  );
+}
+
+export type AgendaWeekRow = {
+  staffId: number;
+  staffName: string;
+  koiboxAccount: string | null;
+  unlinked: boolean;
+  /** Una por día de la semana (mismo orden que `dates`); null = ese día no es de este local */
+  days: (AgendaColumn | null)[];
+};
+
+export type AgendaWeek = { dates: string[]; rows: AgendaWeekRow[] };
+
+/**
+ * La semana de la agenda: una fila por profesional, una casilla por día.
+ * Salen las que trabajan algún día de la semana; con `all`, también las demás;
+ * las de `withAppointments` siempre. Mismos turnos que la vista de día (y que la web).
+ */
+export async function loadAgendaWeek(opts: {
+  from: string; // lunes, "2026-11-16"
+  to: string; // domingo
+  zone: string;
+  locationId?: number;
+  all?: boolean;
+  withAppointments?: number[];
+  koibox?: AgendaKoibox;
+}): Promise<AgendaWeek> {
+  const dates: string[] = [];
+  for (let d = DateTime.fromISO(opts.from); d.toISODate()! <= opts.to; d = d.plus({ days: 1 })) {
+    dates.push(d.toISODate()!);
+  }
+
+  // Cada día con `all`: así cada fila tiene todas sus casillas, trabaje o no ese día
+  const perDay = await Promise.all(
+    dates.map((date) =>
+      loadAgendaColumns({
+        date,
+        zone: opts.zone,
+        locationId: opts.locationId,
+        all: true,
+        withAppointments: opts.withAppointments,
+        koibox: opts.koibox,
+      }),
+    ),
+  );
+
+  const rows = new Map<number, AgendaWeekRow>();
+  perDay.forEach((columns, i) => {
+    for (const c of columns) {
+      let row = rows.get(c.staffId);
+      if (!row) {
+        row = {
+          staffId: c.staffId,
+          staffName: c.staffName,
+          koiboxAccount: c.koiboxAccount,
+          unlinked: c.unlinked,
+          days: dates.map(() => null),
+        };
+        rows.set(c.staffId, row);
+      }
+      row.days[i] = c;
+    }
+  });
+
+  const extra = new Set(opts.withAppointments ?? []);
+  return {
+    dates,
+    rows: [...rows.values()]
+      .filter((r) => opts.all || extra.has(r.staffId) || r.days.some((d) => d?.working))
+      .sort((a, b) => a.staffName.localeCompare(b.staffName)),
+  };
 }

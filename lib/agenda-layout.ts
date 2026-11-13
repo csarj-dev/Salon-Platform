@@ -117,3 +117,55 @@ export function weekOf(date: string): { from: string; to: string } {
   const monday = d.minus({ days: d.weekday - 1 });
   return { from: monday.toISODate()!, to: monday.plus({ days: 6 }).toISODate()! };
 }
+
+/** Lo que queda de `from` al quitarle los tramos de `minus` (en orden y sin solapes). */
+export function subtractIntervals(from: Interval[], minus: Interval[]): Interval[] {
+  const cuts = [...minus].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const out: Interval[] = [];
+  for (const piece of [...from].sort((a, b) => a.start.getTime() - b.start.getTime())) {
+    let cursor = piece.start.getTime();
+    const end = piece.end.getTime();
+    for (const c of cuts) {
+      const cs = c.start.getTime();
+      const ce = c.end.getTime();
+      if (ce <= cursor || cs >= end) continue;
+      if (cs > cursor) out.push({ start: new Date(cursor), end: new Date(cs) });
+      cursor = Math.max(cursor, ce);
+      if (cursor >= end) break;
+    }
+    if (cursor < end) out.push({ start: new Date(cursor), end: new Date(end) });
+  }
+  return out;
+}
+
+/** Minutos que suman unos tramos. */
+export function minutesOf(list: Interval[]): number {
+  return list.reduce((sum, i) => sum + (i.end.getTime() - i.start.getTime()) / MIN, 0);
+}
+
+export type DaySummary =
+  | { kind: "off" } // no trabaja ese día
+  | { kind: "absent" } // trabajaba, pero una ausencia o un bloqueo tapa todo el turno
+  | { kind: "full" } // sin huecos
+  | { kind: "free"; minutes: number };
+
+/**
+ * Huecos libres de una profesional un día y el resumen de su casilla en la Semana.
+ * `busy`: sus citas que ocupan hueco (nuestras y, en modo Koibox, también las de Koibox).
+ * Huecos de menos de `minGap` minutos no cuentan: no cabe ningún servicio.
+ */
+export function daySummary(
+  day: { working: boolean; shifts: Interval[]; timeOff: Interval[]; blocks: Interval[] },
+  busy: Interval[],
+  minGap = 15,
+): { summary: DaySummary; free: Interval[] } {
+  if (!day.working) return { summary: { kind: "off" }, free: [] };
+  if (subtractIntervals(day.shifts, [...day.timeOff, ...day.blocks]).length === 0) {
+    return { summary: { kind: "absent" }, free: [] };
+  }
+  const free = subtractIntervals(day.shifts, [...busy, ...day.timeOff, ...day.blocks]).filter(
+    (i) => minutesOf([i]) >= minGap,
+  );
+  const minutes = minutesOf(free);
+  return { summary: minutes === 0 ? { kind: "full" } : { kind: "free", minutes }, free };
+}

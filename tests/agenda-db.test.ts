@@ -5,7 +5,7 @@ import { db, pgClient } from "../db";
 import {
   appointment, client, location, locationService, schedule, service, staff, staffService, timeOff,
 } from "../db/schema";
-import { loadAgendaColumns } from "../lib/agenda-db";
+import { loadAgendaColumns, loadAgendaWeek } from "../lib/agenda-db";
 import { eq } from "drizzle-orm";
 import type { KoiboxSnapshot } from "../lib/koibox/schedule";
 
@@ -180,5 +180,53 @@ describe("loadAgendaColumns en modo Koibox", () => {
   it("sin enlazar: nuestro horario y la marca de «sin enlazar»", async () => {
     const cols = await loadAgendaColumns({ date: MONDAY, zone: ZONE, koibox: { accounts, snapshots: { salon: snapshot } } });
     expect(cols.find((c) => c.staffName === "Ana")).toMatchObject({ source: "local", unlinked: true });
+  });
+
+  it("trae su cuenta y lo que tiene ocupado en Koibox, sin repetir los bloqueos", async () => {
+    await linkAna("salon", 101);
+    try {
+      const withAppt: KoiboxSnapshot = {
+        ...snapshot,
+        appointments: [{ userId: 101, date: MONDAY, start: "10:00:00", end: "11:00:00" }],
+      };
+      const cols = await loadAgendaColumns({ date: MONDAY, zone: ZONE, koibox: { accounts, snapshots: { salon: withAppt } } });
+      const anaCol = cols.find((c) => c.staffName === "Ana")!;
+      expect(anaCol.koiboxAccount).toBe("salon");
+      expect(anaCol.koiboxBusy.map((b) => [b.start.toISOString(), b.end.toISOString()])).toEqual([
+        ["2026-11-16T10:00:00.000Z", "2026-11-16T11:00:00.000Z"],
+      ]);
+    } finally {
+      await linkAna(null, null);
+    }
+  });
+});
+
+describe("loadAgendaWeek", () => {
+  const WEEK = { from: "2026-11-16", to: "2026-11-22", zone: ZONE };
+
+  it("una fila por profesional que trabaja algún día, con siete casillas", async () => {
+    const week = await loadAgendaWeek(WEEK);
+    expect(week.dates).toHaveLength(7);
+    expect(week.rows.map((r) => r.staffName)).toEqual(["Ana", "Bea"]);
+    const ana = week.rows[0];
+    // Lunes trabaja (local uno), martes no, miércoles sí (local dos)
+    expect(ana.days.map((d) => d?.working ?? null)).toEqual([true, false, true, false, false, false, false]);
+  });
+
+  it("con «Todas», también quien no trabaja ningún día", async () => {
+    const week = await loadAgendaWeek({ ...WEEK, all: true });
+    expect(week.rows.map((r) => r.staffName)).toEqual(["Ana", "Bea", "Carla"]);
+  });
+
+  it("quien tiene citas esa semana sale aunque no trabaje", async () => {
+    const week = await loadAgendaWeek({ ...WEEK, withAppointments: [carla] });
+    expect(week.rows.map((r) => r.staffName)).toEqual(["Ana", "Bea", "Carla"]);
+  });
+
+  it("con un local: las casillas de otro local quedan sin turno", async () => {
+    const week = await loadAgendaWeek({ ...WEEK, locationId: loc1 });
+    const ana = week.rows.find((r) => r.staffName === "Ana")!;
+    expect(ana.days[0]?.working).toBe(true); // lunes, local uno
+    expect(ana.days[2]?.working).toBe(false); // miércoles es en el local dos
   });
 });
