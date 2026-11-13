@@ -11,9 +11,12 @@ import { auth } from "@/lib/auth";
 import { ROLES, isRole } from "@/lib/permissions";
 import { requireStaff } from "@/lib/session";
 import {
+  PASSWORD_MAX,
+  PASSWORD_MIN,
   checkDeactivate,
   checkRoleChange,
   countActiveAdmins,
+  planUserUpdate,
   type UserRuleError,
 } from "@/lib/user-rules";
 
@@ -24,10 +27,14 @@ export type CreateUserState = UserActionResult | null;
 const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().toLowerCase().pipe(z.email()),
-  password: z.string().min(10).max(128),
+  password: z.string().min(PASSWORD_MIN).max(PASSWORD_MAX),
   role: z.enum(ROLES),
 });
-const passwordSchema = z.string().min(10).max(128);
+const passwordSchema = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX);
+const saveSchema = z.object({
+  role: z.string().nullable(),
+  password: z.string().max(PASSWORD_MAX),
+});
 
 // Cada acción vuelve a comprobar que quien llama es admin: los Server Actions
 // son endpoints públicos, no basta con que el botón esté oculto.
@@ -139,6 +146,45 @@ export async function resetPasswordAction(
       body: { userId, newPassword },
       headers: await headers(),
     });
+  } catch (error) {
+    return failed(error);
+  }
+  return done(locale);
+}
+
+/**
+ * Guarda el diálogo «Editar usuario»: rol y contraseña de una vez.
+ * Todo se valida antes de cambiar nada; si algo no vale, no se toca ninguno.
+ */
+export async function saveUserAction(
+  userId: string,
+  input: { role: string | null; password: string },
+): Promise<UserActionResult> {
+  const { locale, actorId } = await guard();
+  const parsed = saveSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+
+  const all = await loadAll();
+  const target = all.find((u) => u.id === userId);
+  if (!target) return { ok: false, error: "notFound" };
+
+  const planned = planUserUpdate({
+    actorId,
+    target,
+    newRole: parsed.data.role,
+    password: parsed.data.password,
+    activeAdmins: countActiveAdmins(all),
+  });
+  if (!planned.ok) return { ok: false, error: planned.error };
+
+  const { role, password } = planned.plan;
+  try {
+    if (role) {
+      await auth.api.setRole({ body: { userId, role }, headers: await headers() });
+    }
+    if (password) {
+      await auth.api.setUserPassword({ body: { userId, newPassword: password }, headers: await headers() });
+    }
   } catch (error) {
     return failed(error);
   }

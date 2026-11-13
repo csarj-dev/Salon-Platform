@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, isRole, isStaff, parseRoles } from "./permissions";
+import { can, isRole, isStaff, parseRoles, permissionMatrix, PERMISSIONS, ROLES } from "./permissions";
 
 describe("parseRoles", () => {
   it("ignora vacío, nulo y roles desconocidos", () => {
@@ -51,5 +51,23 @@ describe("isStaff", () => {
     expect(isStaff("owner,foo")).toBe(true);
     expect(isStaff("user")).toBe(false);
     expect(isStaff(null)).toBe(false);
+  });
+});
+
+describe("permissionMatrix", () => {
+  it("una fila por permiso, en el mismo orden que PERMISSIONS", () => {
+    expect(permissionMatrix().map((r) => r.permission)).toEqual(Object.keys(PERMISSIONS));
+  });
+  it("cada fila tiene todos los roles y coincide con can()", () => {
+    for (const row of permissionMatrix()) {
+      expect(Object.keys(row.allowed)).toEqual([...ROLES]);
+      for (const role of ROLES) {
+        expect(row.allowed[role]).toBe(can(role, row.permission));
+      }
+    }
+  });
+  it("usuarios solo para el administrador", () => {
+    const users = permissionMatrix().find((r) => r.permission === "users.manage");
+    expect(users?.allowed).toEqual({ admin: true, owner: false, reception: false });
   });
 });

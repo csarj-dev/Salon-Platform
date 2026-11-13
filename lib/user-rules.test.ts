@@ -3,6 +3,7 @@ import {
   checkDeactivate,
   checkRoleChange,
   countActiveAdmins,
+  planUserUpdate,
   type RuleUser,
 } from "./user-rules";
 
@@ -56,5 +57,43 @@ describe("checkDeactivate", () => {
   });
   it("permite desactivar recepción", () => {
     expect(checkDeactivate({ actorId: "a", target: reception("c"), activeAdmins: 1 })).toBeNull();
+  });
+});
+
+describe("planUserUpdate", () => {
+  const base = { actorId: "a", activeAdmins: 2 };
+
+  it("sin cambios no hace nada", () => {
+    expect(
+      planUserUpdate({ ...base, target: reception("c"), newRole: "reception", password: "" }),
+    ).toEqual({ ok: true, plan: { role: null, password: null } });
+  });
+  it("cambia rol y contraseña a la vez", () => {
+    expect(
+      planUserUpdate({ ...base, target: reception("c"), newRole: "owner", password: "0123456789" }),
+    ).toEqual({ ok: true, plan: { role: "owner", password: "0123456789" } });
+  });
+  it("puedes cambiar tu contraseña si dejas tu rol igual", () => {
+    expect(
+      planUserUpdate({ ...base, target: admin("a"), newRole: "admin", password: "0123456789" }),
+    ).toEqual({ ok: true, plan: { role: null, password: "0123456789" } });
+  });
+  it("no deja cambiar tu propio rol", () => {
+    expect(
+      planUserUpdate({ ...base, target: admin("a"), newRole: "owner", password: "" }),
+    ).toEqual({ ok: false, error: "selfRole" });
+  });
+  it("no deja quitar el último admin, aunque la contraseña valga", () => {
+    expect(
+      planUserUpdate({ actorId: "x", activeAdmins: 1, target: admin("b"), newRole: "reception", password: "0123456789" }),
+    ).toEqual({ ok: false, error: "lastAdmin" });
+  });
+  it("rechaza contraseñas cortas o roles inventados", () => {
+    expect(
+      planUserUpdate({ ...base, target: reception("c"), newRole: null, password: "corta" }),
+    ).toEqual({ ok: false, error: "invalid" });
+    expect(
+      planUserUpdate({ ...base, target: reception("c"), newRole: "root", password: "" }),
+    ).toEqual({ ok: false, error: "invalidRole" });
   });
 });
