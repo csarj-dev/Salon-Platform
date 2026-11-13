@@ -8,6 +8,7 @@ import {
   ABSENCE_STRIPES, AGENDA_STATUSES, SEG_TONE, STRIPES, duration, isDay, navBase, positiveId,
 } from "@/components/admin/agenda-ui";
 import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
+import { AgendaDatePicker } from "@/components/admin/agenda-date-picker";
 import { Dot, SectionLabel, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
@@ -438,7 +439,28 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
             ›
           </Link>
         </div>
-        <h2 className="text-lg font-semibold">{weekTitle}</h2>
+        <h2>
+          <AgendaDatePicker
+            label={weekTitle}
+            value={hasCell ? cellDate! : week.from}
+            today={today}
+            locale={locale}
+            mode="week"
+            basePath="/admin/appointments/week"
+            keep={Object.fromEntries(
+              Object.entries({ location: current.location, all: current.all, hide: current.hide }).filter(
+                (e): e is [string, string] => e[1] !== null,
+              ),
+            )}
+            labels={{
+              open: t("picker.open"),
+              previous: t("picker.previous"),
+              next: t("picker.next"),
+              today: t("thisWeek"),
+              hint: t("picker.hintWeek"),
+            }}
+          />
+        </h2>
         <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
           <SegmentLinks
             label={t("viewLabel")}

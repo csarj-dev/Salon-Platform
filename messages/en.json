@@ -672,6 +672,13 @@
       "backToDay": "Back to the day",
       "openDay": "Open the full day",
       "nobodyWeek": "Nobody works this week.",
+      "picker": {
+        "open": "Choose a date",
+        "previous": "Previous month",
+        "next": "Next month",
+        "hintDay": "Pick a day to open it.",
+        "hintWeek": "Pick a day to go to its week."
+      },
       "panel": { "label": "Appointment details", "close": "Close details" }
     },
     "users": {

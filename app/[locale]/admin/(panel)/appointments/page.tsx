@@ -6,7 +6,9 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentDetail } from "@/components/admin/appointment-detail";
 import { KOIBOX_TONE, STATUS_TONE } from "@/components/admin/appointment-marks";
 import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
-import { SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
+import { Dot, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
+import { AgendaDatePicker } from "@/components/admin/agenda-date-picker";
+import { chooseCollector } from "@/lib/collectors";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
@@ -171,6 +173,16 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
   const range = (iv: Interval) => `${time(iv.start)}–${time(iv.end)}`;
   const dayTitle = formatDayLong(dayStart, locale, zone);
   const severalLocations = options.locations.length > 1;
+  const accountColor = (account: string | null) =>
+    account ? chooseCollector(config, { koiboxAccount: account }).collector.color : null;
+  const accountLabel = (account: string | null) =>
+    account ? (config.koibox.accounts[account]?.label ?? account) : null;
+  // Lo que conserva el calendario al saltar de fecha
+  const keep = Object.fromEntries(
+    Object.entries({ location: current.location, all: current.all, col: current.col }).filter(
+      (e): e is [string, string] => e[1] !== null,
+    ),
+  );
 
   return (
     <div className="space-y-4">
@@ -191,8 +203,23 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             ›
           </Link>
         </div>
-        <h2 className="text-lg font-semibold first-letter:uppercase">
-          {isToday ? t("todayTitle", { date: dayTitle }) : dayTitle}
+        <h2>
+          <AgendaDatePicker
+            label={isToday ? t("todayTitle", { date: dayTitle }) : dayTitle}
+            value={date}
+            today={today}
+            locale={locale}
+            mode="day"
+            basePath="/admin/appointments"
+            keep={keep}
+            labels={{
+              open: t("picker.open"),
+              previous: t("picker.previous"),
+              next: t("picker.next"),
+              today: t("today"),
+              hint: t("picker.hintDay"),
+            }}
+          />
         </h2>
         <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
           <SegmentLinks
@@ -300,7 +327,11 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                   key={c.staffId}
                   className={cn("min-w-0 border-b border-l px-3 py-2.5", c.staffId !== focusId && "max-md:hidden")}
                 >
-                  <p className="truncate text-sm font-semibold">{c.staffName}</p>
+                  <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                    {c.koiboxAccount && <Dot color={accountColor(c.koiboxAccount)} />}
+                    <span className="truncate">{c.staffName}</span>
+                    {c.koiboxAccount && <span className="sr-only"> · {accountLabel(c.koiboxAccount)}</span>}
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {c.working
                       ? c.shifts

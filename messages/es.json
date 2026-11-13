@@ -672,6 +672,13 @@
       "backToDay": "Volver al día",
       "openDay": "Ver el día completo",
       "nobodyWeek": "Nadie trabaja esta semana.",
+      "picker": {
+        "open": "Elegir fecha",
+        "previous": "Mes anterior",
+        "next": "Mes siguiente",
+        "hintDay": "Pulsa un día para verlo.",
+        "hintWeek": "Pulsa un día para ir a su semana."
+      },
       "panel": { "label": "Ficha de la cita", "close": "Cerrar la ficha" }
     },
     "users": {
