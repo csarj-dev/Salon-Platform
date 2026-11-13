@@ -6,7 +6,7 @@
 import {
   KoiboxError,
   errorCodeForStatus,
-  limiterFor,
+  sharedLimiter,
   realClock,
   retryDelayMs,
   shouldRetry,
@@ -87,7 +87,8 @@ export function createKoiboxClient(opts: KoiboxClientOptions): KoiboxApi {
   if (!opts.apiKey) throw new Error("Falta la clave de Koibox");
   const fetchImpl = opts.fetchImpl ?? fetch;
   const baseUrl = opts.baseUrl ?? KOIBOX_BASE_URL;
-  const limiter = opts.limiter ?? limiterFor(opts.apiKey);
+  // Sin cola propia, la del proceso: una para todas las claves (el límite es por IP)
+  const limiter = opts.limiter ?? sharedLimiter();
   const clock = opts.clock ?? realClock;
   const maxRetries = opts.maxRetries ?? 3;
   const timeoutMs = opts.timeoutMs ?? 10_000;

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { KoiboxError, RateLimiter, errorCodeForStatus, retryDelayMs, shouldRetry, type Clock } from "./limits";
+import {
+  KOIBOX_OWN_LIMIT,
+  KOIBOX_SHARED_LIMIT,
+  KoiboxError,
+  RateLimiter,
+  errorCodeForStatus,
+  retryDelayMs,
+  sharedLimiter,
+  shouldRetry,
+  type Clock,
+} from "./limits";
 
 describe("errorCodeForStatus", () => {
   it("traduce los estados HTTP", () => {
@@ -76,5 +86,18 @@ describe("RateLimiter", () => {
 
   it("rechaza un límite que no tiene sentido", () => {
     expect(() => new RateLimiter(0)).toThrow();
+  });
+});
+
+describe("reparto del límite de Koibox (60 por minuto por IP)", () => {
+  it("todas las claves comparten una sola cola del proceso", () => {
+    expect(sharedLimiter()).toBe(sharedLimiter());
+    expect(sharedLimiter().limit).toBe(KOIBOX_SHARED_LIMIT);
+  });
+  it("la compartida y una cola propia caben juntas por debajo de 60", () => {
+    expect(KOIBOX_SHARED_LIMIT + KOIBOX_OWN_LIMIT).toBeLessThan(60);
+  });
+  it("una cola sin número es de las pequeñas", () => {
+    expect(new RateLimiter().limit).toBe(KOIBOX_OWN_LIMIT);
   });
 });

@@ -5,7 +5,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { loadSalonConfig } from "../salon-config";
 import { getKoiboxClient } from "./driver";
-import { KoiboxError, RateLimiter } from "./limits";
+import { KOIBOX_OWN_LIMIT, KoiboxError, RateLimiter } from "./limits";
 import { durationMinutes, koiboxUsersOf } from "./match";
 
 export type KoiboxCatalog = {
@@ -39,7 +39,7 @@ export async function koiboxAccountStatus(account: string): Promise<AccountStatu
     // Corto y sin reintentos: es para enseñar el estado, no para reservar.
     // Limitador propio: dentro de "use cache" no se espera a promesas de fuera (snapshot-cache.ts).
     const api = getKoiboxClient(account, config.koibox, process.env, {
-      limiter: new RateLimiter(),
+      limiter: new RateLimiter(KOIBOX_OWN_LIMIT),
       timeoutMs: 5_000,
       maxRetries: 0,
     });
