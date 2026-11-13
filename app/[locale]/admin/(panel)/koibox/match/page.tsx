@@ -8,7 +8,7 @@ import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { chooseCollector } from "@/lib/collectors";
 import { planKoiboxMatches } from "@/lib/koibox-match-db";
 import { matchPlanView, type MatchItem } from "@/lib/koibox-match-view";
-import { koiboxApiFor, writesToKoibox } from "@/lib/koibox-sync";
+import { koiboxPanelApiFor, writesToKoibox } from "@/lib/koibox-sync";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 
@@ -39,7 +39,7 @@ async function MatchContent({ locale }: { locale: string }) {
   ]);
   if (!writesToKoibox(config)) notFound();
 
-  const view = matchPlanView(await planKoiboxMatches(config, koiboxApiFor(config)));
+  const view = matchPlanView(await planKoiboxMatches(config, koiboxPanelApiFor(config)));
 
   const label = (account: string) => config.koibox.accounts[account]?.label ?? account;
   const color = (account: string) => chooseCollector(config, { koiboxAccount: account }).collector.color;

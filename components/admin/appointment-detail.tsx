@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
-import type { AppointmentCardData } from "@/components/admin/appointment-card";
+import type { EmailStatusInfo } from "@/lib/email/email-status";
+import type { KoiboxCardState } from "@/lib/koibox/card-state";
 import { KOIBOX_TONE } from "@/components/admin/appointment-marks";
 import { CancelButton } from "@/components/admin/cancel-button";
 import { textAction } from "@/components/admin/panel-ui";
@@ -13,8 +14,36 @@ import { cn } from "@/lib/utils";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
 import { Link } from "@/i18n/navigation";
 
+export type AppointmentDetailData = {
+  id: number;
+  clientId?: number; // para "Ver todas sus citas"
+  startsAt: Date;
+  status: "booked" | "completed" | "cancelled" | "no_show" | "pending_deposit" | "expired";
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string | null;
+  serviceName: string;
+  locationName: string;
+  staffName: string;
+  depositCents: number | null;
+  depositDueAt: Date | null;
+  // A quién se paga el depósito (solo si en el salón cobra más de una persona)
+  collectorLabel?: string | null;
+  cancelledAt?: Date | null;
+  cancelReason?: string | null;
+  cancelledByName?: string | null;
+  validatedByName?: string | null;
+  rescheduledAt?: Date | null;
+  // Solo en la lista de citas: la clienta tiene email y cómo fue el último correo
+  hasEmail?: boolean;
+  email?: EmailStatusInfo | null;
+  // Solo con Koibox: su estado allí y el nombre de la cuenta (null = no se enseña nada)
+  koibox?: KoiboxCardState | null;
+  koiboxAccountLabel?: string | null;
+};
+
 type Props = {
-  data: AppointmentCardData;
+  data: AppointmentDetailData;
   locale: string;
   zone: string;
   currency: string;
