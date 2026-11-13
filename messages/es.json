@@ -627,29 +627,78 @@
     "users": {
       "title": "Usuarios",
       "intro": "Quién puede entrar al panel y con qué rol. Solo el administrador ve esta página.",
+      "newUser": "Nuevo usuario",
       "createTitle": "Nuevo usuario",
       "name": "Nombre",
       "email": "Correo electrónico",
       "password": "Contraseña inicial",
-      "passwordHint": "Mínimo 10 caracteres. Entrégasela en persona; luego puede cambiarse aquí.",
+      "passwordHint": "Entrégasela en persona; luego puede cambiarse aquí.",
+      "passwordMin": "Mínimo {min} caracteres",
+      "newPassword": "Nueva contraseña",
+      "optional": "opcional",
+      "newPasswordHint": "Déjala vacía para no cambiarla. Entrégasela en persona.",
       "role": "Rol",
+      "roleHints": {
+        "admin": "Todo, también los usuarios.",
+        "owner": "Además de citas y depósitos: Cobros, Koibox e informes.",
+        "reception": "Citas y depósitos."
+      },
+      "selfRoleNote": "No puedes cambiar tu propio rol. Pídeselo a otro administrador.",
       "create": "Crear usuario",
       "creating": "Creando…",
-      "created": "Usuario creado.",
+      "edit": "Editar",
+      "save": "Guardar cambios",
+      "saving": "Guardando…",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "back": "Volver",
       "you": "(tú)",
       "active": "Activo",
       "inactive": "Desactivado",
-      "saveRole": "Guardar rol",
-      "roleChanged": "Rol actualizado.",
+      "since": "desde el {date}",
+      "table": {
+        "user": "Usuario",
+        "role": "Rol",
+        "state": "Estado",
+        "lastSeen": "Último acceso",
+        "actions": "Acciones"
+      },
+      "seen": {
+        "never": "Nunca ha entrado",
+        "today": "Hoy, {time}",
+        "yesterday": "Ayer, {time}"
+      },
+      "deactivateTitle": "Desactivar a {name}",
+      "deactivateHint": "No podrá entrar y se cerrarán sus sesiones. Se puede reactivar.",
       "deactivate": "Desactivar",
+      "confirmDeactivate": "Sí, desactivar",
+      "deactivating": "Desactivando…",
+      "inactiveTitle": "{name} está desactivado",
+      "reactivateHint": "No puede entrar. Al reactivarlo, vuelve a entrar con su contraseña.",
       "reactivate": "Reactivar",
-      "confirmDeactivate": "¿Desactivar a {name}? No podrá entrar y se cerrarán sus sesiones.",
-      "deactivated": "Usuario desactivado.",
-      "reactivated": "Usuario reactivado.",
-      "resetPassword": "Cambiar contraseña",
-      "newPassword": "Nueva contraseña (mín. 10)",
-      "setPassword": "Guardar contraseña",
-      "passwordChanged": "Contraseña cambiada.",
+      "permsTitle": "Qué puede hacer cada rol",
+      "permsIntro": "Así lo decide el panel. Cambiar el rol de alguien cambia lo que ve al entrar.",
+      "permission": "Permiso",
+      "yes": "Sí",
+      "no": "No",
+      "perms": {
+        "users": {
+          "manage": { "label": "Usuarios", "hint": "Crear, cambiar rol, contraseña y desactivar" }
+        },
+        "appointments": {
+          "view": { "label": "Ver citas", "hint": "La lista de citas y la ficha de cada clienta" },
+          "manage": { "label": "Gestionar citas", "hint": "Cancelar, reenviar correos, reintentar Koibox" }
+        },
+        "deposits": {
+          "manage": { "label": "Validar depósitos", "hint": "Confirmar que se recibió el pago" }
+        },
+        "reports": {
+          "view": { "label": "Informes", "hint": "Cuando existan" }
+        },
+        "settings": {
+          "manage": { "label": "Cobros y Koibox", "hint": "Quién cobra a cada profesional y enlaces con Koibox" }
+        }
+      },
       "errors": {
         "invalid": "Revisa los datos: la contraseña necesita al menos 10 caracteres.",
         "emailTaken": "Ya existe un usuario con ese correo.",

@@ -645,29 +645,78 @@
     "users": {
       "title": "Users",
       "intro": "Who can sign in to the panel and with which role. Only the administrator sees this page.",
+      "newUser": "New user",
       "createTitle": "New user",
       "name": "Name",
       "email": "Email",
       "password": "Initial password",
-      "passwordHint": "At least 10 characters. Hand it over in person; it can be changed here later.",
+      "passwordHint": "Hand it over in person; it can be changed here later.",
+      "passwordMin": "At least {min} characters",
+      "newPassword": "New password",
+      "optional": "optional",
+      "newPasswordHint": "Leave it empty to keep the current one. Hand it over in person.",
       "role": "Role",
+      "roleHints": {
+        "admin": "Everything, including users.",
+        "owner": "On top of appointments and deposits: collections, Koibox and reports.",
+        "reception": "Appointments and deposits."
+      },
+      "selfRoleNote": "You cannot change your own role. Ask another administrator.",
       "create": "Create user",
       "creating": "Creating…",
-      "created": "User created.",
+      "edit": "Edit",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "close": "Close",
+      "back": "Back",
       "you": "(you)",
       "active": "Active",
       "inactive": "Disabled",
-      "saveRole": "Save role",
-      "roleChanged": "Role updated.",
+      "since": "since {date}",
+      "table": {
+        "user": "User",
+        "role": "Role",
+        "state": "Status",
+        "lastSeen": "Last sign-in",
+        "actions": "Actions"
+      },
+      "seen": {
+        "never": "Never signed in",
+        "today": "Today, {time}",
+        "yesterday": "Yesterday, {time}"
+      },
+      "deactivateTitle": "Disable {name}",
+      "deactivateHint": "They will not be able to sign in and their sessions will end. It can be undone.",
       "deactivate": "Disable",
+      "confirmDeactivate": "Yes, disable",
+      "deactivating": "Disabling…",
+      "inactiveTitle": "{name} is disabled",
+      "reactivateHint": "They cannot sign in. Once re-enabled, they sign in with their password.",
       "reactivate": "Re-enable",
-      "confirmDeactivate": "Disable {name}? They will not be able to sign in and their sessions will end.",
-      "deactivated": "User disabled.",
-      "reactivated": "User re-enabled.",
-      "resetPassword": "Change password",
-      "newPassword": "New password (min. 10)",
-      "setPassword": "Save password",
-      "passwordChanged": "Password changed.",
+      "permsTitle": "What each role can do",
+      "permsIntro": "This is how the panel decides. Changing someone's role changes what they see.",
+      "permission": "Permission",
+      "yes": "Yes",
+      "no": "No",
+      "perms": {
+        "users": {
+          "manage": { "label": "Users", "hint": "Create, change role, password and disable" }
+        },
+        "appointments": {
+          "view": { "label": "See appointments", "hint": "The appointment list and each client's history" },
+          "manage": { "label": "Manage appointments", "hint": "Cancel, resend emails, retry Koibox" }
+        },
+        "deposits": {
+          "manage": { "label": "Validate deposits", "hint": "Confirm the payment was received" }
+        },
+        "reports": {
+          "view": { "label": "Reports", "hint": "When they exist" }
+        },
+        "settings": {
+          "manage": { "label": "Collections and Koibox", "hint": "Who collects for each staff member and Koibox links" }
+        }
+      },
       "errors": {
         "invalid": "Check the data: the password needs at least 10 characters.",
         "emailTaken": "A user with that email already exists.",

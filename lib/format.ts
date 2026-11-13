@@ -57,3 +57,28 @@ export function timeLeftParts(ms: number): TimeLeft {
   if (totalHours < 24) return { kind: "hours", hours: totalHours, minutes: totalMinutes % 60 };
   return { kind: "days", days: Math.floor(totalHours / 24), hours: totalHours % 24 };
 }
+
+// Días de calendario, en la zona del salón, entre dos fechas: 0 = el mismo día,
+// 1 = el día anterior… (a las 23:30 y a las 00:10 hay un día de diferencia)
+export function calendarDayDiff(earlier: Date, later: Date, zone: string): number {
+  const dayNumber = (d: Date) => {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-US", { year: "numeric", month: "numeric", day: "numeric", timeZone: zone })
+        .formatToParts(d)
+        .map((p) => [p.type, p.value]),
+    );
+    return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / 86_400_000;
+  };
+  return dayNumber(later) - dayNumber(earlier);
+}
+
+// "12 nov"; si es de otro año, "12 nov 2025"
+export function formatShortDate(date: Date, locale: string, zone: string, now: Date = new Date()): string {
+  const year = (d: Date) => new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone: zone }).format(d);
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    ...(year(date) !== year(now) ? { year: "numeric" as const } : {}),
+    timeZone: zone,
+  }).format(date);
+}

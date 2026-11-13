@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDateTime, formatDayChip, formatDayLong, formatPrice, formatTime, timeLeftParts } from "./format";
+import { formatDateTime, formatDayChip, formatDayLong, formatPrice, formatTime, timeLeftParts, calendarDayDiff, formatShortDate } from "./format";
 
 describe("formatPrice", () => {
   it("formatea en euros según el idioma", () => {
@@ -52,5 +52,30 @@ describe("timeLeftParts", () => {
     expect(timeLeftParts(80 * min)).toEqual({ kind: "hours", hours: 1, minutes: 20 });
     expect(timeLeftParts(21 * 60 * min)).toEqual({ kind: "hours", hours: 21, minutes: 0 });
     expect(timeLeftParts(26 * 60 * min)).toEqual({ kind: "days", days: 1, hours: 2 });
+  });
+});
+
+describe("calendarDayDiff", () => {
+  it("cuenta días de calendario en la zona del salón, no horas", () => {
+    const late = new Date("2026-11-12T23:30:00Z");
+    const early = new Date("2026-11-13T00:10:00Z");
+    expect(calendarDayDiff(late, early, "Atlantic/Canary")).toBe(1);
+    // En Madrid (UTC+1) las dos son el 13 de noviembre
+    expect(calendarDayDiff(late, early, "Europe/Madrid")).toBe(0);
+  });
+  it("mismo día = 0, una semana = 7", () => {
+    const d = new Date("2026-11-13T09:00:00Z");
+    expect(calendarDayDiff(d, new Date("2026-11-13T20:00:00Z"), "Atlantic/Canary")).toBe(0);
+    expect(calendarDayDiff(d, new Date("2026-11-20T09:00:00Z"), "Atlantic/Canary")).toBe(7);
+  });
+});
+
+describe("formatShortDate", () => {
+  const now = new Date("2026-11-13T10:00:00Z");
+  it("sin año si es de este año", () => {
+    expect(formatShortDate(new Date("2026-11-12T10:00:00Z"), "es", "Atlantic/Canary", now)).toBe("12 nov");
+  });
+  it("con año si es de otro", () => {
+    expect(formatShortDate(new Date("2025-10-03T10:00:00Z"), "es", "Atlantic/Canary", now)).toContain("2025");
   });
 });

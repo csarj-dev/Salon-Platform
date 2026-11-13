@@ -8,13 +8,12 @@ import { z } from "zod";
 import { db } from "@/db";
 import { user } from "@/db/auth-schema";
 import { auth } from "@/lib/auth";
-import { ROLES, isRole } from "@/lib/permissions";
+import { ROLES } from "@/lib/permissions";
 import { requireStaff } from "@/lib/session";
 import {
   PASSWORD_MAX,
   PASSWORD_MIN,
   checkDeactivate,
-  checkRoleChange,
   countActiveAdmins,
   planUserUpdate,
   type UserRuleError,
@@ -30,7 +29,6 @@ const createSchema = z.object({
   password: z.string().min(PASSWORD_MIN).max(PASSWORD_MAX),
   role: z.enum(ROLES),
 });
-const passwordSchema = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX);
 const saveSchema = z.object({
   role: z.string().nullable(),
   password: z.string().max(PASSWORD_MAX),
@@ -86,30 +84,6 @@ export async function createUserAction(
   return done(locale);
 }
 
-export async function changeRoleAction(userId: string, newRole: string): Promise<UserActionResult> {
-  const { locale, actorId } = await guard();
-  if (!isRole(newRole)) return { ok: false, error: "invalidRole" };
-
-  const all = await loadAll();
-  const target = all.find((u) => u.id === userId);
-  if (!target) return { ok: false, error: "notFound" };
-
-  const blocked = checkRoleChange({
-    actorId,
-    target,
-    newRole,
-    activeAdmins: countActiveAdmins(all),
-  });
-  if (blocked) return { ok: false, error: blocked };
-
-  try {
-    await auth.api.setRole({ body: { userId, role: newRole }, headers: await headers() });
-  } catch (error) {
-    return failed(error);
-  }
-  return done(locale);
-}
-
 export async function setActiveAction(userId: string, active: boolean): Promise<UserActionResult> {
   const { locale, actorId } = await guard();
 
@@ -125,27 +99,6 @@ export async function setActiveAction(userId: string, active: boolean): Promise<
       if (blocked) return { ok: false, error: blocked };
       await auth.api.banUser({ body: { userId }, headers: await headers() });
     }
-  } catch (error) {
-    return failed(error);
-  }
-  return done(locale);
-}
-
-export async function resetPasswordAction(
-  userId: string,
-  newPassword: string,
-): Promise<UserActionResult> {
-  const { locale } = await guard();
-  if (!passwordSchema.safeParse(newPassword).success) return { ok: false, error: "invalid" };
-
-  const [target] = await db.select({ id: user.id }).from(user).where(eq(user.id, userId)).limit(1);
-  if (!target) return { ok: false, error: "notFound" };
-
-  try {
-    await auth.api.setUserPassword({
-      body: { userId, newPassword },
-      headers: await headers(),
-    });
   } catch (error) {
     return failed(error);
   }
