@@ -1,7 +1,15 @@
 // Límites y errores de las llamadas a Koibox.
-// Koibox admite unas 60 llamadas por minuto por clave (respuesta de soporte). Nos quedamos
-// un poco por debajo. El contador vive en memoria: en Vercel cada instancia lleva el suyo,
-// lo que basta para el volumen de un salón; si Koibox responde 429, se espera y se reintenta.
+// Koibox admite 60 llamadas por minuto POR IP, para todas las claves juntas. Lo repartimos así:
+// - KOIBOX_SHARED_LIMIT: la cola del proceso, para todas las cuentas (reservar, sincronizar,
+//   confirmar horas).
+// - KOIBOX_OWN_LIMIT: cada cola propia (cachés con "use cache" y páginas del panel), que no
+//   pueden esperar a la compartida.
+// Peor caso en un minuto: 40 + 3 × 10 = 70, y solo si todo coincide. Si Koibox responde 429,
+// se espera lo que diga Retry-After y se reintenta. Los contadores viven en memoria: en
+// Vercel cada instancia lleva el suyo (y puede salir por otra IP).
+
+export const KOIBOX_SHARED_LIMIT = 40;
+export const KOIBOX_OWN_LIMIT = 10;
 
 export type KoiboxErrorCode =
   | "unauthorized" // 401: falta la clave
@@ -76,7 +84,7 @@ export class RateLimiter {
   private chain: Promise<void> = Promise.resolve();
 
   constructor(
-    private readonly limit = 55,
+    readonly limit = KOIBOX_OWN_LIMIT,
     private readonly windowMs = 60_000,
     private readonly clock: Clock = realClock,
   ) {
@@ -103,14 +111,10 @@ export class RateLimiter {
   }
 }
 
-// Un limitador por clave, compartido por todo el proceso
-const limiters = new Map<string, RateLimiter>();
+// Una sola cola para todo el proceso y todas las claves: el límite de Koibox es por IP
+let shared: RateLimiter | null = null;
 
-export function limiterFor(apiKey: string): RateLimiter {
-  let limiter = limiters.get(apiKey);
-  if (!limiter) {
-    limiter = new RateLimiter();
-    limiters.set(apiKey, limiter);
-  }
-  return limiter;
+export function sharedLimiter(): RateLimiter {
+  shared ??= new RateLimiter(KOIBOX_SHARED_LIMIT);
+  return shared;
 }
