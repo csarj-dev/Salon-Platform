@@ -12,13 +12,13 @@ import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
 import { loadAgendaColumns } from "@/lib/agenda-db";
 import { agendaWindow, placeInColumn, weekOf } from "@/lib/agenda-layout";
-import { listAppointments, listFilterOptions, type AppointmentStatus } from "@/lib/appointment-list";
+import { listAppointments, listFilterOptions } from "@/lib/appointment-list";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
 import { koiboxCardState } from "@/lib/koibox/card-state";
 import { writesToKoibox } from "@/lib/koibox-sync";
-import type { KoiboxSnapshot } from "@/lib/koibox/schedule";
-import { cachedKoiboxSnapshot } from "@/lib/koibox/snapshot-cache";
+import { AGENDA_STATUSES, BLOCK_STYLE, BLOCK_TONE, STRIPES, isDay, navBase, positiveId } from "@/components/admin/agenda-ui";
+import { loadAgendaKoibox } from "@/lib/agenda-koibox";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
@@ -37,33 +37,9 @@ type Props = {
   searchParams: Promise<SearchParams>;
 };
 
-// Lo que se ve en la agenda: lo que ocupa hueco o ya pasó. Canceladas y caducadas, en la Lista.
-const AGENDA_STATUSES: AppointmentStatus[] = ["booked", "pending_deposit", "completed", "no_show"];
 const MIN = 60_000;
-
-// Colores de cada cita en la rejilla: los mismos que las pastillas de estado de la Lista
-const BLOCK_TONE: Record<AppointmentStatus, string> = {
-  booked: "border-success/50 bg-success/20",
-  pending_deposit: "border-dashed border-warning bg-warning/12",
-  completed: "border-border bg-muted",
-  no_show: "border-danger/40 bg-danger/10",
-  cancelled: "border-border bg-muted",
-  expired: "border-border bg-muted",
-};
-// Una línea por hora (1 minuto = 1 px, así que una hora = 60 px) y rayado para las ausencias
+// Una línea por hora (1 minuto = 1 px, así que una hora = 60 px)
 const HOUR_LINES = "repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 60px)";
-const STRIPES = "repeating-linear-gradient(135deg, var(--muted) 0 6px, transparent 6px 12px)";
-const BLOCK_STYLE = "bg-foreground/[0.07]";
-
-const navBase =
-  "inline-flex h-11 items-center justify-center rounded-md border bg-card font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
-
-const positiveId = (v: string | undefined) => {
-  const n = Number(v);
-  return Number.isInteger(n) && n > 0 && n <= 2_147_483_647 ? n : undefined;
-};
-const isDay = (v: string | undefined): v is string =>
-  v !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(v) && DateTime.fromISO(v).isValid;
 
 export default async function AgendaPage({ params, searchParams }: Props) {
   const { locale } = await params;
@@ -117,24 +93,8 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     limit: 500,
   });
 
-  // Modo Koibox: los turnos salen de Koibox, igual que los huecos de la web (si no, no coinciden).
-  // Se pide la semana entera y queda en caché: pasar de un día a otro de la misma semana no
-  // llama a Koibox (60 peticiones por minuto por IP, para todas las cuentas juntas).
-  const koiboxShifts = config.booking.availability === "koibox";
-  const snapshots: Record<string, KoiboxSnapshot> = {};
-  let koiboxDown = false;
-  if (koiboxShifts) {
-    const accounts = Object.keys(config.koibox.accounts);
-    const week = weekOf(date);
-    const results = await Promise.allSettled(accounts.map((a) => cachedKoiboxSnapshot(a, week.from, week.to)));
-    results.forEach((r, i) => {
-      if (r.status === "fulfilled") snapshots[accounts[i]] = r.value;
-      else {
-        koiboxDown = true;
-        console.error("[agenda] Koibox no respondió:", accounts[i], r.reason);
-      }
-    });
-  }
+  // Modo Koibox: turnos de Koibox (igual que la web), con la foto de la semana en caché
+  const { enabled: koiboxShifts, koibox: koiboxData, down: koiboxDown } = await loadAgendaKoibox(config, weekOf(date));
 
   const columns = await loadAgendaColumns({
     date,
@@ -142,7 +102,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     locationId,
     all,
     withAppointments: [...new Set(rows.map((r) => r.staffId))],
-    koibox: koiboxShifts ? { accounts: config.koibox.accounts, snapshots } : undefined,
+    koibox: koiboxData,
   });
 
   // En el móvil se ve una columna cada vez: la elegida, la de la cita abierta o la primera
@@ -198,6 +158,14 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     const iso = d.toISODate()!;
     return href({ date: iso === today ? null : iso, appt: null });
   };
+  const weekHref = (() => {
+    const q = new URLSearchParams();
+    if (!isToday) q.set("date", date);
+    if (locationId) q.set("location", String(locationId));
+    if (all) q.set("all", "1");
+    const qs = q.toString();
+    return `/admin/appointments/week${qs ? `?${qs}` : ""}`;
+  })();
 
   const time = (d: Date) => formatTime(d, locale, zone);
   const range = (iv: Interval) => `${time(iv.start)}–${time(iv.end)}`;
@@ -227,6 +195,13 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
           {isToday ? t("todayTitle", { date: dayTitle }) : dayTitle}
         </h2>
         <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
+          <SegmentLinks
+            label={t("viewLabel")}
+            items={[
+              { href: href({ appt: null }), label: t("day"), active: true },
+              { href: weekHref, label: t("week"), active: false },
+            ]}
+          />
           {severalLocations && (
             <SegmentLinks
               label={t("locationsLabel")}
