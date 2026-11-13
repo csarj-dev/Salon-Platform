@@ -1,4 +1,5 @@
 import type { Interval } from "./availability";
+import { DateTime } from "luxon";
 
 // Cálculos de la agenda que no tocan la base de datos: qué horas se enseñan y dónde va cada cita.
 // Las posiciones van en minutos desde el inicio de la ventana; la página las pasa a píxeles.
@@ -104,4 +105,15 @@ export function placeInColumn<T extends Interval>(items: T[], window: AgendaWind
   }
   closeGroup();
   return placed;
+}
+
+/**
+ * Lunes y domingo de la semana de un día ("2026-11-14" → del "2026-11-09" al "2026-11-15").
+ * La agenda pide a Koibox la semana entera: moverse entre los días de esa semana no gasta
+ * peticiones (Koibox admite 60 por minuto por IP, para todas las cuentas juntas).
+ */
+export function weekOf(date: string): { from: string; to: string } {
+  const d = DateTime.fromISO(date);
+  const monday = d.minus({ days: d.weekday - 1 });
+  return { from: monday.toISODate()!, to: monday.plus({ days: 6 }).toISODate()! };
 }

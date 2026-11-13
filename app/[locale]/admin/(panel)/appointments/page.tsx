@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type React from "react";
 import { io } from "next/cache";
 import { DateTime } from "luxon";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -10,7 +11,7 @@ import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
 import { loadAgendaColumns } from "@/lib/agenda-db";
-import { agendaWindow, placeInColumn } from "@/lib/agenda-layout";
+import { agendaWindow, placeInColumn, weekOf } from "@/lib/agenda-layout";
 import { listAppointments, listFilterOptions, type AppointmentStatus } from "@/lib/appointment-list";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
@@ -28,6 +29,7 @@ type SearchParams = {
   location?: string;
   all?: string; // "1" = todas las profesionales, también las que no trabajan ese día
   appt?: string; // la cita abierta en la ficha
+  col?: string; // en el móvil, la profesional que se ve (una columna cada vez)
 };
 
 type Props = {
@@ -41,7 +43,7 @@ const MIN = 60_000;
 
 // Colores de cada cita en la rejilla: los mismos que las pastillas de estado de la Lista
 const BLOCK_TONE: Record<AppointmentStatus, string> = {
-  booked: "border-success/40 bg-success/10",
+  booked: "border-success/50 bg-success/20",
   pending_deposit: "border-dashed border-warning bg-warning/12",
   completed: "border-border bg-muted",
   no_show: "border-danger/40 bg-danger/10",
@@ -116,13 +118,15 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
   });
 
   // Modo Koibox: los turnos salen de Koibox, igual que los huecos de la web (si no, no coinciden).
-  // Misma caché que el calendario de la web: no añade llamadas.
+  // Se pide la semana entera y queda en caché: pasar de un día a otro de la misma semana no
+  // llama a Koibox (60 peticiones por minuto por IP, para todas las cuentas juntas).
   const koiboxShifts = config.booking.availability === "koibox";
   const snapshots: Record<string, KoiboxSnapshot> = {};
   let koiboxDown = false;
   if (koiboxShifts) {
     const accounts = Object.keys(config.koibox.accounts);
-    const results = await Promise.allSettled(accounts.map((a) => cachedKoiboxSnapshot(a, date, date)));
+    const week = weekOf(date);
+    const results = await Promise.allSettled(accounts.map((a) => cachedKoiboxSnapshot(a, week.from, week.to)));
     results.forEach((r, i) => {
       if (r.status === "fulfilled") snapshots[accounts[i]] = r.value;
       else {
@@ -140,6 +144,13 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     withAppointments: [...new Set(rows.map((r) => r.staffId))],
     koibox: koiboxShifts ? { accounts: config.koibox.accounts, snapshots } : undefined,
   });
+
+  // En el móvil se ve una columna cada vez: la elegida, la de la cita abierta o la primera
+  const focusId =
+    columns.find((c) => c.staffId === positiveId(sp.col))?.staffId ??
+    (columns.some((c) => c.staffId === rows.find((r) => r.id === positiveId(sp.appt))?.staffId)
+      ? rows.find((r) => r.id === positiveId(sp.appt))!.staffId
+      : columns[0]?.staffId);
 
   // ---- La cita abierta en la ficha: los mismos datos que en la Lista ----
   const koibox = writesToKoibox(config);
@@ -174,6 +185,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     date: isToday ? null : date,
     location: locationId ? String(locationId) : null,
     all: all ? "1" : null,
+    col: focusId && sp.col ? String(focusId) : null,
     appt: selectedRow ? String(selectedRow.id) : null,
   };
   const href = (changes: Partial<typeof current>) => {
@@ -214,7 +226,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
         <h2 className="text-lg font-semibold first-letter:uppercase">
           {isToday ? t("todayTitle", { date: dayTitle }) : dayTitle}
         </h2>
-        <div className="flex flex-wrap gap-3 lg:ms-auto">
+        <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
           {severalLocations && (
             <SegmentLinks
               label={t("locationsLabel")}
@@ -273,6 +285,18 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
         </p>
       )}
 
+      {columns.length > 1 && (
+        <SegmentLinks
+          className="md:hidden"
+          label={t("staffTabs")}
+          items={columns.map((c) => ({
+            href: href({ col: String(c.staffId), appt: null }),
+            label: c.staffName,
+            active: c.staffId === focusId,
+          }))}
+        />
+      )}
+
       {columns.length === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
           {t("nobody")}{" "}
@@ -292,12 +316,15 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             className="min-w-0 flex-1 overflow-x-auto rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div
-              className="grid min-w-fit"
-              style={{ gridTemplateColumns: `3.5rem repeat(${columns.length}, minmax(10rem, 1fr))` }}
+              className="grid grid-cols-[3.5rem_1fr] md:min-w-fit md:[grid-template-columns:3.5rem_repeat(var(--cols),minmax(10rem,1fr))]"
+              style={{ "--cols": columns.length } as React.CSSProperties}
             >
               <div className="sticky left-0 z-20 border-b bg-card" />
               {columns.map((c) => (
-                <div key={c.staffId} className="min-w-0 border-b border-l px-3 py-2.5">
+                <div
+                  key={c.staffId}
+                  className={cn("min-w-0 border-b border-l px-3 py-2.5", c.staffId !== focusId && "max-md:hidden")}
+                >
                   <p className="truncate text-sm font-semibold">{c.staffName}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {c.working
@@ -334,7 +361,11 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                   .filter((r) => r.staffId === c.staffId)
                   .map((r) => ({ ...r, start: r.startsAt, end: r.endsAt }));
                 return (
-                  <div key={c.staffId} className="relative border-l bg-muted/60" style={{ height: heightPx }}>
+                  <div
+                    key={c.staffId}
+                    className={cn("relative border-l bg-muted", c.staffId !== focusId && "max-md:hidden")}
+                    style={{ height: heightPx }}
+                  >
                     {/* Fuera de turno queda en gris; el turno, en blanco */}
                     {c.shifts.map((s) => (
                       <div key={s.start.getTime()} aria-hidden className="absolute inset-x-0 bg-card" style={box(s)} />
@@ -414,7 +445,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
           {selected && (
             <aside
               aria-label={t("panel.label")}
-              className="space-y-3 rounded-xl border bg-card p-4 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
+              className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">

@@ -619,6 +619,7 @@
     },
     "agenda": {
       "previous": "Previous day",
+      "staffTabs": "Staff member shown",
       "next": "Next day",
       "today": "Today",
       "todayTitle": "Today, {date}",

@@ -619,6 +619,7 @@
     },
     "agenda": {
       "previous": "Día anterior",
+      "staffTabs": "Profesional que se ve",
       "next": "Día siguiente",
       "today": "Hoy",
       "todayTitle": "Hoy, {date}",

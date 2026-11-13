@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agendaWindow, placeInColumn } from "./agenda-layout";
+import { agendaWindow, placeInColumn, weekOf } from "./agenda-layout";
 
 const at = (iso: string) => new Date(iso);
 const iv = (from: string, to: string) => ({ start: at(from), end: at(to) });
@@ -63,5 +63,17 @@ describe("placeInColumn", () => {
       w,
     );
     expect(placed.map((p) => p.lanes)).toEqual([1, 1]);
+  });
+});
+
+describe("weekOf", () => {
+  it("de lunes a domingo, sea cual sea el día", () => {
+    expect(weekOf("2026-11-14")).toEqual({ from: "2026-11-09", to: "2026-11-15" }); // sábado
+    expect(weekOf("2026-11-09")).toEqual({ from: "2026-11-09", to: "2026-11-15" }); // lunes
+    expect(weekOf("2026-11-15")).toEqual({ from: "2026-11-09", to: "2026-11-15" }); // domingo
+  });
+  it("cruza de mes y de año", () => {
+    expect(weekOf("2026-12-01")).toEqual({ from: "2026-11-30", to: "2026-12-06" });
+    expect(weekOf("2027-01-01")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
   });
 });
