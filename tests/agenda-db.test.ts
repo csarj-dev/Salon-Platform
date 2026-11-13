@@ -7,6 +7,7 @@ import {
 } from "../db/schema";
 import { loadAgendaColumns } from "../lib/agenda-db";
 import { eq } from "drizzle-orm";
+import type { KoiboxSnapshot } from "../lib/koibox/schedule";
 
 const ZONE = "Atlantic/Canary"; // en noviembre, igual que UTC
 const MONDAY = "2026-11-16";
@@ -32,7 +33,10 @@ beforeAll(async () => {
   await db.delete(service);
   await db.delete(location);
 
-  const [l1, l2] = await db.insert(location).values([{ name: "Local uno" }, { name: "Local dos" }]).returning();
+    const [l1, l2] = await db
+    .insert(location)
+    .values([{ name: "Local uno", slug: "local-uno" }, { name: "Local dos" }])
+    .returning();
   const [a, b, c] = await db
     .insert(staff)
     .values([{ name: "Ana" }, { name: "Bea" }, { name: "Carla" }])
@@ -114,5 +118,67 @@ describe("loadAgendaColumns", () => {
     } finally {
       await db.update(staff).set({ active: true }).where(eq(staff.id, ana));
     }
+  });
+});
+
+describe("loadAgendaColumns en modo Koibox", () => {
+  const accounts = {
+    salon: { label: "Cuenta del salón", keyEnv: "KOIBOX_KEY_SALON", locations: ["local-uno"] },
+  };
+  const day = (hora_inicio: string, hora_fin: string) => ({ hora_inicio, hora_fin });
+  // Koibox dice que la usuaria 101 trabaja los lunes de 9 a 20, con un bloqueo de 13 a 14
+  const snapshot: KoiboxSnapshot = {
+    schedules: [
+      {
+        id: 1, user: 101, centro: 1, week: null, year: null,
+        lunes: day("09:00:00", "20:00:00"),
+        martes: null, miercoles: null, jueves: null, viernes: null, sabado: null, domingo: null,
+      },
+    ],
+    appointments: [],
+    blocks: [{ userId: 101, date: MONDAY, start: "13:00:00", end: "14:00:00", recurrence: "none" }],
+  };
+
+  const linkAna = (account: string | null, userId: number | null) =>
+    db.update(staff).set({ koiboxAccount: account, koiboxUserId: userId }).where(eq(staff.id, ana));
+
+  it("los turnos y bloqueos salen de Koibox, no de nuestra base (como la web)", async () => {
+    await linkAna("salon", 101);
+    try {
+      const cols = await loadAgendaColumns({ date: MONDAY, zone: ZONE, koibox: { accounts, snapshots: { salon: snapshot } } });
+      const anaCol = cols.find((c) => c.staffName === "Ana")!;
+      expect(anaCol.source).toBe("koibox");
+      // En nuestra base Ana tiene 9:30-14 y 16-20; en Koibox, 9-20
+      expect(anaCol.shifts.map((s) => [s.start.toISOString(), s.end.toISOString(), s.locationName])).toEqual([
+        ["2026-11-16T09:00:00.000Z", "2026-11-16T20:00:00.000Z", "Local uno"],
+      ]);
+      expect(anaCol.blocks.map((b) => [b.start.toISOString(), b.end.toISOString()])).toEqual([
+        ["2026-11-16T13:00:00.000Z", "2026-11-16T14:00:00.000Z"],
+      ]);
+      // Su cuenta solo trabaja en el local uno: en el local dos no sale
+      const inLoc2 = await loadAgendaColumns({
+        date: MONDAY, zone: ZONE, locationId: loc2, koibox: { accounts, snapshots: { salon: snapshot } },
+      });
+      expect(names(inLoc2)).toEqual([]);
+    } finally {
+      await linkAna(null, null);
+    }
+  });
+
+  it("si su cuenta no respondió, usa nuestro horario", async () => {
+    await linkAna("salon", 101);
+    try {
+      const cols = await loadAgendaColumns({ date: MONDAY, zone: ZONE, koibox: { accounts, snapshots: {} } });
+      const anaCol = cols.find((c) => c.staffName === "Ana")!;
+      expect(anaCol.source).toBe("local");
+      expect(anaCol.shifts).toHaveLength(2);
+    } finally {
+      await linkAna(null, null);
+    }
+  });
+
+  it("sin enlazar: nuestro horario y la marca de «sin enlazar»", async () => {
+    const cols = await loadAgendaColumns({ date: MONDAY, zone: ZONE, koibox: { accounts, snapshots: { salon: snapshot } } });
+    expect(cols.find((c) => c.staffName === "Ana")).toMatchObject({ source: "local", unlinked: true });
   });
 });

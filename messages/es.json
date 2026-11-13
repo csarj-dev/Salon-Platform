@@ -638,8 +638,13 @@
         "booked": "Confirmada",
         "pending": "Falta el depósito",
         "koibox": "No al día en Koibox",
+        "koiboxBlock": "Bloqueo (Koibox)",
         "timeOff": "Ausencia"
       },
+      "unlinked": "Sin enlazar con Koibox: la web no le da huecos",
+      "koiboxBlock": "Bloqueo",
+      "koiboxSource": "Turnos y bloqueos según Koibox",
+      "koiboxDown": "Koibox no responde ahora: los turnos que ves son los de nuestra base, no los de Koibox.",
       "panel": { "label": "Ficha de la cita", "close": "Cerrar la ficha" }
     },
     "users": {

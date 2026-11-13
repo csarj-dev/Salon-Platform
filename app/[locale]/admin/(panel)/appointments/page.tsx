@@ -16,6 +16,8 @@ import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
 import { koiboxCardState } from "@/lib/koibox/card-state";
 import { writesToKoibox } from "@/lib/koibox-sync";
+import type { KoiboxSnapshot } from "@/lib/koibox/schedule";
+import { cachedKoiboxSnapshot } from "@/lib/koibox/snapshot-cache";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
@@ -49,6 +51,7 @@ const BLOCK_TONE: Record<AppointmentStatus, string> = {
 // Una línea por hora (1 minuto = 1 px, así que una hora = 60 px) y rayado para las ausencias
 const HOUR_LINES = "repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 60px)";
 const STRIPES = "repeating-linear-gradient(135deg, var(--muted) 0 6px, transparent 6px 12px)";
+const BLOCK_STYLE = "bg-foreground/[0.07]";
 
 const navBase =
   "inline-flex h-11 items-center justify-center rounded-md border bg-card font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
@@ -111,12 +114,31 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     locationId,
     limit: 500,
   });
+
+  // Modo Koibox: los turnos salen de Koibox, igual que los huecos de la web (si no, no coinciden).
+  // Misma caché que el calendario de la web: no añade llamadas.
+  const koiboxShifts = config.booking.availability === "koibox";
+  const snapshots: Record<string, KoiboxSnapshot> = {};
+  let koiboxDown = false;
+  if (koiboxShifts) {
+    const accounts = Object.keys(config.koibox.accounts);
+    const results = await Promise.allSettled(accounts.map((a) => cachedKoiboxSnapshot(a, date, date)));
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") snapshots[accounts[i]] = r.value;
+      else {
+        koiboxDown = true;
+        console.error("[agenda] Koibox no respondió:", accounts[i], r.reason);
+      }
+    });
+  }
+
   const columns = await loadAgendaColumns({
     date,
     zone,
     locationId,
     all,
     withAppointments: [...new Set(rows.map((r) => r.staffId))],
+    koibox: koiboxShifts ? { accounts: config.koibox.accounts, snapshots } : undefined,
   });
 
   // ---- La cita abierta en la ficha: los mismos datos que en la Lista ----
@@ -236,7 +258,20 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
           <span aria-hidden className="size-3 rounded-sm border" style={{ backgroundImage: STRIPES }} />
           {t("legend.timeOff")}
         </li>
+        {koiboxShifts && (
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden className={cn("size-3 rounded-sm border", BLOCK_STYLE)} />
+            {t("legend.koiboxBlock")}
+          </li>
+        )}
+        {koiboxShifts && <li>{t("koiboxSource")}</li>}
       </ul>
+
+      {koiboxDown && (
+        <p role="status" className="rounded-xl border-l-4 border-warning bg-warning/15 px-4 py-3 text-sm">
+          {t("koiboxDown")}
+        </p>
+      )}
 
       {columns.length === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
@@ -267,10 +302,14 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                   <p className="truncate text-xs text-muted-foreground">
                     {c.working
                       ? c.shifts
-                          .map((s) => range(s) + (severalLocations && !locationId ? ` · ${s.locationName}` : ""))
+                          .map(
+                            (s) =>
+                              range(s) + (severalLocations && !locationId && s.locationName ? ` · ${s.locationName}` : ""),
+                          )
                           .join(" · ")
                       : t("notWorking")}
                   </p>
+                  {c.unlinked && <p className="truncate text-xs font-medium text-warning">{t("unlinked")}</p>}
                 </div>
               ))}
 
@@ -307,6 +346,15 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                         style={{ ...box(a), backgroundImage: STRIPES }}
                       >
                         {t("timeOff")}
+                      </div>
+                    ))}
+                    {c.blocks.map((b) => (
+                      <div
+                        key={`b${b.start.getTime()}`}
+                        className={cn("absolute inset-x-0 px-2 pt-1 text-xs text-muted-foreground", BLOCK_STYLE)}
+                        style={box(b)}
+                      >
+                        {t("koiboxBlock")}
                       </div>
                     ))}
                     <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: HOUR_LINES }} />

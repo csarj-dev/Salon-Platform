@@ -638,8 +638,13 @@
         "booked": "Confirmed",
         "pending": "Deposit missing",
         "koibox": "Not up to date in Koibox",
+        "koiboxBlock": "Blocked (Koibox)",
         "timeOff": "Time off"
       },
+      "unlinked": "Not linked to Koibox: no online slots",
+      "koiboxBlock": "Blocked",
+      "koiboxSource": "Shifts and blocks from Koibox",
+      "koiboxDown": "Koibox isn't responding: the shifts shown are from our database, not from Koibox.",
       "panel": { "label": "Appointment details", "close": "Close details" }
     },
     "users": {
