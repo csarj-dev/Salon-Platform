@@ -24,7 +24,7 @@ const reasonSchema = z.string().trim().max(300).optional();
 
 function refresh(locale: string) {
   revalidatePath(`/${locale}/admin/deposits`);
-  revalidatePath(`/${locale}/admin/appointments`);
+  revalidatePath(`/${locale}/admin/appointments`, "layout"); // la Agenda y la Lista (/list)
   revalidatePath(`/${locale}/admin/koibox`); // la pestaña "Pendiente" de Koibox
 }
 

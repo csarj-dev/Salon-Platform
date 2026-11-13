@@ -543,6 +543,7 @@
     },
     "appointments": {
       "title": "Citas",
+      "view": { "label": "Vista de citas", "agenda": "Agenda", "list": "Lista" },
       "tabsLabel": "Filtro de citas",
       "tabs": {
         "upcoming": "Próximas",
@@ -615,6 +616,31 @@
       "contactPending": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when}).",
       "contactExpired": "Hola {name}, te escribimos de {salon}. Tu reserva #{id} ({service}, {when}) ha caducado porque no recibimos el depósito a tiempo. ¿Quieres que busquemos otra hora?",
       "contactGeneric": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when})."
+    },
+    "agenda": {
+      "previous": "Día anterior",
+      "next": "Día siguiente",
+      "today": "Hoy",
+      "todayTitle": "Hoy, {date}",
+      "locationsLabel": "Local",
+      "allLocations": "Todos",
+      "staffLabel": "Profesionales",
+      "working": "Las que trabajan",
+      "all": "Todas",
+      "notWorking": "No trabaja este día",
+      "nobody": "Nadie trabaja este día.",
+      "showAll": "Ver todas las profesionales",
+      "timeOff": "Ausencia",
+      "gridLabel": "Agenda del {date}",
+      "block": "{time} · {client} · {service} · {status}",
+      "legend": {
+        "label": "Leyenda",
+        "booked": "Confirmada",
+        "pending": "Falta el depósito",
+        "koibox": "No al día en Koibox",
+        "timeOff": "Ausencia"
+      },
+      "panel": { "label": "Ficha de la cita", "close": "Cerrar la ficha" }
     },
     "users": {
       "title": "Usuarios",

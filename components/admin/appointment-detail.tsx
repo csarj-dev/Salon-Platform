@@ -201,7 +201,7 @@ export async function AppointmentDetail({
             <h3 className={sectionLabel}>{t("client")}</h3>
             <p className="font-medium">{data.clientName}</p>
             {data.clientId !== undefined && (
-              <Link href={`/admin/appointments?client=${data.clientId}`} className={cn(textAction(), "min-h-9")}>
+              <Link href={`/admin/appointments/list?client=${data.clientId}`} className={cn(textAction(), "min-h-9")}>
                 {t("allClientAppointments")}
               </Link>
             )}

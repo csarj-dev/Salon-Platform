@@ -543,6 +543,7 @@
     },
     "appointments": {
       "title": "Appointments",
+      "view": { "label": "Appointments view", "agenda": "Calendar", "list": "List" },
       "tabsLabel": "Appointment filter",
       "tabs": {
         "upcoming": "Upcoming",
@@ -615,6 +616,31 @@
       "contactPending": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
       "contactExpired": "Hello {name}, this is {salon}. Your booking #{id} ({service}, {when}) has expired because we did not receive the deposit in time. Would you like us to find another time?",
       "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when})."
+    },
+    "agenda": {
+      "previous": "Previous day",
+      "next": "Next day",
+      "today": "Today",
+      "todayTitle": "Today, {date}",
+      "locationsLabel": "Location",
+      "allLocations": "All",
+      "staffLabel": "Staff",
+      "working": "Working",
+      "all": "All",
+      "notWorking": "Not working this day",
+      "nobody": "Nobody works this day.",
+      "showAll": "Show all staff",
+      "timeOff": "Time off",
+      "gridLabel": "Calendar for {date}",
+      "block": "{time} · {client} · {service} · {status}",
+      "legend": {
+        "label": "Legend",
+        "booked": "Confirmed",
+        "pending": "Deposit missing",
+        "koibox": "Not up to date in Koibox",
+        "timeOff": "Time off"
+      },
+      "panel": { "label": "Appointment details", "close": "Close details" }
     },
     "users": {
       "title": "Users",

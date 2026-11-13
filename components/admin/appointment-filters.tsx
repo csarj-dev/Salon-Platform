@@ -61,7 +61,7 @@ export function AppointmentFilters({ staff, locations, labels }: Props) {
     }
     next.delete("client"); // buscar o filtrar sale de la vista de una clienta
     const qs = next.toString();
-    startTransition(() => router.replace(`/admin/appointments${qs ? `?${qs}` : ""}`, { scroll: false }));
+    startTransition(() => router.replace(`/admin/appointments/list${qs ? `?${qs}` : ""}`, { scroll: false }));
   }
 
   function onText(value: string) {

@@ -110,7 +110,7 @@ async function DepositsContent({ locale }: { locale: string }) {
       }),
     );
   const clientLink = (r: DepositRow) => (
-    <Link href={`/admin/appointments?client=${r.clientId}`} className="font-medium underline-offset-4 hover:underline">
+    <Link href={`/admin/appointments/list?client=${r.clientId}`} className="font-medium underline-offset-4 hover:underline">
       {r.clientName}
     </Link>
   );

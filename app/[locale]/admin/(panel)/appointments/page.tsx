@@ -1,41 +1,31 @@
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import { io } from "next/cache";
 import { DateTime } from "luxon";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentDetail } from "@/components/admin/appointment-detail";
-import { AppointmentFilters } from "@/components/admin/appointment-filters";
-import { KOIBOX_TONE, ROW_GRID_KOIBOX, ROW_GRID_PLAIN, STATUS_TONE } from "@/components/admin/appointment-marks";
-import { AppointmentRow } from "@/components/admin/appointment-row";
-import { AppointmentTabs } from "@/components/admin/appointment-tabs";
-import { KoiboxPendingBox } from "@/components/admin/koibox-pending-box";
-import { PageHeader, SectionLabel, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
+import { KOIBOX_TONE, STATUS_TONE } from "@/components/admin/appointment-marks";
+import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
+import { SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
-import {
-  appointmentSummary,
-  clientSummary,
-  listAppointments,
-  listFilterOptions,
-  type AppointmentStatus,
-} from "@/lib/appointment-list";
+import type { Interval } from "@/lib/availability";
+import { loadAgendaColumns } from "@/lib/agenda-db";
+import { agendaWindow, placeInColumn } from "@/lib/agenda-layout";
+import { listAppointments, listFilterOptions, type AppointmentStatus } from "@/lib/appointment-list";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
-import { groupByDay } from "@/lib/group-by-day";
-import { initialsOf } from "@/lib/initials";
 import { koiboxCardState } from "@/lib/koibox/card-state";
-import { findPendingKoiboxWork, writesToKoibox } from "@/lib/koibox-sync";
+import { writesToKoibox } from "@/lib/koibox-sync";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 type SearchParams = {
-  tab?: string;
-  q?: string;
-  staff?: string;
+  date?: string; // "2026-11-16"; sin él, hoy
   location?: string;
-  client?: string;
-  day?: string; // "today" | "week": los recuadros del resumen
+  all?: string; // "1" = todas las profesionales, también las que no trabajan ese día
+  appt?: string; // la cita abierta en la ficha
 };
 
 type Props = {
@@ -43,411 +33,394 @@ type Props = {
   searchParams: Promise<SearchParams>;
 };
 
-const TABS = ["upcoming", "past", "cancelled"] as const;
-type Tab = (typeof TABS)[number];
+// Lo que se ve en la agenda: lo que ocupa hueco o ya pasó. Canceladas y caducadas, en la Lista.
+const AGENDA_STATUSES: AppointmentStatus[] = ["booked", "pending_deposit", "completed", "no_show"];
+const MIN = 60_000;
 
-const isTab = (v: string | undefined): v is Tab => TABS.some((t) => t === v);
+// Colores de cada cita en la rejilla: los mismos que las pastillas de estado de la Lista
+const BLOCK_TONE: Record<AppointmentStatus, string> = {
+  booked: "border-success/40 bg-success/10",
+  pending_deposit: "border-dashed border-warning bg-warning/12",
+  completed: "border-border bg-muted",
+  no_show: "border-danger/40 bg-danger/10",
+  cancelled: "border-border bg-muted",
+  expired: "border-border bg-muted",
+};
+// Una línea por hora (1 minuto = 1 px, así que una hora = 60 px) y rayado para las ausencias
+const HOUR_LINES = "repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 60px)";
+const STRIPES = "repeating-linear-gradient(135deg, var(--muted) 0 6px, transparent 6px 12px)";
 
-const ALL_STATUSES: AppointmentStatus[] = ["booked", "pending_deposit", "completed", "cancelled", "no_show", "expired"];
-const ACTIVE_STATUSES: AppointmentStatus[] = ["booked", "pending_deposit"];
+const navBase =
+  "inline-flex h-11 items-center justify-center rounded-md border bg-card font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
 
-// Un id de la URL: entero positivo que cabe en la columna (si no, se ignora)
 const positiveId = (v: string | undefined) => {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 && n <= 2_147_483_647 ? n : undefined;
 };
+const isDay = (v: string | undefined): v is string =>
+  v !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(v) && DateTime.fromISO(v).isValid;
 
-export default async function AppointmentsPage({ params, searchParams }: Props) {
+export default async function AgendaPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Admin.appointments" });
-  const tabs = TABS.map((id) => ({ id, label: t(`tabs.${id}`) }));
 
   return (
     <section className="space-y-4">
-      <PageHeader title={t("title")} />
-      <div className="space-y-3">
-        {/* Pestañas y búsqueda, fuera del <Suspense> de la lista: al cambiar no saltan ni se pierde lo escrito */}
-        <Suspense
-          fallback={
-            <SegmentLinks
-              label={t("tabsLabel")}
-              items={tabs.map((tab) => ({ href: `/admin/appointments?tab=${tab.id}`, label: tab.label, active: false }))}
-            />
-          }
-        >
-          <AppointmentTabs label={t("tabsLabel")} tabs={tabs} />
-        </Suspense>
-        <Suspense fallback={<div className="h-11" />}>
-          <FiltersLoader locale={locale} />
-        </Suspense>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        <AppointmentsViewSwitch locale={locale} active="agenda" />
       </div>
       <Suspense fallback={<PanelSkeleton />}>
-        <AppointmentsContent locale={locale} searchParams={searchParams} />
+        <AgendaContent locale={locale} searchParams={searchParams} />
       </Suspense>
     </section>
   );
 }
 
-async function FiltersLoader({ locale }: { locale: string }) {
-  await requireStaff(locale, "appointments.view");
-  const [options, t] = await Promise.all([
-    listFilterOptions(),
-    getTranslations({ locale, namespace: "Admin.appointments.filters" }),
-  ]);
-  return (
-    <AppointmentFilters
-      staff={options.staff}
-      locations={options.locations}
-      labels={{
-        search: t("search"),
-        searchPlaceholder: t("searchPlaceholder"),
-        staff: t("staff"),
-        allStaff: t("allStaff"),
-        location: t("location"),
-        allLocations: t("allLocations"),
-        searching: t("searching"),
-      }}
-    />
-  );
-}
-
-type Tile = {
-  key: string;
-  href?: string; // sin enlace si no tiene permiso para ir allí
-  label: string;
-  value: string;
-  valueTone?: string;
-  sub?: string;
-  subTone?: string;
-  active?: boolean;
-};
-
-async function AppointmentsContent({
-  locale,
-  searchParams,
-}: {
-  locale: string;
-  searchParams: Props["searchParams"];
-}) {
+async function AgendaContent({ locale, searchParams }: { locale: string; searchParams: Props["searchParams"] }) {
   const { role } = await requireStaff(locale, "appointments.view");
   const sp = await searchParams;
-  const tab: Tab = isTab(sp.tab) ? sp.tab : "upcoming";
-  const search = (sp.q ?? "").trim().slice(0, 100) || undefined;
-  const staffId = positiveId(sp.staff);
-  const locationId = positiveId(sp.location);
-  const clientId = positiveId(sp.client);
-  const day = sp.day === "today" || sp.day === "week" ? sp.day : undefined;
-
-  const [config, t, tCard, tStatus, tK] = await Promise.all([
+  const [config, t, tCard, tStatus, options] = await Promise.all([
     loadSalonConfig(),
-    getTranslations({ locale, namespace: "Admin.appointments" }),
+    getTranslations({ locale, namespace: "Admin.agenda" }),
     getTranslations({ locale, namespace: "Admin.card" }),
     getTranslations({ locale, namespace: "Admin.status" }),
-    getTranslations({ locale, namespace: "Admin.card.koibox" }),
+    listFilterOptions(),
   ]);
 
-  // La hora actual cambia en cada visita: se excluye del prerenderizado con io() antes de leerla
+  // "Hoy" y la línea de "ahora" dependen de la hora: fuera del prerenderizado
   await io();
   const now = new Date();
   const nowMs = now.getTime();
   const zone = config.timezone;
-  // "Hoy", la semana y los 30 días anteriores se cuentan en la zona del salón
-  const startOfToday = DateTime.fromJSDate(now, { zone }).startOf("day");
-  const thirtyDaysAgo = startOfToday.minus({ days: 30 });
-  const endOfToday = startOfToday.plus({ days: 1 });
-  const weekEnd = startOfToday.plus({ days: 7 });
+  const today = DateTime.fromJSDate(now, { zone }).toISODate()!;
+  const date = isDay(sp.date) ? sp.date : today;
+  const isToday = date === today;
+  const day = DateTime.fromISO(date, { zone }).startOf("day");
+  const dayStart = day.toJSDate();
+  // Solo un local que exista; si no, todos
+  const locationId = options.locations.find((l) => l.id === positiveId(sp.location))?.id;
+  const all = sp.all === "1";
 
-  const query: Record<Tab, Parameters<typeof listAppointments>[0]> = {
-    upcoming: { statuses: ACTIVE_STATUSES, from: startOfToday.toJSDate(), order: "asc" },
-    past: {
-      statuses: ["booked", "completed", "no_show"],
-      from: thirtyDaysAgo.toJSDate(),
-      to: startOfToday.toJSDate(),
-      order: "desc",
-    },
-    cancelled: { statuses: ["cancelled", "expired"], from: thirtyDaysAgo.toJSDate(), order: "desc" },
-  };
-  // "Hoy" y "Próximos 7 días" (recuadros del resumen): las próximas, acotadas a ese tramo
-  const listOptions = day
-    ? { ...query.upcoming, to: (day === "today" ? endOfToday : weekEnd).toJSDate() }
-    : query[tab];
+  const rows = await listAppointments({
+    statuses: AGENDA_STATUSES,
+    from: dayStart,
+    to: day.plus({ days: 1 }).toJSDate(),
+    order: "asc",
+    locationId,
+    limit: 500,
+  });
+  const columns = await loadAgendaColumns({
+    date,
+    zone,
+    locationId,
+    all,
+    withAppointments: [...new Set(rows.map((r) => r.staffId))],
+  });
 
+  // ---- La cita abierta en la ficha: los mismos datos que en la Lista ----
   const koibox = writesToKoibox(config);
-  const [rows, pendingKoibox, summary, client] = await Promise.all([
-    clientId
-      ? listAppointments({ statuses: ALL_STATUSES, order: "asc", clientId, limit: 500 })
-      : listAppointments({ ...listOptions, search, staffId, locationId }),
-    // Solo con Koibox: las citas que no están al día allí (lo mismo que mira el reintento automático)
-    koibox ? findPendingKoiboxWork(now) : Promise.resolve([]),
-    appointmentSummary({
-      dayStart: startOfToday.toJSDate(),
-      dayEnd: endOfToday.toJSDate(),
-      weekEnd: weekEnd.toJSDate(),
-      soon: new Date(nowMs + 3 * 3_600_000),
-    }),
-    clientId ? clientSummary(clientId, now) : Promise.resolve(null),
-  ]);
+  const selectedRow = rows.find((r) => r.id === positiveId(sp.appt));
+  const email = selectedRow
+    ? ((await latestEmailByAppointment([selectedRow.id])).get(selectedRow.id) ?? null)
+    : null;
+  const selected = selectedRow && {
+    ...selectedRow,
+    email,
+    koibox: koibox ? koiboxCardState(selectedRow, now) : null,
+    koiboxAccountLabel: selectedRow.koiboxAccount
+      ? (config.koibox.accounts[selectedRow.koiboxAccount]?.label ?? selectedRow.koiboxAccount)
+      : null,
+  };
 
-  const emails = await latestEmailByAppointment(rows.map((r) => r.id));
-  const accountLabel = (id: string | null) => (id ? (config.koibox.accounts[id]?.label ?? id) : null);
-  const enriched = rows.map((r) => ({
-    ...r,
-    email: emails.get(r.id) ?? null,
-    koibox: koibox ? koiboxCardState(r, now) : null,
-    koiboxAccountLabel: accountLabel(r.koiboxAccount),
-  }));
-  type Row = (typeof enriched)[number];
-
-  const grid = koibox ? ROW_GRID_KOIBOX : ROW_GRID_PLAIN;
-  const headCell = "py-3";
-
-  const table = (list: Row[]): ReactNode => (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <div className={cn("hidden border-b px-4 text-xs font-medium tracking-[0.06em] text-muted-foreground uppercase", grid)}>
-        <span className={headCell}>{t("table.time")}</span>
-        <span className={headCell}>{t("table.client")}</span>
-        <span className={headCell}>{t("table.service")}</span>
-        <span className={headCell}>{t("table.status")}</span>
-        {koibox && <span className={headCell}>{t("table.koibox")}</span>}
-        <span className="sr-only">{t("table.detail")}</span>
-      </div>
-      {groupByDay(list, zone).map((group) => (
-        <section key={group.day}>
-          <SectionLabel className="border-b bg-background px-4 py-2.5">
-            {formatDayLong(group.date, locale, zone)}
-          </SectionLabel>
-          <ul>
-            {group.rows.map((row) => {
-              const k = row.koibox;
-              return (
-                <AppointmentRow
-                  key={row.id}
-                  grid={grid}
-                  time={formatTime(row.startsAt, locale, zone)}
-                  client={row.clientName}
-                  phone={row.clientPhone}
-                  service={row.serviceName}
-                  sub={`${tCard("with", { staff: row.staffName })} · ${tCard("reference", { id: row.id })}`}
-                  status={<StatusPill tone={STATUS_TONE[row.status]}>{tStatus(row.status)}</StatusPill>}
-                  koibox={
-                    !koibox ? null : k ? (
-                      <span className="inline-flex items-center gap-2 text-sm">
-                        <span aria-hidden className={cn("size-2.5 shrink-0 rounded-full", KOIBOX_TONE[k.kind].dot)} />
-                        {tK(`short.${k.kind === "synced" && k.cancelled ? "cancelled" : k.kind}`)}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    )
-                  }
-                  labels={{
-                    show: tCard("showDetail", { id: row.id }),
-                    hide: tCard("hideDetail", { id: row.id }),
-                  }}
-                >
-                  <AppointmentDetail
-                    data={row}
-                    locale={locale}
-                    zone={zone}
-                    currency={config.currency}
-                    salonName={config.name}
-                    phoneCountryCode={config.phoneCountryCode}
-                    now={nowMs}
-                    // Se puede gestionar si aún no ha pasado o si espera el depósito (la ficha decide qué botones)
-                    actionable={row.status === "pending_deposit" || row.startsAt.getTime() > nowMs}
-                    canValidate={can(role, "deposits.manage")}
-                    canCancel={can(role, "appointments.manage")}
-                    canResend={can(role, "appointments.manage")}
-                    canRetryKoibox={can(role, "appointments.manage")}
-                    layout="columns"
-                  />
-                </AppointmentRow>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
-    </div>
+  // ---- Medidas: 1 minuto = 1 px desde el inicio de la ventana ----
+  const view = agendaWindow(
+    [...columns.flatMap((c) => c.shifts), ...rows.map((r) => ({ start: r.startsAt, end: r.endsAt }))],
+    dayStart,
   );
+  const heightPx = (view.end.getTime() - view.start.getTime()) / MIN;
+  const offset = (d: Date) => (d.getTime() - view.start.getTime()) / MIN;
+  const box = (iv: Interval) => {
+    const top = Math.max(0, offset(iv.start));
+    return { top, height: Math.max(0, Math.min(heightPx, offset(iv.end)) - top) };
+  };
+  const nowTop = isToday && nowMs >= view.start.getTime() && nowMs < view.end.getTime() ? offset(now) : null;
 
-  // ---- "Todas las citas de una clienta" ----
-  if (clientId) {
-    if (!client) {
-      return (
-        <p className="text-sm text-muted-foreground">
-          {t("client.notFound")}{" "}
-          <Link href="/admin/appointments" className="font-medium text-foreground underline-offset-4 hover:underline">
-            {t("client.clear")}
-          </Link>
-        </p>
-      );
-    }
-    const todayMs = startOfToday.toMillis();
-    const upcoming = enriched.filter((r) => ACTIVE_STATUSES.includes(r.status) && r.startsAt.getTime() >= todayMs);
-    const previous = enriched.filter((r) => !upcoming.includes(r)).reverse();
-    const stats = [
-      { label: t("client.total"), value: client.total },
-      { label: t("client.upcoming"), value: client.upcoming },
-      { label: t("client.cancelled"), value: client.cancelled },
-      { label: t("client.noShow"), value: client.noShow },
-    ];
+  // ---- Enlaces: se conserva el día, el local, «Todas» y la cita abierta, salvo lo que cambie ----
+  const current = {
+    date: isToday ? null : date,
+    location: locationId ? String(locationId) : null,
+    all: all ? "1" : null,
+    appt: selectedRow ? String(selectedRow.id) : null,
+  };
+  const href = (changes: Partial<typeof current>) => {
+    const q = new URLSearchParams();
+    for (const [key, value] of Object.entries({ ...current, ...changes })) if (value) q.set(key, value);
+    const qs = q.toString();
+    return `/admin/appointments${qs ? `?${qs}` : ""}`;
+  };
+  const dayHref = (d: DateTime) => {
+    const iso = d.toISODate()!;
+    return href({ date: iso === today ? null : iso, appt: null });
+  };
 
-    return (
-      <div className="space-y-5">
-        <section className="flex flex-wrap items-center gap-5 rounded-xl border bg-card p-5">
-          <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-3.5">
-            <span
-              aria-hidden
-              className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold"
-            >
-              {initialsOf(client.name)}
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-xl font-semibold">{client.name}</h2>
-              <p className="text-sm text-muted-foreground">
-                {client.phone}
-                {client.email ? ` · ${client.email}` : ""}
-              </p>
-              {client.firstAt && (
-                <p className="text-xs text-muted-foreground">
-                  {t("client.since", { date: formatDayLong(client.firstAt, locale, zone) })}
-                </p>
-              )}
-            </div>
-          </div>
-          <dl className="grid flex-[1_1_24rem] grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="rounded-lg bg-background p-3">
-                <dt className="text-xs text-muted-foreground">{s.label}</dt>
-                <dd className="text-xl font-semibold">{s.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <Link href="/admin/appointments" className={textAction()}>
-            ← {t("client.clear")}
-          </Link>
-        </section>
-
-        <section className="space-y-2">
-          <h2 className="text-lg font-semibold">{t("client.upcomingTitle")}</h2>
-          {upcoming.length > 0 ? table(upcoming) : <p className="text-sm text-muted-foreground">{t("client.noneUpcoming")}</p>}
-        </section>
-        <section className="space-y-2">
-          <h2 className="text-lg font-semibold">{t("client.previousTitle")}</h2>
-          {previous.length > 0 ? table(previous) : <p className="text-sm text-muted-foreground">{t("client.nonePrevious")}</p>}
-        </section>
-      </div>
-    );
-  }
-
-  // ---- Lista normal ----
-  const canSettings = can(role, "settings.manage");
-  const tiles: Tile[] = [
-    {
-      key: "today",
-      href: "/admin/appointments?tab=upcoming&day=today",
-      label: t("summary.today"),
-      value: t("summary.count", { count: summary.today }),
-      sub:
-        summary.todayFirst && summary.todayLast
-          ? t("summary.range", {
-              first: formatTime(summary.todayFirst, locale, zone),
-              last: formatTime(summary.todayLast, locale, zone),
-            })
-          : t("summary.none"),
-      active: day === "today",
-    },
-    {
-      key: "deposits",
-      href: "/admin/deposits",
-      label: t("summary.deposits"),
-      value: String(summary.pendingDeposits),
-      valueTone: summary.pendingDeposits > 0 ? "text-warning" : undefined,
-      sub: summary.depositsDueSoon > 0 ? t("summary.dueSoon", { count: summary.depositsDueSoon }) : t("summary.noneUrgent"),
-      subTone: summary.depositsDueSoon > 0 ? "font-medium text-danger" : undefined,
-    },
-    ...(koibox
-      ? [
-          {
-            key: "koibox",
-            href: canSettings ? "/admin/koibox" : undefined,
-            label: t("summary.koibox"),
-            value: String(pendingKoibox.length),
-            valueTone: pendingKoibox.length > 0 ? "text-danger" : undefined,
-            sub: tK("auto"),
-          },
-        ]
-      : []),
-    {
-      key: "week",
-      href: "/admin/appointments?tab=upcoming&day=week",
-      label: t("summary.week"),
-      value: t("summary.count", { count: summary.week }),
-      active: day === "week",
-    },
-  ];
-
-  const tileClass = (active?: boolean) =>
-    cn(
-      "flex h-full flex-col gap-0.5 rounded-xl border bg-card px-3 py-2.5 sm:px-4 sm:py-3.5",
-      active && "border-foreground",
-    );
-  const tileBody = (tile: Tile) => (
-    <>
-      <span className="text-sm text-muted-foreground">{tile.label}</span>
-      <span className={cn("text-xl font-semibold sm:text-2xl", tile.valueTone)}>{tile.value}</span>
-      {tile.sub && <span className={cn("text-xs text-muted-foreground", tile.subTone)}>{tile.sub}</span>}
-    </>
-  );
-
-  const filtered = Boolean(search || staffId || locationId || day);
-  const clearHref = `/admin/appointments?tab=${day ? "upcoming" : tab}`;
+  const time = (d: Date) => formatTime(d, locale, zone);
+  const range = (iv: Interval) => `${time(iv.start)}–${time(iv.end)}`;
+  const dayTitle = formatDayLong(dayStart, locale, zone);
+  const severalLocations = options.locations.length > 1;
 
   return (
     <div className="space-y-4">
-      <ul
-        aria-label={t("summary.label")}
-        className="grid grid-cols-2 gap-3 lg:[grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr))]"
-      >
-        {tiles.map((tile) => (
-          <li key={tile.key}>
-            {tile.href ? (
-              <Link
-                href={tile.href}
-                aria-current={tile.active ? "page" : undefined}
-                className={cn(
-                  tileClass(tile.active),
-                  "outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring",
-                )}
-              >
-                {tileBody(tile)}
-              </Link>
-            ) : (
-              <div className={tileClass()}>{tileBody(tile)}</div>
-            )}
+      {/* ---- Barra: día, local y quién sale ---- */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1">
+          <Link href={dayHref(day.minus({ days: 1 }))} aria-label={t("previous")} className={cn(navBase, "w-11 text-lg")}>
+            ‹
+          </Link>
+          <Link
+            href={dayHref(DateTime.fromISO(today, { zone }))}
+            aria-current={isToday ? "date" : undefined}
+            className={cn(navBase, "px-3.5 text-sm")}
+          >
+            {t("today")}
+          </Link>
+          <Link href={dayHref(day.plus({ days: 1 }))} aria-label={t("next")} className={cn(navBase, "w-11 text-lg")}>
+            ›
+          </Link>
+        </div>
+        <h2 className="text-lg font-semibold first-letter:uppercase">
+          {isToday ? t("todayTitle", { date: dayTitle }) : dayTitle}
+        </h2>
+        <div className="flex flex-wrap gap-3 lg:ms-auto">
+          {severalLocations && (
+            <SegmentLinks
+              label={t("locationsLabel")}
+              items={[
+                { href: href({ location: null, appt: null }), label: t("allLocations"), active: !locationId },
+                ...options.locations.map((l) => ({
+                  href: href({ location: String(l.id), appt: null }),
+                  label: l.name,
+                  active: l.id === locationId,
+                })),
+              ]}
+            />
+          )}
+          <SegmentLinks
+            label={t("staffLabel")}
+            items={[
+              { href: href({ all: null }), label: t("working"), active: !all },
+              { href: href({ all: "1" }), label: t("all"), active: all },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* ---- Leyenda: las mismas marcas que en la Lista ---- */}
+      <ul aria-label={t("legend.label")} className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className={cn("size-3 rounded-sm border", BLOCK_TONE.booked)} />
+          {t("legend.booked")}
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className={cn("size-3 rounded-sm border", BLOCK_TONE.pending_deposit)} />
+          {t("legend.pending")}
+        </li>
+        {koibox && (
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="size-2.5 rounded-full bg-danger" />
+            {t("legend.koibox")}
           </li>
-        ))}
+        )}
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="size-3 rounded-sm border" style={{ backgroundImage: STRIPES }} />
+          {t("legend.timeOff")}
+        </li>
       </ul>
 
-      <KoiboxPendingBox
-        items={pendingKoibox}
-        locale={locale}
-        zone={zone}
-        canRetry={can(role, "appointments.manage")}
-      />
-
-      {filtered && (
-        <p className="text-sm text-muted-foreground">
-          {t("filtered", { count: rows.length })}{" "}
-          <Link href={clearHref} className="font-medium text-foreground underline-offset-4 hover:underline">
-            {t("clearFilters")}
-          </Link>
+      {columns.length === 0 ? (
+        <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+          {t("nobody")}{" "}
+          {!all && (
+            <Link href={href({ all: "1" })} className="font-medium text-foreground underline-offset-4 hover:underline">
+              {t("showAll")}
+            </Link>
+          )}
         </p>
-      )}
+      ) : (
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+          {/* ---- Rejilla: una columna por profesional ---- */}
+          <div
+            role="region"
+            aria-label={t("gridLabel", { date: dayTitle })}
+            tabIndex={0}
+            className="min-w-0 flex-1 overflow-x-auto rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div
+              className="grid min-w-fit"
+              style={{ gridTemplateColumns: `3.5rem repeat(${columns.length}, minmax(10rem, 1fr))` }}
+            >
+              <div className="sticky left-0 z-20 border-b bg-card" />
+              {columns.map((c) => (
+                <div key={c.staffId} className="min-w-0 border-b border-l px-3 py-2.5">
+                  <p className="truncate text-sm font-semibold">{c.staffName}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {c.working
+                      ? c.shifts
+                          .map((s) => range(s) + (severalLocations && !locationId ? ` · ${s.locationName}` : ""))
+                          .join(" · ")
+                      : t("notWorking")}
+                  </p>
+                </div>
+              ))}
 
-      {enriched.length === 0
-        ? !filtered && <p className="py-2 text-sm text-muted-foreground">{t(`empty.${tab}`)}</p>
-        : table(enriched)}
+              {/* Horas, fijas a la izquierda al desplazar de lado */}
+              <div className="sticky left-0 z-20 bg-card" style={{ height: heightPx }}>
+                {view.hours.map((h, i) => (
+                  <span
+                    key={h.getTime()}
+                    className={cn(
+                      "absolute right-2 text-xs text-muted-foreground tabular-nums",
+                      i > 0 && "-translate-y-1/2",
+                    )}
+                    style={{ top: offset(h) + (i === 0 ? 4 : 0) }}
+                  >
+                    {time(h)}
+                  </span>
+                ))}
+              </div>
+
+              {columns.map((c) => {
+                const mine = rows
+                  .filter((r) => r.staffId === c.staffId)
+                  .map((r) => ({ ...r, start: r.startsAt, end: r.endsAt }));
+                return (
+                  <div key={c.staffId} className="relative border-l bg-muted/60" style={{ height: heightPx }}>
+                    {/* Fuera de turno queda en gris; el turno, en blanco */}
+                    {c.shifts.map((s) => (
+                      <div key={s.start.getTime()} aria-hidden className="absolute inset-x-0 bg-card" style={box(s)} />
+                    ))}
+                    {c.timeOff.map((a) => (
+                      <div
+                        key={a.start.getTime()}
+                        className="absolute inset-x-0 px-2 pt-1 text-xs text-muted-foreground"
+                        style={{ ...box(a), backgroundImage: STRIPES }}
+                      >
+                        {t("timeOff")}
+                      </div>
+                    ))}
+                    <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: HOUR_LINES }} />
+                    {nowTop !== null && (
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 z-20 border-t-2 border-danger"
+                        style={{ top: nowTop }}
+                      />
+                    )}
+
+                    {placeInColumn(mine, view).map(({ item: r, top, height, lane, lanes }) => {
+                      const k = koibox ? koiboxCardState(r, now) : null;
+                      const isSelected = r.id === selectedRow?.id;
+                      return (
+                        <Link
+                          key={r.id}
+                          href={href({ appt: isSelected ? null : String(r.id) })}
+                          scroll={false}
+                          aria-current={isSelected ? "true" : undefined}
+                          aria-label={t("block", {
+                            time: range(r),
+                            client: r.clientName,
+                            service: r.serviceName,
+                            status: tStatus(r.status),
+                          })}
+                          className={cn(
+                            "absolute z-10 flex flex-col overflow-hidden rounded-md border px-2 py-1 text-left outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring",
+                            BLOCK_TONE[r.status],
+                            isSelected && "ring-2 ring-foreground",
+                          )}
+                          style={{
+                            top,
+                            height,
+                            left: `calc(${(lane * 100) / lanes}% + 3px)`,
+                            width: `calc(${100 / lanes}% - 6px)`,
+                          }}
+                        >
+                          <span className="flex items-center gap-1.5 text-xs font-medium tabular-nums">
+                            {time(r.startsAt)}
+                            {k && k.kind !== "synced" && (
+                              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", KOIBOX_TONE[k.kind].dot)} />
+                            )}
+                          </span>
+                          <span className="truncate text-sm font-medium">{r.clientName}</span>
+                          {height >= 45 && <span className="truncate text-xs text-muted-foreground">{r.serviceName}</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ---- Ficha de la cita: la MISMA que se despliega en la Lista ---- */}
+          {selected && (
+            <aside
+              aria-label={t("panel.label")}
+              className="space-y-3 rounded-xl border bg-card p-4 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-xs text-muted-foreground">{tCard("reference", { id: selected.id })}</p>
+                  <h2 className="text-lg font-semibold">
+                    {range({ start: selected.startsAt, end: selected.endsAt })} · {selected.serviceName}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {tCard("with", { staff: selected.staffName })} · {selected.locationName}
+                  </p>
+                </div>
+                <Link
+                  href={href({ appt: null })}
+                  scroll={false}
+                  aria-label={t("panel.close")}
+                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </Link>
+              </div>
+              <StatusPill tone={STATUS_TONE[selected.status]}>{tStatus(selected.status)}</StatusPill>
+              <div className="space-y-0.5 border-t pt-3 text-sm">
+                <p className="font-medium">{selected.clientName}</p>
+                <p className="text-muted-foreground">
+                  {selected.clientPhone}
+                  {selected.clientEmail ? ` · ${selected.clientEmail}` : ""}
+                </p>
+                <Link href={`/admin/appointments/list?client=${selected.clientId}`} className={cn(textAction(), "min-h-9")}>
+                  {tCard("allClientAppointments")}
+                </Link>
+              </div>
+              <div className="space-y-2 border-t pt-3">
+                <AppointmentDetail
+                  data={selected}
+                  locale={locale}
+                  zone={zone}
+                  currency={config.currency}
+                  salonName={config.name}
+                  phoneCountryCode={config.phoneCountryCode}
+                  now={nowMs}
+                  actionable={selected.status === "pending_deposit" || selected.startsAt.getTime() > nowMs}
+                  canValidate={can(role, "deposits.manage")}
+                  canCancel={can(role, "appointments.manage")}
+                  canResend={can(role, "appointments.manage")}
+                  canRetryKoibox={can(role, "appointments.manage")}
+                  layout="stack"
+                />
+              </div>
+            </aside>
+          )}
+        </div>
+      )}
     </div>
   );
 }
