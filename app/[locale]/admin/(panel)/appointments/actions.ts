@@ -10,7 +10,12 @@ import { appointment } from "@/db/schema";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
-import { retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox } from "@/lib/koibox-sync";
+import {
+  pushNewWebBooking, retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox,
+} from "@/lib/koibox-sync";
+import {
+  createStaffAppointment, findClientByPhone, type ClientLookup, type StaffBookingResult,
+} from "@/lib/staff-booking";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
@@ -170,4 +175,58 @@ export async function retryAllKoiboxAction(): Promise<KoiboxRetryAllResult> {
     console.error("[appointments] reintentar todo Koibox", error);
     return { ok: false, error: "server" };
   }
+}
+
+// ---- Crear citas desde recepción ----
+
+export type CreateStaffAppointmentResult =
+  | (Extract<StaffBookingResult, { ok: true }> & { koibox: "synced" | "pending" | "none" })
+  | Extract<StaffBookingResult, { ok: false }>
+  // Koibox no la aceptó: la nuestra queda anulada (como en la web) y recepción elige otra hora
+  | { ok: false; reason: "koibox_rejected" | "server" };
+
+// Recepción crea una cita (varios servicios, duración propia, depósito a elegir).
+// `sendEmail`: mandarle la confirmación (solo si queda confirmada; con enlace de pago,
+// el correo sale al validar el depósito, como en la web).
+export async function createStaffAppointmentAction(
+  input: unknown,
+  sendEmail = true,
+): Promise<CreateStaffAppointmentResult> {
+  const locale = await getLocale();
+  const { user } = await requireStaff(locale, "appointments.manage");
+
+  try {
+    const config = await loadSalonConfig();
+    const result = await createStaffAppointment(input, config, { userId: user.id });
+    if (!result.ok) return result;
+
+    // Con Koibox, apuntarla allí antes de dar la cita por buena
+    let koibox: "synced" | "pending" | "none" = "none";
+    if (writesToKoibox(config)) {
+      const pushed = await pushNewWebBooking(result.appointmentId, config);
+      if (!pushed.ok) {
+        refresh(locale);
+        return { ok: false, reason: pushed.reason === "slot_taken" ? "slot_taken" : "koibox_rejected" };
+      }
+      koibox = pushed.synced ? "synced" : "pending";
+    }
+
+    if (sendEmail && result.status === "booked") {
+      const appointmentId = result.appointmentId;
+      after(() => sendAppointmentEmail(appointmentId, "confirmation"));
+    }
+    refresh(locale);
+    return { ...result, koibox };
+  } catch (error) {
+    console.error("[appointments] create from panel", error);
+    return { ok: false, reason: "server" };
+  }
+}
+
+// Al escribir el teléfono en «Nueva cita»: ¿ya es clienta?
+export async function findClientByPhoneAction(phone: string): Promise<ClientLookup> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (typeof phone !== "string") return null;
+  return findClientByPhone(phone);
 }

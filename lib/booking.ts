@@ -1,7 +1,8 @@
-import { and, eq, lte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, appointmentService, client, location, locationService, service, staffService } from "../db/schema";
+import { location, service } from "../db/schema";
+import { insertAppointment, resolveServices, upsertClient } from "./appointment-create";
 import { bookingInputSchema } from "./booking-schema";
 import { getAvailabilityForDay, type AvailabilityOptions } from "./availability-db";
 import { depositDueAt } from "./deposit";
@@ -87,24 +88,22 @@ export async function createAppointment(
     }
   }
 
-  // 3. Comprobación previa: el hueco debe estar entre los disponibles.
-  //    Cubre servicio ofrecido en el local, profesional que lo hace,
-  //    turnos, bloqueos y antelación mínima. Sirve para dar un error claro.
+  // 3. El servicio: existe, el local lo ofrece y la profesional lo hace (con su precio, duración
+  //    y depósito). La web reserva uno por ahora; resolveServices ya admite varios.
+  const resolved = await resolveServices({
+    locationId: input.locationId,
+    staffId: input.staffId,
+    serviceIds: [input.serviceId],
+  });
+  if (!resolved.ok) return { ok: false, reason: "slot_unavailable" };
+
+  // 4. Comprobación previa: el hueco debe estar entre los disponibles (turnos, bloqueos y
+  //    antelación mínima). Sirve para dar un error claro.
   if (opts.availability === "koibox") {
     // Turnos y bloqueos están en Koibox y ya se comprobaron antes de llamar aquí
-    // (confirmBookingSlot). Aquí solo: el local ofrece el servicio, la profesional lo hace
-    // y se respeta la antelación mínima.
+    // (confirmBookingSlot). Aquí solo la antelación mínima.
     const earliest = now.getTime() + opts.minNoticeHours * 3_600_000;
     if (input.startsAt.getTime() < earliest) return { ok: false, reason: "slot_unavailable" };
-    const [offered] = await db
-      .select({ serviceId: locationService.serviceId })
-      .from(locationService)
-      .innerJoin(
-        staffService,
-        and(eq(staffService.serviceId, locationService.serviceId), eq(staffService.staffId, input.staffId)),
-      )
-      .where(and(eq(locationService.locationId, input.locationId), eq(locationService.serviceId, input.serviceId)));
-    if (!offered) return { ok: false, reason: "slot_unavailable" };
   } else {
     const date = DateTime.fromJSDate(input.startsAt, { zone: opts.zone }).toISODate();
     if (!date) return { ok: false, reason: "slot_unavailable" };
@@ -122,68 +121,16 @@ export async function createAppointment(
     }
   }
 
-  // 4. Transacción: cliente y cita se crean juntos o no se crea nada.
+  // 5. Transacción: clienta, cita y servicios se crean juntos o no se crea nada.
   //    La comprobación definitiva la hace la restricción anti-solape de Postgres.
   try {
     const result = await db.transaction(async (tx) => {
-      const [svc] = await tx
-        .select({
-          durationMin: service.durationMin,
-          priceCents: service.priceCents,
-          depositCents: service.depositCents,
-        })
-        .from(service)
-        .where(eq(service.id, input.serviceId));
-      if (!svc) throw new Error(`Servicio ${input.serviceId} no existe`);
+      const { clientId, email } = await upsertClient(tx, input.client, { now, consent: input.consent });
 
-      // Precio propio del local si lo tiene; si no, el del servicio
-      const [override] = await tx
-        .select({ priceCents: locationService.priceCents })
-        .from(locationService)
-        .where(
-          and(
-            eq(locationService.locationId, input.locationId),
-            eq(locationService.serviceId, input.serviceId),
-          ),
-        );
-      const priceAppliedCents = override?.priceCents ?? svc.priceCents;
+      const endsAt = new Date(input.startsAt.getTime() + resolved.durationMin * 60_000);
 
-      // Reutilizar la clienta por teléfono, o crearla
-      const [existing] = await tx
-        .select()
-        .from(client)
-        .where(eq(client.phone, input.client.phone));
-
-      // Email de ESTA reserva: el del formulario; si no lo trae (p. ej. recepción), el que ya tenía
-      let bookingEmail: string | null = input.client.email ?? null;
-      let clientId: number;
-      if (existing) {
-        clientId = existing.id;
-        bookingEmail ??= existing.email;
-        if (input.consent && !existing.consentAt) {
-          await tx.update(client).set({ consentAt: now }).where(eq(client.id, existing.id));
-        }
-        // Si vuelve a reservar con otro email, se queda con el último (es donde quiere el aviso)
-        if (input.client.email && input.client.email !== existing.email) {
-          await tx.update(client).set({ email: input.client.email }).where(eq(client.id, existing.id));
-        }
-      } else {
-        const [created] = await tx
-          .insert(client)
-          .values({
-            name: input.client.name,
-            phone: input.client.phone,
-            email: input.client.email ?? null,
-            consentAt: input.consent ? now : null,
-          })
-          .returning({ id: client.id });
-        clientId = created.id;
-      }
-
-      const endsAt = new Date(input.startsAt.getTime() + svc.durationMin * 60_000);
-
-      // Depósito: solo en reservas hechas por la web. Recepción o WhatsApp lo gestionan a mano.
-      const depositCents = input.source === "web" ? svc.depositCents : null;
+      // Depósito: solo en reservas hechas por la web. Recepción lo elige en su propio flujo.
+      const depositCents = input.source === "web" ? resolved.depositCents : null;
       const deposit =
         depositCents === null
           ? null
@@ -192,43 +139,26 @@ export async function createAppointment(
               dueAt: depositDueAt(now, input.startsAt, opts.depositHoldHours ?? 24),
             };
 
-      // Las pendientes cuyo plazo venció se marcan como caducadas antes de insertar:
-      // si no, la restricción anti-solape de Postgres seguiría viendo su hueco ocupado
-      await tx
-        .update(appointment)
-        .set({ status: "expired" })
-        .where(
-          and(eq(appointment.status, "pending_deposit"), lte(appointment.depositDueAt, now)),
-        );
-
-      const [created] = await tx
-        .insert(appointment)
-        .values({
+      const created = await insertAppointment(
+        tx,
+        {
           clientId,
           clientName: input.client.name,
-          clientEmail: bookingEmail,
-          serviceId: input.serviceId,
+          clientEmail: email,
           staffId: input.staffId,
           locationId: input.locationId,
           startsAt: input.startsAt,
           endsAt,
-          priceAppliedCents,
+          priceAppliedCents: resolved.priceCents,
           source: input.source,
           locale: input.locale ?? null,
           status: deposit ? "pending_deposit" : "booked",
           depositCents: deposit?.cents ?? null,
           depositDueAt: deposit?.dueAt ?? null,
-        })
-        .returning({ id: appointment.id, publicToken: appointment.publicToken });
-
-      // La reserva web lleva un solo servicio: su primera (y única) línea
-      await tx.insert(appointmentService).values({
-        appointmentId: created.id,
-        position: 0,
-        serviceId: input.serviceId,
-        durationMin: svc.durationMin,
-        priceCents: priceAppliedCents,
-      });
+        },
+        resolved.lines,
+        now,
+      );
 
       return { created, deposit };
     });
