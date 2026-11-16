@@ -197,8 +197,8 @@ export function MoveAppointmentForm(p: {
                   onClick={() => setTime(value)}
                   aria-pressed={active}
                   className={cn(
-                    "inline-flex h-10 items-center rounded-lg border border-dashed border-muted-foreground/40 px-3 text-sm tabular-nums outline-none hover:border-foreground/50 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring",
-                    active && "border-solid border-foreground font-semibold",
+                    "inline-flex h-10 items-center rounded-lg border-[1.5px] border-dashed border-success px-3 text-sm text-success tabular-nums outline-none hover:bg-success/10 focus-visible:ring-2 focus-visible:ring-ring",
+                    active && "border-solid bg-success/10 font-semibold",
                   )}
                 >
                   {hm(Date.parse(g.start))}–{hm(Date.parse(g.end))}

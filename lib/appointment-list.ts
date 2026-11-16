@@ -23,6 +23,7 @@ export type AppointmentListRow = {
   serviceName: string;
   // Color de la categoría del servicio principal (la franja de la agenda). null = sin color.
   categoryColor: string | null;
+  categoryName: string | null; // nombre interno de la categoría (leyenda de la agenda)
   locationName: string;
   staffName: string;
   depositCents: number | null;
@@ -117,6 +118,7 @@ export async function listAppointments(
       hasEmail: sql<boolean>`${appointment.clientEmail} is not null`,
       serviceName: service.name,
       categoryColor: serviceCategory.color,
+      categoryName: serviceCategory.name,
       locationName: location.name,
       staffName: staff.name,
       depositCents: appointment.depositCents,
