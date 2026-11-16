@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../db";
-import { appointment, client, location, service, staff, user } from "../db/schema";
+import { appointment, client, location, service, serviceCategory, staff, user } from "../db/schema";
 import { withServiceNames } from "./appointment-services";
 
 export type AppointmentStatus = typeof appointment.$inferSelect.status;
@@ -21,6 +21,9 @@ export type AppointmentListRow = {
   // La clienta tiene email (si no, no se le pueden mandar correos)
   hasEmail: boolean;
   serviceName: string;
+  // Color de la categoría del servicio principal (la franja de la agenda). null = sin color.
+  categoryColor: string | null;
+  categoryName: string | null; // nombre interno de la categoría (leyenda de la agenda)
   locationName: string;
   staffName: string;
   depositCents: number | null;
@@ -114,6 +117,8 @@ export async function listAppointments(
       clientEmail: appointment.clientEmail,
       hasEmail: sql<boolean>`${appointment.clientEmail} is not null`,
       serviceName: service.name,
+      categoryColor: serviceCategory.color,
+      categoryName: serviceCategory.name,
       locationName: location.name,
       staffName: staff.name,
       depositCents: appointment.depositCents,
@@ -134,6 +139,8 @@ export async function listAppointments(
     .from(appointment)
     .innerJoin(client, eq(client.id, appointment.clientId))
     .innerJoin(service, eq(service.id, appointment.serviceId))
+    // Un servicio puede no tener categoría: entonces sin color
+    .leftJoin(serviceCategory, eq(serviceCategory.id, service.categoryId))
     .innerJoin(location, eq(location.id, appointment.locationId))
     .innerJoin(staff, eq(staff.id, appointment.staffId))
     .leftJoin(canceller, eq(canceller.id, appointment.cancelledBy))

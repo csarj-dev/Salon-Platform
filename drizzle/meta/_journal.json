@@ -169,6 +169,13 @@
       "when": 1794848682932,
       "tag": "0023_koibox_previous_account",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794868826749,
+      "tag": "0024_category_color",
+      "breakpoints": true
     }
   ]
 }

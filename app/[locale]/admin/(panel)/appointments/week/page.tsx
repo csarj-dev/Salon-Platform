@@ -195,6 +195,14 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
   const moveAccounts = Object.fromEntries(
     Object.keys(config.koibox.accounts).map((a) => [a, { label: accountLabel(a)! }]),
   );
+  // Categorías con color que salen esta semana (leyenda de la franja)
+  const categories = [
+    ...new Map(
+      appointments.flatMap((a) =>
+        a.categoryName && a.categoryColor ? [[a.categoryName, a.categoryColor] as const] : [],
+      ),
+    ),
+  ];
   const severalLocations = options.locations.length > 1;
 
   // ---- Lo de cada casilla: citas, ocupado en Koibox, huecos libres y resumen ----
@@ -254,7 +262,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
           {c.free.map((f) => (
             <span
               key={`f${f.start.getTime()}`}
-              className="absolute inset-y-0 border border-dashed border-muted-foreground/50 bg-card"
+              className="absolute inset-y-0 border border-dashed border-success bg-card"
               style={seg(f)}
             />
           ))}
@@ -279,7 +287,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
         <span
           className={cn(
             "text-xs font-medium",
-            c.summary.kind === "free" ? "text-foreground" : c.summary.kind === "absent" ? "text-warning" : "text-muted-foreground",
+            c.summary.kind === "free" ? "text-success" : c.summary.kind === "absent" ? "text-warning" : "text-muted-foreground",
           )}
         >
           {c.summary.kind === "off" ? "" : summaryText(c.summary)}
@@ -317,8 +325,14 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
         <Link
           href={href({ appt: String(a.id) })}
           scroll={false}
-          className="flex items-start justify-between gap-3 rounded-lg border bg-background p-3 outline-none hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            "relative flex items-start justify-between gap-3 overflow-hidden rounded-lg border bg-background p-3 outline-none hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring",
+            a.categoryColor && "pl-4",
+          )}
         >
+          {a.categoryColor && (
+            <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: a.categoryColor }} />
+          )}
           <span className="min-w-0">
             <span className="block text-xs text-muted-foreground tabular-nums">{range({ start: a.startsAt, end: a.endsAt })}</span>
             <span className="block truncate text-sm font-medium">{a.clientName}</span>
@@ -353,12 +367,12 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
                 time: range(open),
                 duration: duration((open.end.getTime() - open.start.getTime()) / 60_000),
               })}
-              className="block rounded-lg border border-dashed border-muted-foreground/40 p-3 text-sm outline-none hover:border-foreground/50 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+              className="block rounded-lg border-[1.5px] border-dashed border-success p-3 text-sm text-success outline-none hover:bg-success/10 focus-visible:ring-2 focus-visible:ring-ring"
             >
               {body}
             </Link>
           ) : (
-            <div className="rounded-lg border border-dashed border-muted-foreground/40 p-3 text-sm">{body}</div>
+            <div className="rounded-lg border-[1.5px] border-dashed border-success/60 p-3 text-sm text-success">{body}</div>
           ),
         };
       }),
@@ -591,9 +605,15 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
           {t("legend.pending")}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span aria-hidden className="h-3 w-5 rounded-sm border border-dashed border-muted-foreground/50 bg-card" />
+          <span aria-hidden className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-success bg-card" />
           {t("legend.free")}
         </li>
+        {categories.map(([name, color]) => (
+          <li key={name} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-3 w-1 rounded-full" style={{ backgroundColor: color }} />
+            {name}
+          </li>
+        ))}
         {koiboxShifts && (
           <li className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-3 w-5 rounded-sm bg-foreground/25" />

@@ -93,11 +93,20 @@ export const locationPhoto = pgTable(
 );
 
 // Categorías de la carta: Cejas, Pestañas, Micropigmentación...
-export const serviceCategory = pgTable("service_category", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  name: text("name").notNull(), // nombre interno, de reserva
-  sortOrder: integer("sort_order").notNull().default(0),
-});
+export const serviceCategory = pgTable(
+  "service_category",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    name: text("name").notNull(), // nombre interno, de reserva
+    sortOrder: integer("sort_order").notNull().default(0),
+    // Color de la franja de sus citas en la agenda ("#b0607c"). Vacío = sin franja.
+    // Lo elige cada salón (db/category-color.ts).
+    color: text("color"),
+  },
+  (t) => [
+    check("service_category_color_hex", sql`${t.color} IS NULL OR ${t.color} ~ '^#[0-9a-f]{6}$'`),
+  ],
+);
 
 export const serviceCategoryTranslation = pgTable(
   "service_category_translation",

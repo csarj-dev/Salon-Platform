@@ -1,0 +1,2 @@
+ALTER TABLE "service_category" ADD COLUMN "color" text;--> statement-breakpoint
+ALTER TABLE "service_category" ADD CONSTRAINT "service_category_color_hex" CHECK ("service_category"."color" IS NULL OR "service_category"."color" ~ '^#[0-9a-f]{6}$');

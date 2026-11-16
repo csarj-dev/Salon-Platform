@@ -213,6 +213,12 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
       (e): e is [string, string] => e[1] !== null,
     ),
   );
+  // Categorías con color que salen hoy (leyenda de la franja)
+  const categories = [
+    ...new Map(
+      rows.flatMap((r) => (r.categoryName && r.categoryColor ? [[r.categoryName, r.categoryColor] as const] : [])),
+    ),
+  ];
   // Cuentas de Koibox para el panel «Nueva cita» (el punto y «se guarda en …»)
   const accounts = koibox
     ? Object.fromEntries(
@@ -338,6 +344,18 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
           <span aria-hidden className="size-3 rounded-sm border" style={{ backgroundImage: STRIPES }} />
           {t("legend.timeOff")}
         </li>
+        {canCreate && (
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-success" />
+            {t("legend.free")}
+          </li>
+        )}
+        {categories.map(([name, color]) => (
+          <li key={name} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-3 w-1 rounded-full" style={{ backgroundColor: color }} />
+            {name}
+          </li>
+        ))}
         {koiboxShifts && (
           <li className="inline-flex items-center gap-1.5">
             <span aria-hidden className={cn("size-3 rounded-sm border", BLOCK_STYLE)} />
@@ -479,8 +497,8 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                             aria-current={current ? "true" : undefined}
                             aria-label={t("newAppointment.gapLabel", { time: range(g), duration: duration(minutes) })}
                             className={cn(
-                              "absolute inset-x-1 z-[5] rounded-md border border-dashed border-muted-foreground/40 px-2 py-1 text-left text-xs text-muted-foreground outline-none hover:border-foreground/50 hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                              current && "border-solid border-foreground bg-muted/60 text-foreground",
+                              "absolute inset-x-1 z-[5] rounded-md border-[1.5px] border-dashed border-success px-2 py-1 text-left text-xs font-medium text-success outline-none hover:bg-success/10 focus-visible:ring-2 focus-visible:ring-ring",
+                              current && "bg-success/10 ring-2 ring-success",
                             )}
                             style={b}
                           >
@@ -529,6 +547,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                             BLOCK_TONE[r.status],
                             isSelected && "ring-2 ring-foreground",
                             movable && "group cursor-grab active:cursor-grabbing",
+                            r.categoryColor && "pl-3",
                           )}
                           style={{
                             top,
@@ -537,6 +556,10 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                             width: `calc(${100 / lanes}% - 6px)`,
                           }}
                         >
+                          {/* Franja de la categoría del servicio principal */}
+                          {r.categoryColor && (
+                            <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: r.categoryColor }} />
+                          )}
                           {height < 46 ? (
                             // Cita corta (30 min o menos): hora y clienta en una sola línea
                             <span className="flex min-w-0 items-center gap-1.5 text-xs">
