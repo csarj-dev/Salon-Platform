@@ -74,9 +74,10 @@ async function main() {
   const [cejas, pestanas, micro] = await db
     .insert(serviceCategory)
     .values([
-      { name: "Cejas", sortOrder: 1 },
-      { name: "Pestañas", sortOrder: 2 },
-      { name: "Micropigmentación", sortOrder: 3 },
+      // Colores de EJEMPLO para la franja de la agenda (db/category-color.ts los cambia)
+      { name: "Cejas", sortOrder: 1, color: "#b0607c" },
+      { name: "Pestañas", sortOrder: 2, color: "#5f7fa6" },
+      { name: "Micropigmentación", sortOrder: 3, color: "#7d5a8c" },
     ])
     .returning();
 

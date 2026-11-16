@@ -1,16 +1,18 @@
 import "./test-env"; // tiene que ser el primer import
+import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { db, pgClient } from "../db";
 import {
   appointment, appointmentService, client, location, locationService, schedule, service,
-  serviceTranslation, staff, staffService, timeOff,
+  serviceCategory, serviceTranslation, staff, staffService, timeOff,
 } from "../db/schema";
 import { serviceNamesFor } from "../lib/appointment-services";
 import { listAppointments } from "../lib/appointment-list";
 
 let combined: number; // laminado + diseño (guardados al revés para comprobar el orden)
 let single: number; // sin líneas: solo su servicio principal
+let categoryId: number;
 
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "./drizzle" });
@@ -27,10 +29,12 @@ beforeAll(async () => {
   await db.delete(location);
 
   const [loc] = await db.insert(location).values({ name: "Local" }).returning();
+  const [cejas] = await db.insert(serviceCategory).values({ name: "Cejas (test)", color: "#b0607c" }).returning();
+  categoryId = cejas.id;
   const [lam, dis] = await db
     .insert(service)
     .values([
-      { name: "Laminado de cejas", durationMin: 60, priceCents: 4500 },
+      { name: "Laminado de cejas", durationMin: 60, priceCents: 4500, categoryId: cejas.id },
       { name: "Diseño de cejas", durationMin: 30, priceCents: 2000 },
     ])
     .returning();
@@ -66,6 +70,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Primero se limpia; cerrar la conexión siempre va lo último
+  await db.delete(appointment);
+  await db.delete(service);
+  await db.delete(serviceCategory).where(eq(serviceCategory.id, categoryId));
   await pgClient.end();
 });
 
@@ -93,5 +101,10 @@ describe("listAppointments con varios servicios", () => {
     const byId = new Map(rows.map((r) => [r.id, r.serviceName]));
     expect(byId.get(combined)).toBe("Laminado de cejas + Diseño de cejas");
     expect(byId.get(single)).toBe("Laminado de cejas");
+  });
+
+  it("trae el color de la categoría del servicio principal", async () => {
+    const rows = await listAppointments({ statuses: ["booked"], order: "asc" });
+    expect(rows.find((r) => r.id === combined)?.categoryColor).toBe("#b0607c");
   });
 });
