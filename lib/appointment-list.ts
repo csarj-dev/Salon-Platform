@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lt, or, sql, type SQL } from "drizzle
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../db";
 import { appointment, client, location, service, staff, user } from "../db/schema";
+import { withServiceNames } from "./appointment-services";
 
 export type AppointmentStatus = typeof appointment.$inferSelect.status;
 
@@ -98,7 +99,7 @@ export async function listAppointments(
   if (opts.clientId) conditions.push(eq(appointment.clientId, opts.clientId));
   conditions.push(searchCondition(opts.search));
 
-  return db
+  const rows = await db
     .select({
       id: appointment.id,
       startsAt: appointment.startsAt,
@@ -140,6 +141,9 @@ export async function listAppointments(
     .where(and(...conditions))
     .orderBy(opts.order === "asc" ? asc(appointment.startsAt) : desc(appointment.startsAt))
     .limit(opts.limit ?? 200);
+
+  // Con varios servicios: "Laminado de cejas + Diseño de cejas" (agenda, lista y ficha)
+  return withServiceNames(rows);
 }
 
 // Una fecha dentro de un sql`` escrito a mano: como texto ISO. Este driver no convierte Date
