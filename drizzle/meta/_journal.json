@@ -162,6 +162,13 @@
       "when": 1794828920968,
       "tag": "0022_appointment_services",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794848682932,
+      "tag": "0023_koibox_previous_account",
+      "breakpoints": true
     }
   ]
 }

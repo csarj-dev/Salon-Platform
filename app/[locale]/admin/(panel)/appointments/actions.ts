@@ -19,6 +19,7 @@ import {
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
+import { moveStaffAppointment, type StaffMoveResult } from "@/lib/move-appointment";
 
 export type StaffActionResult =
   | { ok: true }
@@ -229,4 +230,36 @@ export async function findClientByPhoneAction(phone: string): Promise<ClientLook
   await requireStaff(locale, "appointments.manage");
   if (typeof phone !== "string") return null;
   return findClientByPhone(phone);
+}
+
+// ---- Mover una cita desde el panel (arrastrar, estirar o el formulario «Mover cita») ----
+
+export type MoveStaffAppointmentResult = StaffMoveResult | { ok: false; reason: "server" };
+
+// Recepción cambia la hora, la profesional y/o la duración. `notify`: mandarle a la clienta
+// «Tu cita ha cambiado» (la casilla «Avisar a la clienta», marcada por defecto).
+export async function moveStaffAppointmentAction(
+  appointmentId: number,
+  change: unknown,
+  notify = true,
+): Promise<MoveStaffAppointmentResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (!idSchema.safeParse(appointmentId).success) {
+    return { ok: false, reason: "invalid_input", issues: ["appointmentId"] };
+  }
+
+  let result: StaffMoveResult;
+  try {
+    result = await moveStaffAppointment(appointmentId, change, await loadSalonConfig());
+  } catch (error) {
+    console.error("[appointments] move from panel", error);
+    return { ok: false, reason: "server" };
+  }
+  if (!result.ok) return result;
+
+  // Koibox ya está hecho dentro; el correo, después de responder
+  if (notify) after(() => sendAppointmentEmail(appointmentId, "rescheduled"));
+  refresh(locale);
+  return result;
 }

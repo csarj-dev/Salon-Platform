@@ -55,8 +55,11 @@ export type WebChange =
   | { kind: "cancelled_by_client" }
   | { kind: "cancelled_by_staff"; reason?: string | null }
   // Cambio de hora: esta se anula y se crea otra en Koibox (con la misma referencia web,
-  // porque en nuestra base sigue siendo la misma cita)
-  | { kind: "moved"; startsAt: Date; zone: string };
+  // porque en nuestra base sigue siendo la misma cita). `by`: quién la cambió (por defecto, la web).
+  | { kind: "moved"; startsAt: Date; zone: string; by?: MovedBy };
+
+// Quién cambió la cita de hora, para la nota que queda en Koibox
+export type MovedBy = "web" | "panel";
 
 // El PATCH que toca en Koibox, mirando cómo está ahora la cita allí.
 // null = no hay nada que cambiar (p. ej. ya estaba anulada: así repetir no hace daño).
@@ -87,7 +90,7 @@ export function koiboxPatchFor(change: WebChange, current: KoiboxAppointment): K
       return {
         estado: KOIBOX_STATUS.CANCELLED,
         notas: addNote(
-          `Cambiada de hora desde la web al ${DateTime.fromJSDate(change.startsAt, { zone: change.zone }).toFormat("dd/MM HH:mm")}`,
+          `Cambiada de hora desde ${change.by === "panel" ? "el panel" : "la web"} al ${DateTime.fromJSDate(change.startsAt, { zone: change.zone }).toFormat("dd/MM HH:mm")}`,
         ),
       };
   }

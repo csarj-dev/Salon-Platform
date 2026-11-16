@@ -340,6 +340,9 @@ export const appointment = pgTable(
     // Cambio de hora con Koibox: id de la cita de la hora anterior, que falta anular allí.
     // Se vacía en cuanto se anula; si falla, lo recoge el reintento (lib/koibox/pending.ts).
     koiboxPreviousId: integer("koibox_previous_id"),
+    // En qué cuenta estaba esa cita anterior (al cambiar de profesional puede ser otra cuenta).
+    // Vacía en citas antiguas: entonces es la misma que koibox_account.
+    koiboxPreviousAccount: text("koibox_previous_account"),
     // Última vez que se cambió la cita de hora (para el panel)
     rescheduledAt: timestamp("rescheduled_at", { withTimezone: true }),
   },

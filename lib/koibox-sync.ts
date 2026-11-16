@@ -6,7 +6,7 @@ import { DateTime } from "luxon";
 import { db } from "../db";
 import { appointment, appointmentService, client, koiboxServiceMap, service, staff } from "../db/schema";
 import { expireOverdueDeposits } from "./deposit-db";
-import { findWebAppointment, koiboxPatchFor, toKoiboxAppointment, type WebChange } from "./koibox/booking";
+import { findWebAppointment, koiboxPatchFor, type MovedBy, toKoiboxAppointment, type WebChange } from "./koibox/booking";
 import { koiboxCardState } from "./koibox/card-state";
 import { findOrCreateClient, type KoiboxApi } from "./koibox/client";
 import type { KoiboxAppointment } from "./koibox/types";
@@ -93,7 +93,8 @@ export async function pushAppointmentToKoibox(
     lookFirst?: boolean;
     // Cambio de hora: crea en Koibox una copia a esta hora y devuelve su id, SIN guardar nada en
     // nuestra cita (lo guarda moveAppointment cuando todo ha ido bien). No se combina con lookFirst.
-    at?: { startsAt: Date; endsAt: Date };
+    // `staffId`: la copia es para otra profesional (y quizá otra cuenta de Koibox).
+    at?: { startsAt: Date; endsAt: Date; staffId?: number };
   } = {},
 ): Promise<PushResult> {
   const apiFor = opts.apiFor ?? koiboxApiFor(config);
@@ -126,7 +127,11 @@ export async function pushAppointmentToKoibox(
     })
     .from(appointment)
     .innerJoin(service, eq(service.id, appointment.serviceId))
-    .innerJoin(staff, eq(staff.id, appointment.staffId))
+    // La profesional de la cita, o la de la copia si cambia de profesional
+    .innerJoin(
+      staff,
+      opts.at?.staffId !== undefined ? eq(staff.id, opts.at.staffId) : eq(staff.id, appointment.staffId),
+    )
     .innerJoin(client, eq(client.id, appointment.clientId))
     .where(eq(appointment.id, appointmentId));
   if (!row) return { ok: false, outcome: "rejected", taken: false, message: `No existe la cita ${appointmentId}` };
@@ -284,29 +289,39 @@ export async function applyKoiboxChange(
 }
 
 // Cambio de hora: anula en Koibox la cita de la hora anterior (koibox_previous_id) con la nota
-// "Cambiada de hora desde la web al …" y lo vacía. Si falla, queda para el reintento.
+// "Cambiada de hora desde la web/el panel al …" y lo vacía. Si falla, queda para el reintento.
+// Está en koibox_previous_account (al cambiar de profesional puede ser otra cuenta); en citas
+// antiguas esa columna está vacía y es la misma cuenta de la cita.
 export async function cleanupPreviousKoibox(
   appointmentId: number,
   config: SalonConfig,
-  opts: { apiFor?: KoiboxApiFor; now?: Date } = {},
+  opts: { apiFor?: KoiboxApiFor; now?: Date; by?: MovedBy } = {},
 ): Promise<ChangeSyncResult> {
   const apiFor = opts.apiFor ?? koiboxApiFor(config);
   const now = opts.now ?? new Date();
   const [row] = await db
-    .select({ account: appointment.koiboxAccount, previousId: appointment.koiboxPreviousId, startsAt: appointment.startsAt })
+    .select({
+      account: appointment.koiboxAccount,
+      previousAccount: appointment.koiboxPreviousAccount,
+      previousId: appointment.koiboxPreviousId,
+      startsAt: appointment.startsAt,
+    })
     .from(appointment)
     .where(eq(appointment.id, appointmentId));
-  if (!row?.account || row.previousId === null) return { ok: true, applied: false };
+  const account = row?.previousAccount ?? row?.account;
+  if (!row || !account || row.previousId === null) return { ok: true, applied: false };
 
   try {
-    const api = apiFor(row.account);
+    const api = apiFor(account);
     const old = await api.getAppointment(row.previousId);
     // La borraron en Koibox, o ya estaba anulada: no hay nada que hacer allí
-    const patch = old ? koiboxPatchFor({ kind: "moved", startsAt: row.startsAt, zone: config.timezone }, old) : null;
+    const patch = old
+      ? koiboxPatchFor({ kind: "moved", startsAt: row.startsAt, zone: config.timezone, by: opts.by }, old)
+      : null;
     if (patch) await api.updateAppointment(row.previousId, patch);
     await db
       .update(appointment)
-      .set({ koiboxPreviousId: null, koiboxSyncedAt: now, koiboxError: null })
+      .set({ koiboxPreviousId: null, koiboxPreviousAccount: null, koiboxSyncedAt: now, koiboxError: null })
       .where(and(eq(appointment.id, appointmentId), eq(appointment.koiboxPreviousId, row.previousId)));
     return { ok: true, applied: patch !== null };
   } catch (error) {

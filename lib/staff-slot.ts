@@ -18,8 +18,9 @@ export type StaffSlotQuery = {
   endsAt: Date;
   config: SalonConfig;
   now: Date;
-  // Al mover una cita: ella no cuenta (ni en nuestra base ni su hora de antes en Koibox)
-  ignore?: { appointmentId: number; startsAt: Date; endsAt: Date };
+  // Al mover una cita: ella no cuenta en nuestra base. Su hora de antes (startsAt/endsAt) tampoco
+  // en Koibox, pero solo si es la misma profesional: con otra, esa hora es de otra persona.
+  ignore?: { appointmentId: number; startsAt?: Date; endsAt?: Date };
   loadFresh?: SnapshotLoader; // en los tests, el Koibox de mentira
 };
 
@@ -86,6 +87,7 @@ export async function checkStaffSlot(q: StaffSlotQuery): Promise<SlotCheck | nul
     blocks: column.blocks,
     koiboxBusy: column.koiboxBusy,
     appointments: ours,
-    ignore: q.ignore && { start: q.ignore.startsAt, end: q.ignore.endsAt },
+    ignore:
+      q.ignore?.startsAt && q.ignore.endsAt ? { start: q.ignore.startsAt, end: q.ignore.endsAt } : undefined,
   });
 }
