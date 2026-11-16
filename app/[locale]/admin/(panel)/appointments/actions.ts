@@ -19,7 +19,9 @@ import {
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
-import { moveStaffAppointment, type StaffMoveResult } from "@/lib/move-appointment";
+import {
+  moveStaffAppointment, previewStaffMove, type StaffMovePreview, type StaffMoveResult,
+} from "@/lib/move-appointment";
 
 export type StaffActionResult =
   | { ok: true }
@@ -262,4 +264,21 @@ export async function moveStaffAppointmentAction(
   if (notify) after(() => sendAppointmentEmail(appointmentId, "rescheduled"));
   refresh(locale);
   return result;
+}
+
+export type CheckStaffMoveResult = StaffMovePreview | { ok: false; reason: "server" };
+
+// «¿Mover la cita?»: comprueba el cambio sin hacerlo (avisos, choques, cambio de cuenta de Koibox)
+export async function checkStaffMoveAction(appointmentId: number, change: unknown): Promise<CheckStaffMoveResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (!idSchema.safeParse(appointmentId).success) {
+    return { ok: false, reason: "invalid_input", issues: ["appointmentId"] };
+  }
+  try {
+    return await previewStaffMove(appointmentId, change, await loadSalonConfig());
+  } catch (error) {
+    console.error("[appointments] check move from panel", error);
+    return { ok: false, reason: "server" };
+  }
 }

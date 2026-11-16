@@ -161,13 +161,26 @@ export type StaffMoveResult =
   | { ok: false; reason: "clash"; clash: SlotClash }
   | { ok: false; reason: "needs_confirmation"; warnings: SlotWarning[] };
 
-export async function moveStaffAppointment(
+type StaffMoveFailure = Extract<StaffMoveResult, { ok: false }>;
+
+type CheckedMove = {
+  ok: true;
+  appt: LoadedAppointment;
+  target: Relocation;
+  warnings: SlotWarning[];
+  force: boolean;
+};
+
+type StaffMoveOptions = { now?: Date; apiFor?: KoiboxApiFor; loadFresh?: SnapshotLoader };
+
+// Todo lo que se comprueba antes de mover, sin mover nada. Los avisos (fuera de turno…) se
+// devuelven aparte: quien llama decide si seguir.
+async function checkStaffMove(
   appointmentId: number,
   raw: unknown,
   config: SalonConfig,
-  opts: { now?: Date; apiFor?: KoiboxApiFor; loadFresh?: SnapshotLoader } = {},
-): Promise<StaffMoveResult> {
-  const now = opts.now ?? new Date();
+  opts: { now: Date; loadFresh?: SnapshotLoader },
+): Promise<CheckedMove | StaffMoveFailure> {
   const parsed = staffMoveSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -223,7 +236,7 @@ export async function moveStaffAppointment(
       startsAt: input.startsAt,
       endsAt,
       config,
-      now,
+      now: opts.now,
       ignore: sameStaff
         ? { appointmentId: appt.id, startsAt: appt.startsAt, endsAt: appt.endsAt }
         : { appointmentId: appt.id },
@@ -235,16 +248,65 @@ export async function moveStaffAppointment(
   }
   if (!check) return { ok: false, reason: "staff_unavailable" };
   if (check.clash) return { ok: false, reason: "clash", clash: check.clash };
-  if (check.warnings.length > 0 && !input.force) {
-    return { ok: false, reason: "needs_confirmation", warnings: check.warnings };
-  }
 
-  return relocate(
+  return {
+    ok: true,
     appt,
-    { startsAt: input.startsAt, endsAt, staffId: input.staffId },
-    config,
-    { now, apiFor: opts.apiFor ?? koiboxApiFor(config), by: "panel", statuses: ["booked", "pending_deposit"] },
-  );
+    target: { startsAt: input.startsAt, endsAt, staffId: input.staffId },
+    warnings: check.warnings,
+    force: input.force,
+  };
+}
+
+export async function moveStaffAppointment(
+  appointmentId: number,
+  raw: unknown,
+  config: SalonConfig,
+  opts: StaffMoveOptions = {},
+): Promise<StaffMoveResult> {
+  const now = opts.now ?? new Date();
+  const checked = await checkStaffMove(appointmentId, raw, config, { now, loadFresh: opts.loadFresh });
+  if (!checked.ok) return checked;
+  if (checked.warnings.length > 0 && !checked.force) {
+    return { ok: false, reason: "needs_confirmation", warnings: checked.warnings };
+  }
+  return relocate(checked.appt, checked.target, config, {
+    now,
+    apiFor: opts.apiFor ?? koiboxApiFor(config),
+    by: "panel",
+    statuses: ["booked", "pending_deposit"],
+  });
+}
+
+// Lo que ve recepción en «¿Mover la cita?» antes de confirmar: si se puede, qué avisos hay y si
+// cambia de cuenta de Koibox (cuentas de antes y de después). No mueve nada.
+export type StaffMovePreview =
+  | { ok: true; warnings: SlotWarning[]; accountChange: { from: string | null; to: string | null } | null }
+  | StaffMoveFailure;
+
+export async function previewStaffMove(
+  appointmentId: number,
+  raw: unknown,
+  config: SalonConfig,
+  opts: { now?: Date; loadFresh?: SnapshotLoader } = {},
+): Promise<StaffMovePreview> {
+  const checked = await checkStaffMove(appointmentId, raw, config, {
+    now: opts.now ?? new Date(),
+    loadFresh: opts.loadFresh,
+  });
+  if (!checked.ok) return checked;
+
+  let accountChange: { from: string | null; to: string | null } | null = null;
+  if (writesToKoibox(config) && checked.target.staffId !== checked.appt.staffId) {
+    const rows = await db
+      .select({ id: staff.id, account: staff.koiboxAccount })
+      .from(staff)
+      .where(inArray(staff.id, [checked.appt.staffId, checked.target.staffId]));
+    const from = rows.find((r) => r.id === checked.appt.staffId)?.account ?? null;
+    const to = rows.find((r) => r.id === checked.target.staffId)?.account ?? null;
+    if (from !== to) accountChange = { from, to };
+  }
+  return { ok: true, warnings: checked.warnings, accountChange };
 }
 
 // ---------- El cambio en Koibox y en nuestra base ----------

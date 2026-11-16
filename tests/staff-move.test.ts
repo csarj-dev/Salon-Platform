@@ -15,7 +15,7 @@ import { loadKoiboxSnapshot } from "../lib/koibox/snapshot";
 import { KOIBOX_STATUS } from "../lib/koibox/statuses";
 import { refId } from "../lib/koibox/types";
 import { pushNewWebBooking, type KoiboxApiFor } from "../lib/koibox-sync";
-import { moveAppointment, moveStaffAppointment, type StaffMoveInput } from "../lib/move-appointment";
+import { moveAppointment, moveStaffAppointment, previewStaffMove, type StaffMoveInput } from "../lib/move-appointment";
 import { salonConfigSchema } from "../lib/salon-config";
 import { createStaffAppointment } from "../lib/staff-booking";
 
@@ -232,5 +232,39 @@ describe("moveAppointment (la clienta) con la duración de recepción", () => {
     const r = await moveAppointment(id, at("14:00"), config, { actor: "staff", now: NOW, apiFor, loadFresh });
     expect(r).toMatchObject({ ok: true });
     expect(await row(id)).toMatchObject({ startsAt: at("14:00"), endsAt: at("15:20") });
+  });
+});
+
+describe("previewStaffMove (el diálogo antes de confirmar)", () => {
+  const preview = (id: number, change: Partial<StaffMoveInput> & { startsAt: Date }) =>
+    previewStaffMove(id, { staffId: ids.lucia, durationMin: 60, ...change }, config, { now: NOW, loadFresh });
+
+  it("dice los avisos y no mueve nada", async () => {
+    const id = await booked([ids.lam], "10:00", 60);
+    expect(await preview(id, { startsAt: at("19:30") })).toEqual({
+      ok: true,
+      warnings: ["outside_shift"],
+      accountChange: null,
+    });
+    expect(await row(id)).toMatchObject({ startsAt: at("10:00"), endsAt: at("11:00") });
+  });
+
+  it("si cambia de profesional y de cuenta de Koibox, lo dice", async () => {
+    const id = await booked([ids.lam], "10:00", 60);
+    expect(await preview(id, { startsAt: at("12:00"), staffId: ids.amanda })).toEqual({
+      ok: true,
+      warnings: [],
+      accountChange: { from: "salon", to: "amanda" },
+    });
+  });
+
+  it("si se pisa con otra cita, lo dice igual que al mover", async () => {
+    await booked([ids.lam], "10:00", 60);
+    const second = await booked([ids.lam], "12:00", 60, "Inés Ruiz", "633444555");
+    expect(await preview(second, { startsAt: at("10:30") })).toMatchObject({
+      ok: false,
+      reason: "clash",
+      clash: { kind: "appointment", appointment: { clientName: "Carmen Vidal" } },
+    });
   });
 });

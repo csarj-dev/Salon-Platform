@@ -8,6 +8,7 @@ import { KOIBOX_TONE, STATUS_TONE } from "@/components/admin/appointment-marks";
 import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
 import { Dot, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
 import { AgendaDatePicker } from "@/components/admin/agenda-date-picker";
+import { AgendaDrag } from "@/components/admin/agenda-drag";
 import { chooseCollector } from "@/lib/collectors";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
@@ -378,6 +379,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
           {/* ---- Rejilla: una columna por profesional ---- */}
           <div
+            id="agenda-grid"
             role="region"
             aria-label={t("gridLabel", { date: dayTitle })}
             tabIndex={0}
@@ -435,6 +437,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                 return (
                   <div
                     key={c.staffId}
+                    data-agenda-col={c.staffId}
                     className={cn("relative border-l bg-muted", c.staffId !== focusId && "max-md:hidden")}
                     style={{ height: heightPx }}
                   >
@@ -496,12 +499,24 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                     {placeInColumn(mine, view).map(({ item: r, top, height, lane, lanes }) => {
                       const k = koibox ? koiboxCardState(r, now) : null;
                       const isSelected = r.id === selectedRow?.id;
+                      // Se arrastran las que ocupan hueco y aún no han empezado
+                      const movable =
+                        canCreate && (r.status === "booked" || r.status === "pending_deposit") && r.startsAt.getTime() > nowMs;
                       return (
                         <Link
                           key={r.id}
                           href={href({ appt: isSelected ? null : String(r.id), new: null })}
                           scroll={false}
                           aria-current={isSelected ? "true" : undefined}
+                          data-appt={r.id}
+                          data-staff={c.staffId}
+                          data-start={r.startsAt.toISOString()}
+                          data-end={r.endsAt.toISOString()}
+                          data-client={r.clientName}
+                          data-service={r.serviceName}
+                          data-email={r.hasEmail ? "1" : "0"}
+                          data-movable={movable ? "1" : undefined}
+                          draggable={movable ? false : undefined}
                           aria-label={t("block", {
                             time: range(r),
                             client: r.clientName,
@@ -512,6 +527,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                             "absolute z-10 flex flex-col overflow-hidden rounded-md border px-2 py-1 text-left outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring",
                             BLOCK_TONE[r.status],
                             isSelected && "ring-2 ring-foreground",
+                            movable && "group cursor-grab active:cursor-grabbing",
                           )}
                           style={{
                             top,
@@ -541,6 +557,16 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                               {height >= 45 && <span className="truncate text-xs text-muted-foreground">{r.serviceName}</span>}
                             </>
                           )}
+                          {movable && (
+                            <span
+                              data-resize
+                              aria-hidden
+                              title={t("move.handle")}
+                              className="absolute inset-x-0 bottom-0 flex h-2.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
+                            >
+                              <span className="mb-0.5 h-1 w-8 rounded-full bg-foreground/50" />
+                            </span>
+                          )}
                         </Link>
                       );
                     })}
@@ -549,6 +575,19 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
               })}
             </div>
           </div>
+
+          {/* ---- Arrastrar y estirar (solo con ratón; en el móvil, «Mover cita» de la ficha) ---- */}
+          {canCreate && (
+            <AgendaDrag
+              gridId="agenda-grid"
+              windowStart={view.start.toISOString()}
+              windowEnd={view.end.toISOString()}
+              staff={columns.map((c) => ({ id: c.staffId, name: c.staffName, account: c.koiboxAccount }))}
+              accounts={accounts}
+              locale={locale}
+              zone={zone}
+            />
+          )}
 
           {/* ---- «Nueva cita»: en el mismo sitio que la ficha ---- */}
           {newPanel}

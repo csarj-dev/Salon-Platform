@@ -763,6 +763,44 @@
           "koiboxRejected": "Koibox didn't accept the appointment, so it wasn't created. Check that time in Koibox.",
           "server": "The appointment couldn't be created. Try again."
         }
+      },
+      "move": {
+        "title": "Move the appointment?",
+        "titleDuration": "Change the duration?",
+        "handle": "Stretch or shorten",
+        "with": "with {staff}",
+        "checking": "Checking…",
+        "clashWith": "Overlaps {client}",
+        "until": "until {time} · {duration}",
+        "warnings": "Heads up: {warnings}. You can move it anyway.",
+        "warn": {
+          "outside_shift": "it's outside {staff}'s shift",
+          "time_off": "it falls on time off",
+          "block": "it falls on a Koibox block"
+        },
+        "accountChange": "Koibox account changes: it's cancelled in {from} and created in {to}.",
+        "noAccount": "none",
+        "notify": "Let the client know by email",
+        "notifyHint": "She gets \"Your appointment has changed\" with the new time.",
+        "notifyNoEmail": "No email, so she can't be notified.",
+        "keep": "Leave it where it was",
+        "move": "Move appointment",
+        "changeDuration": "Change the duration",
+        "moveAnyway": "Move anyway",
+        "saving": "Saving…",
+        "clash": "It overlaps {client}'s appointment ({time}). It can't go there.",
+        "clashKoibox": "It overlaps an appointment booked in Koibox ({time}). It can't go there.",
+        "serviceNotDone": "{staff} doesn't do: {services}.",
+        "errors": {
+          "invalid": "Check the change: something isn't valid.",
+          "notFound": "That appointment no longer exists.",
+          "notChangeable": "This appointment can no longer be moved.",
+          "noChange": "Nothing was changed.",
+          "staff": "That professional isn't active.",
+          "slotTaken": "Someone just took that slot. The appointment stays where it was.",
+          "koiboxDown": "Koibox isn't responding right now. The appointment stays where it was.",
+          "server": "The appointment couldn't be moved. It stays where it was."
+        }
       }
     },
     "users": {

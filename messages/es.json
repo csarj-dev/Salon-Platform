@@ -763,6 +763,44 @@
           "koiboxRejected": "Koibox no aceptó la cita, así que no se ha creado. Revisa esa hora en Koibox.",
           "server": "No se pudo crear la cita. Prueba otra vez."
         }
+      },
+      "move": {
+        "title": "¿Mover la cita?",
+        "titleDuration": "¿Cambiar la duración?",
+        "handle": "Estirar o acortar",
+        "with": "con {staff}",
+        "checking": "Comprobando…",
+        "clashWith": "Se pisa con {client}",
+        "until": "hasta {time} · {duration}",
+        "warnings": "Ojo: {warnings}. Puedes moverla igualmente.",
+        "warn": {
+          "outside_shift": "queda fuera del turno de {staff}",
+          "time_off": "cae en una ausencia",
+          "block": "cae en un bloqueo de Koibox"
+        },
+        "accountChange": "Cambia de cuenta de Koibox: se anula en {from} y se crea en {to}.",
+        "noAccount": "ninguna",
+        "notify": "Avisar a la clienta por correo",
+        "notifyHint": "Le llega «Tu cita ha cambiado» con la hora nueva.",
+        "notifyNoEmail": "No tiene correo: no se le puede avisar.",
+        "keep": "Dejarla donde estaba",
+        "move": "Mover cita",
+        "changeDuration": "Cambiar la duración",
+        "moveAnyway": "Mover igualmente",
+        "saving": "Guardando…",
+        "clash": "Se pisa con la cita de {client} ({time}). No se puede mover ahí.",
+        "clashKoibox": "Se pisa con una cita apuntada en Koibox ({time}). No se puede mover ahí.",
+        "serviceNotDone": "{staff} no hace: {services}.",
+        "errors": {
+          "invalid": "Revisa el cambio: hay algo que no es válido.",
+          "notFound": "Esa cita ya no existe.",
+          "notChangeable": "Esta cita ya no se puede mover.",
+          "noChange": "No has cambiado nada.",
+          "staff": "Esa profesional no está activa.",
+          "slotTaken": "Alguien acaba de coger ese hueco. La cita sigue donde estaba.",
+          "koiboxDown": "Koibox no responde ahora mismo. La cita sigue donde estaba.",
+          "server": "No se pudo mover la cita. Sigue donde estaba."
+        }
       }
     },
     "users": {
