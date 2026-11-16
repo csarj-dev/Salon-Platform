@@ -217,6 +217,31 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
         Object.keys(config.koibox.accounts).map((a) => [a, { label: accountLabel(a)!, color: accountColor(a) }]),
       )
     : {};
+  // «Nueva cita»: en el sitio de la ficha; también si ese día no trabaja nadie
+  const newPanel =
+    newSlot && catalog ? (
+      <aside
+        aria-label={t("newAppointment.title")}
+        className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
+      >
+        <NewAppointmentPanel
+          key={`${date}|${sp.new}`}
+          catalog={catalog}
+          initial={{ staffId: newStaffId, locationId: newLocationId, date, time: newSlot.time ?? "" }}
+          gap={newGap && { start: newGap.start.toISOString(), end: newGap.end.toISOString() }}
+          accounts={accounts}
+          closeHref={href({ new: null })}
+          today={today}
+          keep={{
+            ...(current.location ? { location: current.location } : {}),
+            ...(current.all ? { all: current.all } : {}),
+          }}
+          locale={locale}
+          zone={zone}
+          currency={config.currency}
+        />
+      </aside>
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -347,7 +372,9 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             </Link>
           )}
         </p>
-      ) : (
+      ) : null}
+      {columns.length === 0 && newPanel}
+      {columns.length > 0 && (
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
           {/* ---- Rejilla: una columna por profesional ---- */}
           <div
@@ -448,8 +475,8 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                             aria-current={current ? "true" : undefined}
                             aria-label={t("newAppointment.gapLabel", { time: range(g), duration: duration(minutes) })}
                             className={cn(
-                              "absolute inset-x-1 z-[5] rounded-md border border-dashed border-success/60 bg-success/10 px-2 py-1 text-left text-xs font-medium text-success outline-none hover:bg-success/20 focus-visible:ring-2 focus-visible:ring-ring",
-                              current && "border-solid bg-success/20 ring-2 ring-success",
+                              "absolute inset-x-1 z-[5] rounded-md border border-dashed border-muted-foreground/40 px-2 py-1 text-left text-xs text-muted-foreground outline-none hover:border-foreground/50 hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                              current && "border-solid border-foreground bg-muted/60 text-foreground",
                             )}
                             style={b}
                           >
@@ -524,24 +551,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
           </div>
 
           {/* ---- «Nueva cita»: en el mismo sitio que la ficha ---- */}
-          {newSlot && catalog && (
-            <aside
-              aria-label={t("newAppointment.title")}
-              className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
-            >
-              <NewAppointmentPanel
-                key={`${date}|${sp.new}`}
-                catalog={catalog}
-                initial={{ staffId: newStaffId, locationId: newLocationId, date, time: newSlot.time ?? "" }}
-                gap={newGap && { start: newGap.start.toISOString(), end: newGap.end.toISOString() }}
-                accounts={accounts}
-                closeHref={href({ new: null })}
-                locale={locale}
-                zone={zone}
-                currency={config.currency}
-              />
-            </aside>
-          )}
+          {newPanel}
 
           {/* ---- Ficha de la cita: la MISMA que se despliega en la Lista ---- */}
           {selected && !newSlot && (

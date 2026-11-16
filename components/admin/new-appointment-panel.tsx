@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition, type FormEvent } from "react";
 import { DateTime } from "luxon";
 import { useTranslations } from "next-intl";
-import { findClientByPhoneAction } from "@/app/[locale]/admin/(panel)/appointments/actions";
-import { Link } from "@/i18n/navigation";
+import {
+  createStaffAppointmentAction,
+  findClientByPhoneAction,
+  type CreateStaffAppointmentResult,
+} from "@/app/[locale]/admin/(panel)/appointments/actions";
+import { Button } from "@/components/ui/button";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   DURATION_MAX_MIN, DURATION_STEP_MIN, SERVICES_MAX, bookableServices, type BookingCatalog,
 } from "@/lib/booking-catalog";
+import { depositForServices } from "@/lib/deposit";
 import { formatPrice, formatTime } from "@/lib/format";
 import type { ClientLookup } from "@/lib/staff-booking";
 import { cn } from "@/lib/utils";
@@ -21,10 +27,16 @@ export type NewAppointmentPanelProps = {
   gap: { start: string; end: string } | null; // el hueco libre pulsado (ISO), para el encabezado
   accounts: Record<string, { label: string; color: string | null }>; // cuentas de Koibox (vacío sin Koibox)
   closeHref: string;
+  today: string; // "2026-11-16", para no poner ?date= si la cita es de hoy
+  keep: Record<string, string>; // filtros de la agenda que se conservan al abrir la cita creada
   locale: string;
   zone: string;
   currency: string;
 };
+
+type DepositChoice = "link" | "paid" | "none";
+type Failure = Extract<CreateStaffAppointmentResult, { ok: false }>;
+type Problem = { kind: "missing"; fields: string[] } | { kind: "result"; result: Failure };
 
 const fieldClass =
   "h-11 w-full rounded-lg border bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
@@ -32,11 +44,33 @@ const labelClass = "block text-sm font-semibold";
 const stepClass =
   "inline-flex size-11 shrink-0 items-center justify-center rounded-lg border bg-card text-lg outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
 
+const DEPOSIT_TEXT = {
+  link: ["deposit.link", "deposit.linkHint"],
+  paid: ["deposit.paid", "deposit.paidHint"],
+  none: ["deposit.none", "deposit.noneHint"],
+} as const;
+
+const ERROR_TEXT = {
+  invalid_input: "errors.invalid",
+  staff_unavailable: "errors.staff",
+  slot_taken: "errors.slotTaken",
+  koibox_unavailable: "errors.koiboxDown",
+  koibox_rejected: "errors.koiboxRejected",
+  server: "errors.server",
+} as const;
+
+const WARNING_TEXT = {
+  outside_shift: "warn.outside_shift",
+  time_off: "warn.time_off",
+  block: "warn.block",
+} as const;
+
 // Panel «Nueva cita» (tablero «Agenda · crear cita»): profesional, día y hora, la clienta por
-// teléfono, los servicios seguidos y la duración. El depósito y «Crear cita» llegan en C2b.
+// teléfono, los servicios seguidos, la duración, el depósito y «Crear cita».
 export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
   const t = useTranslations("Admin.agenda.newAppointment");
   const id = useId();
+  const router = useRouter();
 
   const [staffId, setStaffId] = useState<number | null>(p.initial.staffId ?? p.catalog.staff[0]?.id ?? null);
   const [locationId, setLocationId] = useState<number | null>(p.initial.locationId ?? p.catalog.locations[0]?.id ?? null);
@@ -49,7 +83,13 @@ export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
   const [serviceIds, setServiceIds] = useState<number[]>([]);
   // null = la suma de los servicios; un número = la que puso recepción
   const [customDuration, setCustomDuration] = useState<number | null>(null);
+  const [deposit, setDeposit] = useState<DepositChoice>("link");
+  const [sendEmail, setSendEmail] = useState(true);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  // Recepción ya vio el aviso (fuera de turno…) para esta hora, profesional y duración
+  const [warnedFor, setWarnedFor] = useState<string | null>(null);
   const [searching, startSearch] = useTransition();
+  const [saving, startSaving] = useTransition();
 
   const offered = useMemo(
     () => bookableServices(p.catalog, staffId, locationId),
@@ -61,18 +101,25 @@ export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
   const sum = chosen.reduce((m, s) => m + s.durationMin, 0);
   const durationMin = customDuration ?? sum;
   const price = chosen.reduce((c, s) => c + s.priceCents, 0);
+  // La misma regla que el servidor: uno por categoría, sumando categorías distintas
+  const depositCents = chosen.length > 0 ? depositForServices(chosen) : null;
 
   const member = p.catalog.staff.find((s) => s.id === staffId);
   const account = member?.koiboxAccount ? p.accounts[member.koiboxAccount] : undefined;
 
-  const start = /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}$/.test(time)
-    ? DateTime.fromISO(`${date}T${time}`, { zone: p.zone })
-    : null;
+  const start =
+    /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}$/.test(time)
+      ? DateTime.fromISO(`${date}T${time}`, { zone: p.zone })
+      : null;
   const end = start?.isValid && durationMin > 0 ? start.plus({ minutes: durationMin }) : null;
   const gapStart = p.gap ? new Date(p.gap.start) : null;
   const gapEnd = p.gap ? new Date(p.gap.end) : null;
   const hm = (d: Date) => formatTime(d, p.locale, p.zone);
   const money = (cents: number) => formatPrice(cents, p.locale, p.currency);
+  const hasEmail = email.trim().length > 0;
+
+  const signature = `${staffId}|${locationId}|${date}|${time}|${durationMin}`;
+  const force = warnedFor === signature;
 
   // Buscar a la clienta en cuanto el teléfono parece completo (9 cifras o más)
   useEffect(() => {
@@ -104,13 +151,94 @@ export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
     setCustomDuration(Math.min(DURATION_MAX_MIN, Math.max(DURATION_STEP_MIN, next)));
   };
 
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const missing: string[] = [];
+    if (staffId === null || locationId === null) missing.push(t("fields.staff"));
+    if (phone.replace(/\D/g, "").length < 9) missing.push(t("fields.phone"));
+    if (name.trim().length < 2) missing.push(t("fields.name"));
+    if (chosen.length === 0) missing.push(t("fields.services"));
+    if (!start?.isValid) missing.push(t("fields.start"));
+    if (durationMin < DURATION_STEP_MIN || durationMin % DURATION_STEP_MIN !== 0) missing.push(t("fields.duration"));
+    if (missing.length > 0) {
+      setProblem({ kind: "missing", fields: missing });
+      return;
+    }
+    setProblem(null);
+    startSaving(async () => {
+      const result = await createStaffAppointmentAction(
+        {
+          locationId,
+          staffId,
+          serviceIds: chosen.map((s) => s.id),
+          startsAt: start!.toJSDate().toISOString(),
+          durationMin,
+          source: "phone",
+          client: { name: name.trim(), phone, email: email.trim() },
+          deposit: depositCents === null ? "none" : deposit,
+          force,
+        },
+        sendEmail && hasEmail,
+      );
+      if (!result.ok) {
+        if (result.reason === "needs_confirmation") setWarnedFor(signature);
+        setProblem({ kind: "result", result });
+        return;
+      }
+      // Creada: se abre su ficha en su día (el panel se cierra al no llevar ?new=)
+      const q = new URLSearchParams(p.keep);
+      if (date !== p.today) q.set("date", date);
+      q.set("col", String(staffId));
+      q.set("appt", String(result.appointmentId));
+      router.push(`/admin/appointments?${q}`);
+    });
+  }
+
+  // ---- El aviso: qué falta, o lo que dijo el servidor ----
+  let alert: { tone: "danger" | "warning"; text: string } | null = null;
+  if (problem?.kind === "missing") {
+    alert = { tone: "danger", text: t("missing", { fields: problem.fields.join(", ") }) };
+  } else if (problem?.kind === "result") {
+    const r = problem.result;
+    switch (r.reason) {
+      case "clash":
+        alert = {
+          tone: "danger",
+          text:
+            r.clash.kind === "appointment"
+              ? t("clash", {
+                  client: r.clash.appointment.clientName,
+                  time: `${hm(new Date(r.clash.appointment.startsAt))}–${hm(new Date(r.clash.appointment.endsAt))}`,
+                })
+              : t("clashKoibox", { time: `${hm(new Date(r.clash.startsAt))}–${hm(new Date(r.clash.endsAt))}` }),
+        };
+        break;
+      case "needs_confirmation":
+        alert = {
+          tone: "warning",
+          text: t("needsConfirmation", {
+            warnings: r.warnings.map((w) => t(WARNING_TEXT[w], { staff: member?.name ?? "" })).join(" · "),
+          }),
+        };
+        break;
+      case "service_not_done":
+        alert = { tone: "danger", text: t("serviceNotDone", { staff: member?.name ?? "", services: r.serviceNames.join(", ") }) };
+        break;
+      case "service_not_offered":
+        alert = { tone: "danger", text: t("serviceNotOffered", { services: r.serviceNames.join(", ") }) };
+        break;
+      default:
+        alert = { tone: "danger", text: t(ERROR_TEXT[r.reason]) };
+    }
+  }
+
   return (
-    <div className="space-y-5">
+    <form onSubmit={submit} noValidate className="space-y-5">
       {/* ---- Encabezado ---- */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           {gapStart && gapEnd && (
-            <p className="text-xs font-medium uppercase tracking-wide text-success">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t("gapKicker", {
                 time: `${hm(gapStart)}–${hm(gapEnd)}`,
                 duration: duration((gapEnd.getTime() - gapStart.getTime()) / 60_000),
@@ -119,10 +247,14 @@ export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
           )}
           <h2 className="text-lg font-semibold">{t("title")}</h2>
           {member && start?.isValid && (
-            <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-              {account && <Dot color={account.color} />}
-              <span>{t("with", { staff: member.name, day: start.setLocale(p.locale).toFormat("cccc d LLL") })}</span>
-              {account && <span>· {t("koiboxAccount", { account: account.label })}</span>}
+            <p className="text-sm text-muted-foreground">
+              {t("with", { staff: member.name, day: start.setLocale(p.locale).toFormat("cccc d LLL") })}
+            </p>
+          )}
+          {account && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Dot color={account.color} />
+              {t("koiboxAccount", { account: account.label })}
             </p>
           )}
         </div>
@@ -345,6 +477,85 @@ export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
         )}
         <p className="text-xs text-muted-foreground">{t("step")}</p>
       </div>
-    </div>
+
+      {/* ---- Depósito: uno por categoría ---- */}
+      <fieldset className="space-y-2">
+        <legend className={cn(labelClass, "mb-2")}>
+          {depositCents === null ? t("deposit.title") : t("deposit.titleAmount", { amount: money(depositCents) })}
+        </legend>
+        {depositCents === null ? (
+          <p className="text-sm text-muted-foreground">
+            {chosen.length > 0 ? t("deposit.notNeeded") : t("deposit.pickFirst")}
+          </p>
+        ) : (
+          (["link", "paid", "none"] as const).map((option) => (
+            <label
+              key={option}
+              className={cn(
+                "flex cursor-pointer gap-3 rounded-lg border p-3",
+                deposit === option && "ring-2 ring-foreground",
+              )}
+            >
+              <input
+                type="radio"
+                name={`${id}-deposit`}
+                value={option}
+                checked={deposit === option}
+                onChange={() => setDeposit(option)}
+                className="mt-0.5 size-4 shrink-0 accent-foreground"
+              />
+              <span>
+                <span className="block text-sm font-medium">{t(DEPOSIT_TEXT[option][0])}</span>
+                <span className="block text-xs text-muted-foreground">{t(DEPOSIT_TEXT[option][1])}</span>
+              </span>
+            </label>
+          ))
+        )}
+      </fieldset>
+
+      {/* ---- Correo ---- */}
+      <label className={cn("flex items-start gap-3", hasEmail ? "cursor-pointer" : "opacity-70")}>
+        <input
+          type="checkbox"
+          checked={sendEmail && hasEmail}
+          disabled={!hasEmail}
+          onChange={(e) => setSendEmail(e.target.checked)}
+          className="mt-0.5 size-4 shrink-0 accent-foreground"
+        />
+        <span className="text-sm">
+          <span className="font-medium">{t("sendEmail")}</span>
+          {!hasEmail ? (
+            <span className="block text-xs text-muted-foreground">{t("sendEmailNoEmail")}</span>
+          ) : deposit === "link" && depositCents !== null ? (
+            <span className="block text-xs text-muted-foreground">{t("sendEmailLater")}</span>
+          ) : null}
+        </span>
+      </label>
+
+      {/* ---- Aviso y botones ---- */}
+      {alert && (
+        <p
+          role={alert.tone === "danger" ? "alert" : "status"}
+          className={cn(
+            "rounded-lg border-l-4 px-3 py-2.5 text-sm",
+            alert.tone === "danger" ? "border-danger bg-danger/10" : "border-warning bg-warning/15",
+          )}
+        >
+          {alert.text}
+        </p>
+      )}
+      <div className="flex justify-end gap-2 border-t pt-3">
+        <Link
+          href={p.closeHref}
+          scroll={false}
+          className="inline-flex h-11 items-center rounded-md border bg-card px-4 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {t("cancel")}
+        </Link>
+        <Button type="submit" disabled={saving} className="h-11 px-5">
+          {saving ? t("saving") : force ? t("createAnyway") : t("create")}
+        </Button>
+      </div>
+    </form>
   );
 }

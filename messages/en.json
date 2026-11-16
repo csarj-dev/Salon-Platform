@@ -686,9 +686,9 @@
         "close": "Close without creating",
         "gapKicker": "Free slot · {time} · {duration}",
         "gapLabel": "Free slot {time} ({duration}). Book an appointment here",
-        "gapShort": "Free · {duration}",
+        "gapShort": "+ Free · {duration}",
         "with": "With {staff} · {day}",
-        "koiboxAccount": "saved in Koibox: {account}",
+        "koiboxAccount": "Saved in Koibox: {account}",
         "staff": "Professional",
         "location": "Location",
         "date": "Day",
@@ -716,7 +716,53 @@
         "resetTo": "back to {total}",
         "step": "In 5-minute steps, longer or shorter. The price doesn't change.",
         "stepError": "The duration goes in 5-minute steps.",
-        "beyondGap": "It runs past the free slot, which ends at {end}."
+        "beyondGap": "It runs past the free slot, which ends at {end}.",
+        "deposit": {
+          "title": "Deposit",
+          "titleAmount": "Deposit · {amount}",
+          "notNeeded": "These services don't need a deposit.",
+          "pickFirst": "Choose the services to see whether they need a deposit.",
+          "link": "Send the payment link by WhatsApp",
+          "linkHint": "It stays as \"Deposit pending\" with a deadline; if unpaid, it cancels itself.",
+          "paid": "Already paid",
+          "paidHint": "The appointment is confirmed and validated by you.",
+          "none": "No deposit",
+          "noneHint": "For trusted clients: confirmed without paying anything first."
+        },
+        "sendEmail": "Send the confirmation by email",
+        "sendEmailNoEmail": "No email, so it can't be sent.",
+        "sendEmailLater": "With the payment link, the email goes out when the deposit is validated.",
+        "cancel": "Cancel",
+        "create": "Create appointment",
+        "createAnyway": "Create anyway",
+        "saving": "Creating…",
+        "missing": "Missing: {fields}.",
+        "fields": {
+          "staff": "professional and location",
+          "phone": "phone",
+          "name": "name",
+          "services": "a service",
+          "start": "the time",
+          "duration": "the duration"
+        },
+        "clash": "It overlaps {client}'s appointment ({time}). Pick another time, shorten it or give it to another professional.",
+        "clashKoibox": "It overlaps an appointment booked in Koibox ({time}). Pick another time or shorten it.",
+        "needsConfirmation": "Heads up: {warnings}. If that's intended, you can create it anyway.",
+        "warn": {
+          "outside_shift": "it's outside {staff}'s shift",
+          "time_off": "it falls on time off",
+          "block": "it falls on a Koibox block"
+        },
+        "serviceNotDone": "{staff} doesn't do: {services}.",
+        "serviceNotOffered": "This location doesn't offer: {services}.",
+        "errors": {
+          "invalid": "Check the details: something isn't valid.",
+          "staff": "That professional isn't active.",
+          "slotTaken": "Someone just took that slot. Pick another time.",
+          "koiboxDown": "Koibox isn't responding right now. Try again in a moment.",
+          "koiboxRejected": "Koibox didn't accept the appointment, so it wasn't created. Check that time in Koibox.",
+          "server": "The appointment couldn't be created. Try again."
+        }
       }
     },
     "users": {

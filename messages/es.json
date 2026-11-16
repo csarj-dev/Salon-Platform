@@ -686,9 +686,9 @@
         "close": "Cerrar sin crear la cita",
         "gapKicker": "Hueco libre · {time} · {duration}",
         "gapLabel": "Hueco libre de {time} ({duration}). Crear una cita aquí",
-        "gapShort": "Libre · {duration}",
+        "gapShort": "+ Libre · {duration}",
         "with": "Con {staff} · {day}",
-        "koiboxAccount": "se guarda en Koibox: {account}",
+        "koiboxAccount": "Se guarda en Koibox: {account}",
         "staff": "Profesional",
         "location": "Local",
         "date": "Día",
@@ -716,7 +716,53 @@
         "resetTo": "volver a {total}",
         "step": "De 5 en 5, para alargar o acortar. El precio no cambia.",
         "stepError": "La duración va de 5 en 5 minutos.",
-        "beyondGap": "Se pasa del hueco libre, que acaba a las {end}."
+        "beyondGap": "Se pasa del hueco libre, que acaba a las {end}.",
+        "deposit": {
+          "title": "Depósito",
+          "titleAmount": "Depósito · {amount}",
+          "notNeeded": "Estos servicios no piden depósito.",
+          "pickFirst": "Elige los servicios para saber si piden depósito.",
+          "link": "Mandarle el enlace de pago por WhatsApp",
+          "linkHint": "Queda en «Falta el depósito» con su plazo; si no paga, se anula sola.",
+          "paid": "Ya lo ha pagado",
+          "paidHint": "La cita queda confirmada y validada por ti.",
+          "none": "Sin depósito",
+          "noneHint": "Para clientas de confianza: confirmada sin pagar nada antes."
+        },
+        "sendEmail": "Mandarle la confirmación por correo",
+        "sendEmailNoEmail": "Sin correo no se le puede mandar.",
+        "sendEmailLater": "Con el enlace de pago, el correo sale cuando se valide el depósito.",
+        "cancel": "Cancelar",
+        "create": "Crear cita",
+        "createAnyway": "Crear igualmente",
+        "saving": "Creando…",
+        "missing": "Falta: {fields}.",
+        "fields": {
+          "staff": "profesional y local",
+          "phone": "teléfono",
+          "name": "nombre",
+          "services": "algún servicio",
+          "start": "la hora",
+          "duration": "la duración"
+        },
+        "clash": "Se pisa con la cita de {client} ({time}). Elige otra hora, acórtala o ponla con otra profesional.",
+        "clashKoibox": "Se pisa con una cita apuntada en Koibox ({time}). Elige otra hora o acórtala.",
+        "needsConfirmation": "Ojo: {warnings}. Si es a propósito, puedes crearla igualmente.",
+        "warn": {
+          "outside_shift": "queda fuera del turno de {staff}",
+          "time_off": "cae en una ausencia",
+          "block": "cae en un bloqueo de Koibox"
+        },
+        "serviceNotDone": "{staff} no hace: {services}.",
+        "serviceNotOffered": "Este local no ofrece: {services}.",
+        "errors": {
+          "invalid": "Revisa los datos: hay algo que no es válido.",
+          "staff": "Esa profesional no está activa.",
+          "slotTaken": "Alguien acaba de coger ese hueco. Elige otra hora.",
+          "koiboxDown": "Koibox no responde ahora mismo. Prueba otra vez en un momento.",
+          "koiboxRejected": "Koibox no aceptó la cita, así que no se ha creado. Revisa esa hora en Koibox.",
+          "server": "No se pudo crear la cita. Prueba otra vez."
+        }
       }
     },
     "users": {
