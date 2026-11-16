@@ -430,14 +430,27 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                             width: `calc(${100 / lanes}% - 6px)`,
                           }}
                         >
-                          <span className="flex items-center gap-1.5 text-xs font-medium tabular-nums">
-                            {time(r.startsAt)}
-                            {k && k.kind !== "synced" && (
-                              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", KOIBOX_TONE[k.kind].dot)} />
-                            )}
-                          </span>
-                          <span className="truncate text-sm font-medium">{r.clientName}</span>
-                          {height >= 45 && <span className="truncate text-xs text-muted-foreground">{r.serviceName}</span>}
+                          {height < 40 ? (
+                            // Cita corta (30 min o menos): hora y clienta en una sola línea
+                            <span className="flex min-w-0 items-center gap-1.5 text-xs">
+                              <span className="font-medium tabular-nums">{time(r.startsAt)}</span>
+                              {k && k.kind !== "synced" && (
+                                <span aria-hidden className={cn("size-2 shrink-0 rounded-full", KOIBOX_TONE[k.kind].dot)} />
+                              )}
+                              <span className="truncate font-medium">· {r.clientName}</span>
+                            </span>
+                          ) : (
+                            <>
+                              <span className="flex items-center gap-1.5 text-xs font-medium tabular-nums">
+                                {time(r.startsAt)}
+                                {k && k.kind !== "synced" && (
+                                  <span aria-hidden className={cn("size-2 shrink-0 rounded-full", KOIBOX_TONE[k.kind].dot)} />
+                                )}
+                              </span>
+                              <span className="truncate text-sm font-medium">{r.clientName}</span>
+                              {height >= 45 && <span className="truncate text-xs text-muted-foreground">{r.serviceName}</span>}
+                            </>
+                          )}
                         </Link>
                       );
                     })}
