@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkReport, resolveKoiboxTarget, type ServiceKoiboxLink, type StaffKoiboxLink } from "./routing";
+import { linkReport, resolveKoiboxTarget, resolveKoiboxTargets, type ServiceKoiboxLink, type StaffKoiboxLink } from "./routing";
 
 const accounts = ["salon", "amanda", "luz"];
 
@@ -65,5 +65,28 @@ describe("linkReport", () => {
       { serviceId: 20, serviceName: "Cejas", account: "amanda", staffNames: ["Amanda"] },
       { serviceId: 20, serviceName: "Cejas", account: "salon", staffNames: ["Lucía"] },
     ]);
+  });
+});
+
+describe("resolveKoiboxTargets", () => {
+  // Cejas (servicio 20) solo está enlazado en la cuenta del salón
+  const two: ServiceKoiboxLink[] = [...links, { serviceId: 20, account: "salon", koiboxServiceId: 502 }];
+
+  it("varios servicios: la cuenta de la profesional y el id de cada uno, en orden", () => {
+    expect(resolveKoiboxTargets(lucia, [20, 10], two, accounts)).toEqual({
+      ok: true,
+      target: { account: "salon", koiboxUserId: 11, koiboxServiceIds: [502, 501] },
+    });
+  });
+
+  it("si uno no está enlazado en esa cuenta, no se manda", () => {
+    expect(resolveKoiboxTargets(amanda, [10, 20], two, accounts)).toMatchObject({
+      ok: false,
+      problem: "service_not_linked",
+    });
+  });
+
+  it("sin servicios no se manda", () => {
+    expect(resolveKoiboxTargets(lucia, [], two, accounts)).toMatchObject({ ok: false });
   });
 });

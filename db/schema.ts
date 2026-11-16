@@ -372,6 +372,32 @@ export const appointment = pgTable(
   ],
 );
 
+// Servicios de una cita, en el orden en que se hacen. Una reserva web lleva uno; recepción puede
+// juntar varios (p. ej. laminado y diseño de cejas seguidos). Minutos y precio son los de ese
+// momento: si luego cambia la carta, la cita no cambia. La duración REAL de la cita es la suya
+// (starts_at–ends_at), que recepción puede ajustar; aquí queda lo que dura cada servicio de base.
+// `appointment.service_id` sigue siendo el servicio principal (el de la posición 0).
+export const appointmentService = pgTable(
+  "appointment_service",
+  {
+    appointmentId: integer("appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    position: smallint("position").notNull(),
+    serviceId: integer("service_id").notNull().references(() => service.id),
+    durationMin: integer("duration_min").notNull(),
+    priceCents: integer("price_cents").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.appointmentId, t.position] }),
+    // El mismo servicio no se repite en una cita
+    uniqueIndex("appointment_service_once").on(t.appointmentId, t.serviceId),
+    check("appointment_service_position_valid", sql`${t.position} >= 0`),
+    check("appointment_service_duration_positive", sql`${t.durationMin} > 0`),
+    check("appointment_service_price_valid", sql`${t.priceCents} >= 0`),
+  ],
+);
+
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
 export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);

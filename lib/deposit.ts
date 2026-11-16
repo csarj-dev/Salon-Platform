@@ -30,3 +30,22 @@ export type DepositMode = (typeof DEPOSIT_MODES)[number];
 export function paysThroughWhatsApp(mode: DepositMode, status: string): boolean {
   return mode === "whatsapp" && status === "pending_deposit";
 }
+
+// Depósito de una cita con varios servicios. El salón pide un depósito fijo por categoría:
+// si todos son de la misma (p. ej. cejas) se pide uno; si son de categorías distintas, se suman.
+// Dentro de una categoría se toma el mayor (normalmente todos sus servicios piden lo mismo).
+// Un servicio sin categoría cuenta como una categoría propia. null = no hace falta depósito.
+export function depositForServices(
+  services: { categoryId: number | null; depositCents: number | null }[],
+): number | null {
+  const byGroup = new Map<string, number>();
+  services.forEach((s, i) => {
+    if (s.depositCents === null) return;
+    const key = s.categoryId === null ? `service:${i}` : `category:${s.categoryId}`;
+    byGroup.set(key, Math.max(byGroup.get(key) ?? 0, s.depositCents));
+  });
+  if (byGroup.size === 0) return null;
+  let total = 0;
+  for (const cents of byGroup.values()) total += cents;
+  return total;
+}

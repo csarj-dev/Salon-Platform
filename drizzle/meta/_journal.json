@@ -155,6 +155,13 @@
       "when": 1794564248147,
       "tag": "0021_user_last_login",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794828920968,
+      "tag": "0022_appointment_services",
+      "breakpoints": true
     }
   ]
 }

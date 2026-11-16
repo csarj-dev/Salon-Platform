@@ -1,7 +1,7 @@
 import { and, eq, lte } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, client, location, locationService, service, staffService } from "../db/schema";
+import { appointment, appointmentService, client, location, locationService, service, staffService } from "../db/schema";
 import { bookingInputSchema } from "./booking-schema";
 import { getAvailabilityForDay, type AvailabilityOptions } from "./availability-db";
 import { depositDueAt } from "./deposit";
@@ -220,6 +220,15 @@ export async function createAppointment(
           depositDueAt: deposit?.dueAt ?? null,
         })
         .returning({ id: appointment.id, publicToken: appointment.publicToken });
+
+      // La reserva web lleva un solo servicio: su primera (y única) línea
+      await tx.insert(appointmentService).values({
+        appointmentId: created.id,
+        position: 0,
+        serviceId: input.serviceId,
+        durationMin: svc.durationMin,
+        priceCents: priceAppliedCents,
+      });
 
       return { created, deposit };
     });

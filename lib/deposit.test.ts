@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { depositDueAt, isDepositOverdue, paysThroughWhatsApp  } from "./deposit";
+import { depositDueAt, depositForServices, isDepositOverdue, paysThroughWhatsApp } from "./deposit";
 
 const NOW = new Date("2026-11-02T10:00:00Z");
 
@@ -51,5 +51,37 @@ describe("paysThroughWhatsApp", () => {
     expect(paysThroughWhatsApp("whatsapp", "booked")).toBe(false);
     expect(paysThroughWhatsApp("instructions", "pending_deposit")).toBe(false);
     expect(paysThroughWhatsApp("instructions", "booked")).toBe(false);
+  });
+});
+
+describe("depositForServices", () => {
+  const cejas = (cents: number | null) => ({ categoryId: 1, depositCents: cents });
+  const pestanas = (cents: number | null) => ({ categoryId: 2, depositCents: cents });
+
+  it("un servicio: su depósito", () => {
+    expect(depositForServices([cejas(1500)])).toBe(1500);
+  });
+
+  it("varios de la misma categoría: uno solo", () => {
+    expect(depositForServices([cejas(1500), cejas(1500)])).toBe(1500);
+  });
+
+  it("de categorías distintas: se suman", () => {
+    expect(depositForServices([cejas(1500), pestanas(2000)])).toBe(3500);
+  });
+
+  it("en la misma categoría con importes distintos, el mayor", () => {
+    expect(depositForServices([cejas(1000), cejas(1500)])).toBe(1500);
+  });
+
+  it("los que no piden depósito no cuentan", () => {
+    expect(depositForServices([cejas(1500), pestanas(null)])).toBe(1500);
+    expect(depositForServices([cejas(null), pestanas(null)])).toBeNull();
+    expect(depositForServices([])).toBeNull();
+  });
+
+  it("un servicio sin categoría cuenta aparte", () => {
+    const loose = { categoryId: null, depositCents: 1000 };
+    expect(depositForServices([loose, loose])).toBe(2000);
   });
 });

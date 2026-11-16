@@ -4,7 +4,7 @@
 import { and, asc, eq, gt, inArray, isNotNull, or } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, client, koiboxServiceMap, service, staff } from "../db/schema";
+import { appointment, appointmentService, client, koiboxServiceMap, service, staff } from "../db/schema";
 import { expireOverdueDeposits } from "./deposit-db";
 import { findWebAppointment, koiboxPatchFor, toKoiboxAppointment, type WebChange } from "./koibox/booking";
 import { koiboxCardState } from "./koibox/card-state";
@@ -14,7 +14,7 @@ import { getKoiboxClient } from "./koibox/driver";
 import { KOIBOX_OWN_LIMIT, KoiboxError, RateLimiter } from "./koibox/limits";
 import { hasSeveralCollectors, resolveCollector } from "./collectors";
 import { koiboxWorkFor } from "./koibox/pending";
-import { resolveKoiboxTarget } from "./koibox/routing";
+import { resolveKoiboxTargets } from "./koibox/routing";
 import type { SalonConfig } from "./salon-config";
 
 // ¿Las citas de la web se apuntan en Koibox? Va unido a sacar los huecos de Koibox:
@@ -139,10 +139,21 @@ export async function pushAppointmentToKoibox(
     return { ok: false, outcome: "rejected", taken: false, message: `La cita ${appointmentId} está ${row.status}: no se apunta en Koibox` };
   }
 
-  const links = await db.select().from(koiboxServiceMap).where(eq(koiboxServiceMap.serviceId, row.serviceId));
-  const routed = resolveKoiboxTarget(
+  // Servicios de la cita, en orden. Una cita sin líneas (p. ej. creada a mano en un test) usa su
+  // servicio principal, como hasta ahora.
+  const lines = await db
+    .select({ serviceId: appointmentService.serviceId, name: service.name })
+    .from(appointmentService)
+    .innerJoin(service, eq(service.id, appointmentService.serviceId))
+    .where(eq(appointmentService.appointmentId, appointmentId))
+    .orderBy(asc(appointmentService.position));
+  const services = lines.length > 0 ? lines : [{ serviceId: row.serviceId, name: row.serviceName }];
+  const serviceIds = services.map((s) => s.serviceId);
+
+  const links = await db.select().from(koiboxServiceMap).where(inArray(koiboxServiceMap.serviceId, serviceIds));
+  const routed = resolveKoiboxTargets(
     { staffId: row.staffId, staffName: row.staffName, koiboxAccount: row.staffAccount, koiboxUserId: row.staffUserId },
-    row.serviceId,
+    serviceIds,
     links,
     Object.keys(config.koibox.accounts),
   );
@@ -150,7 +161,7 @@ export async function pushAppointmentToKoibox(
     await recordError(routed.message);
     return { ok: false, outcome: "rejected", taken: false, message: routed.message };
   }
-  const { account, koiboxUserId, koiboxServiceId } = routed.target;
+  const { account, koiboxUserId, koiboxServiceIds } = routed.target;
 
   const linked = async (koiboxAppointmentId: number, reused: boolean): Promise<PushResult> => {
     if (opts.at) return { ok: true, account, koiboxAppointmentId, reused };
@@ -191,13 +202,13 @@ export async function pushAppointmentToKoibox(
     created = await api.createAppointment(
       toKoiboxAppointment({
         ref: row.id,
-        serviceName: row.serviceName,
+        serviceName: services.map((s) => s.name).join(" + "),
         startsAt: startsAt ?? row.startsAt,
         endsAt: endsAt ?? row.endsAt,
         zone: config.timezone,
         koiboxUserId,
         koiboxClientId,
-        koiboxServiceId,
+        koiboxServiceIds,
         clientName: row.clientName,
         clientEmail: row.clientEmail,
         deposit:
