@@ -139,7 +139,11 @@ export function createKoiboxClient(opts: KoiboxClientOptions): KoiboxApi {
         return await once<T>(method, url, body);
       } catch (error) {
         if (!(error instanceof KoiboxError) || attempt >= maxRetries || !shouldRetry(error, method)) throw error;
-        await clock.sleep(retryDelayMs(attempt, error.retryAfter, opts.random));
+        const delay = retryDelayMs(attempt, error.retryAfter, opts.random);
+        if (error.code === "rate_limited") {
+          console.warn(`[koibox] Koibox pide esperar (429): reintento en ${Math.ceil(delay / 1000)} s`);
+        }
+        await clock.sleep(delay);
       }
     }
   }

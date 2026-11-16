@@ -25,7 +25,7 @@ const MIN = 60_000;
 const STEP = DURATION_STEP_MIN;
 const THRESHOLD_PX = 4; // menos que esto es un clic (abre la ficha)
 
-type Block = {
+export type Block = {
   id: number;
   staffId: number;
   start: number;
@@ -44,7 +44,7 @@ type Ghost = {
   // Dónde está la columna en pantalla (la sombra es fija, por encima de todo)
   col: { left: number; top: number; width: number; height: number };
 };
-type Proposal = { block: Block; mode: Mode; to: { staffId: number; start: number; end: number } };
+export type Proposal = { block: Block; mode: Mode; to: { staffId: number; start: number; end: number } };
 
 export type AgendaDragProps = {
   gridId: string;
@@ -293,7 +293,7 @@ const ERROR_TEXT = {
 
 type MoveFailure = Extract<CheckStaffMoveResult | MoveStaffAppointmentResult, { ok: false }>;
 
-function MoveDialog({
+export function MoveDialog({
   proposal,
   staff,
   accounts,

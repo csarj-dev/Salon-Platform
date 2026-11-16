@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AppointmentDetail } from "@/components/admin/appointment-detail";
 import { KOIBOX_TONE, STATUS_TONE } from "@/components/admin/appointment-marks";
+import { MoveAppointmentForm } from "@/components/admin/move-appointment-form";
 import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
 import { Dot, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
 import { AgendaDatePicker } from "@/components/admin/agenda-date-picker";
@@ -647,6 +648,29 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                   layout="stack"
                 />
               </div>
+              {/* «Mover cita»: lo mismo que arrastrar, para el móvil y el teclado */}
+              {canCreate &&
+                (selected.status === "booked" || selected.status === "pending_deposit") &&
+                selected.startsAt.getTime() > nowMs && (
+                  <div className="border-t pt-3">
+                    <MoveAppointmentForm
+                      key={`${selected.id}|${selected.staffId}|${selected.startsAt.getTime()}|${selected.endsAt.getTime()}`}
+                      appointment={{
+                        id: selected.id,
+                        staffId: selected.staffId,
+                        start: selected.startsAt.toISOString(),
+                        end: selected.endsAt.toISOString(),
+                        client: selected.clientName,
+                        service: selected.serviceName,
+                        hasEmail: selected.hasEmail,
+                      }}
+                      staff={options.staff.map((s) => ({ ...s, account: null }))}
+                      accounts={accounts}
+                      locale={locale}
+                      zone={zone}
+                    />
+                  </div>
+                )}
             </aside>
           )}
         </div>

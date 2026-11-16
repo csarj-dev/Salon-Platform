@@ -801,6 +801,26 @@
           "koiboxDown": "Koibox no responde ahora mismo. La cita sigue donde estaba.",
           "server": "No se pudo mover la cita. Sigue donde estaba."
         }
+      },
+      "moveForm": {
+        "open": "Mover cita",
+        "title": "Mover cita",
+        "date": "Día",
+        "staff": "Profesional",
+        "start": "Empieza",
+        "duration": "Duración",
+        "durationMinutes": "Duración en minutos",
+        "less": "5 minutos menos",
+        "more": "5 minutos más",
+        "gapsTitle": "Huecos libres de {staff} ese día",
+        "gapsLoading": "Buscando huecos…",
+        "gapsNone": "No le quedan huecos libres ese día.",
+        "summary": "Nueva: {time} con {staff}",
+        "shorter": "acortada de {from} a {to} min",
+        "longer": "alargada de {from} a {to} min",
+        "stepError": "La duración va de 5 en 5 minutos.",
+        "cancel": "Cancelar",
+        "review": "Revisar el cambio"
       }
     },
     "users": {

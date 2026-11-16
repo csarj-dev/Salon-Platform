@@ -801,6 +801,26 @@
           "koiboxDown": "Koibox isn't responding right now. The appointment stays where it was.",
           "server": "The appointment couldn't be moved. It stays where it was."
         }
+      },
+      "moveForm": {
+        "open": "Move appointment",
+        "title": "Move appointment",
+        "date": "Day",
+        "staff": "Professional",
+        "start": "Starts",
+        "duration": "Duration",
+        "durationMinutes": "Duration in minutes",
+        "less": "5 minutes less",
+        "more": "5 minutes more",
+        "gapsTitle": "{staff}'s free slots that day",
+        "gapsLoading": "Looking for free slots…",
+        "gapsNone": "No free slots left that day.",
+        "summary": "New: {time} with {staff}",
+        "shorter": "shortened from {from} to {to} min",
+        "longer": "lengthened from {from} to {to} min",
+        "stepError": "The duration goes in 5-minute steps.",
+        "cancel": "Cancel",
+        "review": "Review the change"
       }
     },
     "users": {

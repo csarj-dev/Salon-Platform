@@ -9,6 +9,7 @@ import {
 } from "@/components/admin/agenda-ui";
 import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
 import { AgendaDatePicker } from "@/components/admin/agenda-date-picker";
+import { MoveAppointmentForm } from "@/components/admin/move-appointment-form";
 import { Dot, SectionLabel, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
@@ -190,6 +191,10 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
     account ? chooseCollector(config, { koiboxAccount: account }).collector.color : null;
   const accountLabel = (account: string | null) =>
     account ? (config.koibox.accounts[account]?.label ?? account) : null;
+  // Cuentas de Koibox para el diálogo «¿Mover la cita?»
+  const moveAccounts = Object.fromEntries(
+    Object.keys(config.koibox.accounts).map((a) => [a, { label: accountLabel(a)! }]),
+  );
   const severalLocations = options.locations.length > 1;
 
   // ---- Lo de cada casilla: citas, ocupado en Koibox, huecos libres y resumen ----
@@ -427,6 +432,28 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
               canRetryKoibox={can(role, "appointments.manage")}
               layout="stack"
             />
+            {canCreate &&
+              (open.status === "booked" || open.status === "pending_deposit") &&
+              open.startsAt.getTime() > nowMs && (
+                <div className="border-t pt-3">
+                  <MoveAppointmentForm
+                    key={`${open.id}|${open.staffId}|${open.startsAt.getTime()}|${open.endsAt.getTime()}`}
+                    appointment={{
+                      id: open.id,
+                      staffId: open.staffId,
+                      start: open.startsAt.toISOString(),
+                      end: open.endsAt.toISOString(),
+                      client: open.clientName,
+                      service: open.serviceName,
+                      hasEmail: open.hasEmail,
+                    }}
+                    staff={options.staff.map((s) => ({ ...s, account: null }))}
+                    accounts={moveAccounts}
+                    locale={locale}
+                    zone={zone}
+                  />
+                </div>
+              )}
           </div>
         ) : (
           <div className="space-y-2 border-t pt-3">

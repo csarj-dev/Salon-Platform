@@ -7,6 +7,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { appointment } from "@/db/schema";
+import { freeGapsFor } from "@/lib/agenda-gaps";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
@@ -280,5 +281,35 @@ export async function checkStaffMoveAction(appointmentId: number, change: unknow
   } catch (error) {
     console.error("[appointments] check move from panel", error);
     return { ok: false, reason: "server" };
+  }
+}
+
+// «Mover cita»: huecos libres de una profesional ese día, sin contar la cita que se mueve
+export async function freeGapsAction(
+  appointmentId: number,
+  staffId: number,
+  date: string,
+): Promise<{ start: string; end: string }[]> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (
+    !idSchema.safeParse(appointmentId).success ||
+    !idSchema.safeParse(staffId).success ||
+    typeof date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date)
+  ) {
+    return [];
+  }
+  try {
+    const gaps = await freeGapsFor(await loadSalonConfig(), {
+      staffId,
+      date,
+      ignoreAppointmentId: appointmentId,
+      now: new Date(),
+    });
+    return gaps.map((g) => ({ start: g.start.toISOString(), end: g.end.toISOString() }));
+  } catch (error) {
+    console.error("[appointments] free gaps", error);
+    return [];
   }
 }

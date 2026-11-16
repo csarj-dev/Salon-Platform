@@ -106,7 +106,12 @@ export class RateLimiter {
         this.stamps.push(now);
         return;
       }
-      await this.clock.sleep(this.stamps[0] + this.windowMs - now);
+      const wait = this.stamps[0] + this.windowMs - now;
+      // Se ve en la terminal: si el panel tarda, aquí se nota si es por el límite de llamadas
+      if (wait > 1_000) {
+        console.warn(`[koibox] esperando ${Math.ceil(wait / 1000)} s por el límite de ${this.limit} llamadas por minuto`);
+      }
+      await this.clock.sleep(wait);
     }
   }
 }
