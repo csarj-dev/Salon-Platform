@@ -14,15 +14,15 @@ import { appointment, client, staff } from "../db/schema";
 import { insertAppointment, resolveServices, upsertClient } from "./appointment-create";
 import { KoiboxUnavailableError, type SnapshotLoader } from "./availability-koibox";
 import { pgErrorCode } from "./booking";
+import { DURATION_MAX_MIN, DURATION_STEP_MIN, SERVICES_MAX } from "./booking-catalog";
 import { clientDataSchema } from "./booking-schema";
 import { depositDueAt } from "./deposit";
 import type { SalonConfig } from "./salon-config";
 import type { SlotClash, SlotWarning } from "./slot-check";
 import { checkStaffSlot } from "./staff-slot";
 
-export const DURATION_STEP_MIN = 5;
-export const DURATION_MAX_MIN = 480;
-export const SERVICES_MAX = 6;
+// Los límites viven en booking-catalog.ts (sin base de datos), para que el panel los use también
+export { DURATION_MAX_MIN, DURATION_STEP_MIN, SERVICES_MAX };
 
 const STEP_MS = DURATION_STEP_MIN * 60_000;
 

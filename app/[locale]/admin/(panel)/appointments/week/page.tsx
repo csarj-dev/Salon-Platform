@@ -15,7 +15,7 @@ import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
 import { loadAgendaWeek, type AgendaWeekRow } from "@/lib/agenda-db";
 import { loadAgendaKoibox } from "@/lib/agenda-koibox";
-import { daySummary, subtractIntervals, weekOf, type DaySummary } from "@/lib/agenda-layout";
+import { daySummary, openGaps, subtractIntervals, weekOf, type DaySummary } from "@/lib/agenda-layout";
 import { listAppointments, listFilterOptions, type AppointmentListRow } from "@/lib/appointment-list";
 import { chooseCollector } from "@/lib/collectors";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
@@ -150,6 +150,17 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
     if (all) q.set("all", "1");
     const qs = q.toString();
     return `/admin/appointments${qs ? `?${qs}` : ""}`;
+  };
+  // «Nueva cita» se abre en el Día: vacía, o en un hueco libre de una profesional
+  const canCreate = can(role, "appointments.manage");
+  const newHref = (date: string, staffId?: number, at?: Date) => {
+    const q = new URLSearchParams();
+    if (date !== today) q.set("date", date);
+    if (locationId) q.set("location", String(locationId));
+    if (all) q.set("all", "1");
+    q.set("new", staffId && at ? `${staffId}@${DateTime.fromJSDate(at, { zone }).toFormat("HH:mm")}` : "1");
+    if (staffId) q.set("col", String(staffId));
+    return `/admin/appointments?${q}`;
   };
   const toggleHidden = (id: number) => {
     const next = new Set(hidden);
@@ -317,13 +328,35 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
           {t("koiboxBusy")}
         </div>
       ) })),
-      ...c.free.map((f) => ({ key: `f${f.start.getTime()}`, at: f.start.getTime(), node: (
-        <div className="rounded-lg border border-success/60 bg-success/10 p-3 text-sm">
-          <span className="block text-xs tabular-nums">{range(f)}</span>
-          <span className="font-medium">{t("freeSlot")}</span>
-          <span className="text-muted-foreground"> · {duration((f.end.getTime() - f.start.getTime()) / 60_000)}</span>
-        </div>
-      ) })),
+      ...c.free.map((f) => {
+        // Lo que aún no ha pasado se puede pulsar: abre «Nueva cita» en el Día, en ese hueco
+        const open = canCreate ? openGaps([f], now)[0] : undefined;
+        const body = (
+          <>
+            <span className="block text-xs tabular-nums">{range(f)}</span>
+            <span className="font-medium">{t("freeSlot")}</span>
+            <span className="text-muted-foreground"> · {duration((f.end.getTime() - f.start.getTime()) / 60_000)}</span>
+          </>
+        );
+        return {
+          key: `f${f.start.getTime()}`,
+          at: f.start.getTime(),
+          node: open ? (
+            <Link
+              href={newHref(c.date, selectedRow.staffId, open.start)}
+              aria-label={t("newAppointment.gapLabel", {
+                time: range(open),
+                duration: duration((open.end.getTime() - open.start.getTime()) / 60_000),
+              })}
+              className="block rounded-lg border border-success/60 bg-success/10 p-3 text-sm outline-none hover:bg-success/20 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div className="rounded-lg border border-success/60 bg-success/10 p-3 text-sm">{body}</div>
+          ),
+        };
+      }),
       ...[...(c.day?.timeOff ?? []), ...(c.day?.blocks ?? [])].map((x) => ({ key: `x${x.start.getTime()}`, at: x.start.getTime(), node: (
         <div className="rounded-lg p-3 text-sm text-muted-foreground" style={{ backgroundImage: ABSENCE_STRIPES }}>
           <span className="block text-xs tabular-nums">{range(x)}</span>
@@ -461,6 +494,11 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
             }}
           />
         </h2>
+        {canCreate && (
+          <Link href={newHref(hasCell ? cellDate! : thisWeek ? today : week.from)} className={cn(navBase, "px-3.5 text-sm")}>
+            {t("newAppointment.open")}
+          </Link>
+        )}
         <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
           <SegmentLinks
             label={t("viewLabel")}

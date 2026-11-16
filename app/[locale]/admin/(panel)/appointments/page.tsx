@@ -13,13 +13,16 @@ import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
 import { loadAgendaColumns } from "@/lib/agenda-db";
-import { agendaWindow, placeInColumn, weekOf } from "@/lib/agenda-layout";
+import { agendaWindow, daySummary, openGaps, parseNewSlot, placeInColumn, subtractIntervals, weekOf } from "@/lib/agenda-layout";
+import { loadBookingCatalog } from "@/lib/booking-catalog-db";
+import { localToInstant } from "@/lib/timezone";
+import { NewAppointmentPanel } from "@/components/admin/new-appointment-panel";
 import { listAppointments, listFilterOptions } from "@/lib/appointment-list";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
 import { koiboxCardState } from "@/lib/koibox/card-state";
 import { writesToKoibox } from "@/lib/koibox-sync";
-import { AGENDA_STATUSES, BLOCK_STYLE, BLOCK_TONE, STRIPES, isDay, navBase, positiveId } from "@/components/admin/agenda-ui";
+import { AGENDA_STATUSES, BLOCK_STYLE, BLOCK_TONE, STRIPES, duration, isDay, navBase, positiveId } from "@/components/admin/agenda-ui";
 import { loadAgendaKoibox } from "@/lib/agenda-koibox";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -32,6 +35,7 @@ type SearchParams = {
   all?: string; // "1" = todas las profesionales, también las que no trabajan ese día
   appt?: string; // la cita abierta en la ficha
   col?: string; // en el móvil, la profesional que se ve (una columna cada vez)
+  new?: string; // «Nueva cita»: "1" desde el botón, o "<profesional>@<hora>" desde un hueco libre
 };
 
 type Props = {
@@ -129,6 +133,29 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
       : null,
   };
 
+  // ---- «Nueva cita»: desde un hueco libre ("<profesional>@<hora>") o desde el botón ("1") ----
+  const canCreate = can(role, "appointments.manage");
+  const newSlot = canCreate ? parseNewSlot(sp.new) : null;
+  const hhmm = (d: Date) => DateTime.fromJSDate(d, { zone }).toFormat("HH:mm");
+  // Huecos libres de una columna (15 min o más), solo lo que aún no ha pasado
+  const gapsOf = (c: (typeof columns)[number]) => {
+    const ours = rows.filter((r) => r.staffId === c.staffId).map((r) => ({ start: r.startsAt, end: r.endsAt }));
+    // Citas que solo están en Koibox (creadas allí): también ocupan
+    const koiboxOnly = subtractIntervals(c.koiboxBusy, ours);
+    return openGaps(daySummary(c, [...ours, ...koiboxOnly]).free, now);
+  };
+  const catalog = newSlot ? await loadBookingCatalog() : null;
+  const newStaffId = newSlot?.staffId ?? focusId ?? null;
+  const newColumn = columns.find((c) => c.staffId === newStaffId);
+  const newGap =
+    newSlot?.time && newColumn ? (gapsOf(newColumn).find((g) => hhmm(g.start) === newSlot.time) ?? null) : null;
+  const newAt = newSlot?.time ? localToInstant(date, newSlot.time, zone) : null;
+  // El local: el del filtro; si no, el del turno a esa hora; si solo hay uno, ese
+  const newLocationId =
+    locationId ??
+    newColumn?.shifts.find((s) => newAt !== null && s.start <= newAt && newAt < s.end)?.locationId ??
+    (catalog?.locations.length === 1 ? catalog.locations[0].id : null);
+
   // ---- Medidas: 1 minuto = 1 px desde el inicio de la ventana ----
   const view = agendaWindow(
     [...columns.flatMap((c) => c.shifts), ...rows.map((r) => ({ start: r.startsAt, end: r.endsAt }))],
@@ -149,6 +176,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     all: all ? "1" : null,
     col: focusId && sp.col ? String(focusId) : null,
     appt: selectedRow ? String(selectedRow.id) : null,
+    new: newSlot ? (sp.new ?? null) : null,
   };
   const href = (changes: Partial<typeof current>) => {
     const q = new URLSearchParams();
@@ -158,7 +186,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
   };
   const dayHref = (d: DateTime) => {
     const iso = d.toISODate()!;
-    return href({ date: iso === today ? null : iso, appt: null });
+    return href({ date: iso === today ? null : iso, appt: null, new: null });
   };
   const weekHref = (() => {
     const q = new URLSearchParams();
@@ -183,6 +211,12 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
       (e): e is [string, string] => e[1] !== null,
     ),
   );
+  // Cuentas de Koibox para el panel «Nueva cita» (el punto y «se guarda en …»)
+  const accounts = koibox
+    ? Object.fromEntries(
+        Object.keys(config.koibox.accounts).map((a) => [a, { label: accountLabel(a)!, color: accountColor(a) }]),
+      )
+    : {};
 
   return (
     <div className="space-y-4">
@@ -221,6 +255,11 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             }}
           />
         </h2>
+        {canCreate && (
+          <Link href={href({ new: "1", appt: null })} scroll={false} className={cn(navBase, "px-3.5 text-sm")}>
+            {t("newAppointment.open")}
+          </Link>
+        )}
         <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
           <SegmentLinks
             label={t("viewLabel")}
@@ -394,6 +433,30 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                         {t("koiboxBlock")}
                       </div>
                     ))}
+                    {/* Huecos libres: se pulsan para crear una cita ahí */}
+                    {canCreate &&
+                      gapsOf(c).map((g) => {
+                        const b = box(g);
+                        const minutes = (g.end.getTime() - g.start.getTime()) / MIN;
+                        const slot = `${c.staffId}@${hhmm(g.start)}`;
+                        const current = sp.new === slot;
+                        return (
+                          <Link
+                            key={`g${g.start.getTime()}`}
+                            href={href({ new: current ? null : slot, appt: null, col: String(c.staffId) })}
+                            scroll={false}
+                            aria-current={current ? "true" : undefined}
+                            aria-label={t("newAppointment.gapLabel", { time: range(g), duration: duration(minutes) })}
+                            className={cn(
+                              "absolute inset-x-1 z-[5] rounded-md border border-dashed border-success/60 bg-success/10 px-2 py-1 text-left text-xs font-medium text-success outline-none hover:bg-success/20 focus-visible:ring-2 focus-visible:ring-ring",
+                              current && "border-solid bg-success/20 ring-2 ring-success",
+                            )}
+                            style={b}
+                          >
+                            {b.height >= 22 && t("newAppointment.gapShort", { duration: duration(minutes) })}
+                          </Link>
+                        );
+                      })}
                     <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: HOUR_LINES }} />
                     {nowTop !== null && (
                       <div
@@ -409,7 +472,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                       return (
                         <Link
                           key={r.id}
-                          href={href({ appt: isSelected ? null : String(r.id) })}
+                          href={href({ appt: isSelected ? null : String(r.id), new: null })}
                           scroll={false}
                           aria-current={isSelected ? "true" : undefined}
                           aria-label={t("block", {
@@ -460,8 +523,28 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             </div>
           </div>
 
+          {/* ---- «Nueva cita»: en el mismo sitio que la ficha ---- */}
+          {newSlot && catalog && (
+            <aside
+              aria-label={t("newAppointment.title")}
+              className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
+            >
+              <NewAppointmentPanel
+                key={`${date}|${sp.new}`}
+                catalog={catalog}
+                initial={{ staffId: newStaffId, locationId: newLocationId, date, time: newSlot.time ?? "" }}
+                gap={newGap && { start: newGap.start.toISOString(), end: newGap.end.toISOString() }}
+                accounts={accounts}
+                closeHref={href({ new: null })}
+                locale={locale}
+                zone={zone}
+                currency={config.currency}
+              />
+            </aside>
+          )}
+
           {/* ---- Ficha de la cita: la MISMA que se despliega en la Lista ---- */}
-          {selected && (
+          {selected && !newSlot && (
             <aside
               aria-label={t("panel.label")}
               className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
