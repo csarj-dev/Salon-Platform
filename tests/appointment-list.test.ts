@@ -144,6 +144,12 @@ describe("filtrar citas", () => {
     const [row] = await listAppointments({ statuses: ALL, order: "asc", clientId: lucia.id, limit: 1 });
     expect(row).toMatchObject({ clientId: lucia.id, clientName: "Lucía Pérez", clientEmail: null, hasEmail: false });
   });
+
+  it("trae el id de la profesional y del local (para la agenda)", async () => {
+    const [row] = await listAppointments({ statuses: ALL, order: "asc", search: `#${ids.hoy10}` });
+    expect(row.staffId).toBe(staffA);
+    expect(row.locationId).toBe(loc1);
+  });
 });
 
 describe("resumen de Citas", () => {

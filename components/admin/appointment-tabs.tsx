@@ -22,7 +22,7 @@ export function AppointmentTabs({ tabs, label }: Props) {
       const value = params.get(key);
       if (value) next.set(key, value);
     }
-    return `/admin/appointments?${next.toString()}`;
+    return `/admin/appointments/list?${next.toString()}`;
   };
 
   return (
