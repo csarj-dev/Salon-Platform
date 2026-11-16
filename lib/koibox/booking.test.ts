@@ -14,7 +14,7 @@ const booking: WebBooking = {
   zone: ZONE,
   koiboxUserId: 101,
   koiboxClientId: 7,
-  koiboxServiceId: 111,
+  koiboxServiceIds: [111],
   clientName: "Laura Gómez",
   clientEmail: "laura@example.com",
   deposit: null,
@@ -52,6 +52,16 @@ describe("toKoiboxAppointment", () => {
   it("usa la hora de Canarias también en horario de verano", () => {
     const summer = { ...booking, startsAt: new Date("2026-07-01T09:00:00Z"), endsAt: new Date("2026-07-01T10:00:00Z") };
     expect(toKoiboxAppointment(summer)).toMatchObject({ fecha: "2026-07-01", hora_inicio: "10:00:00", hora_fin: "11:00:00" });
+  });
+
+
+  it("con varios servicios los manda todos, en orden, y el título los une", () => {
+    const r = toKoiboxAppointment({
+      ...booking,
+      serviceName: "Laminado de cejas + Diseño de cejas",
+      koiboxServiceIds: [111, 112],
+    });
+    expect(r).toMatchObject({ titulo: "Laminado de cejas + Diseño de cejas", servicios: [111, 112] });
   });
 
   it("con depósito: etiqueta de pago pendiente y una línea con importe y plazo", () => {

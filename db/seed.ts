@@ -4,7 +4,7 @@ import { slugify } from "../lib/slug";
 import {
   location, locationHours, locationService, service, serviceCategory,
   serviceCategoryTranslation, serviceTranslation, staff, staffService,
-  client, appointment, schedule, timeOff, photo, staffTranslation
+  client, appointment, appointmentService, schedule, timeOff, photo, staffTranslation
 } from "./schema";
 
 type Shift = [string, string];
@@ -162,16 +162,26 @@ async function main() {
     .returning();
 
   // Lunes 2 de noviembre de 2026 (Canarias, UTC+0): Ana en Centro
-  await db.insert(appointment).values({
-    clientId: clienta.id,
-    clientName: "Clienta de prueba",
+  const [cita] = await db
+    .insert(appointment)
+    .values({
+      clientId: clienta.id,
+      clientName: "Clienta de prueba",
+      serviceId: lam.id,
+      staffId: ana.id,
+      locationId: centro.id,
+      startsAt: new Date("2026-11-02T11:00:00Z"),
+      endsAt: new Date("2026-11-02T12:00:00Z"),
+      priceAppliedCents: lam.priceCents,
+      source: "web",
+    })
+    .returning({ id: appointment.id });
+  await db.insert(appointmentService).values({
+    appointmentId: cita.id,
+    position: 0,
     serviceId: lam.id,
-    staffId: ana.id,
-    locationId: centro.id,
-    startsAt: new Date("2026-11-02T11:00:00Z"),
-    endsAt: new Date("2026-11-02T12:00:00Z"),
-    priceAppliedCents: lam.priceCents,
-    source: "web",
+    durationMin: lam.durationMin,
+    priceCents: lam.priceCents,
   });
 
   // Lucía no trabaja el martes 3 de noviembre

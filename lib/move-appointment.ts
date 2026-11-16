@@ -1,20 +1,27 @@
-// Cambiar una cita de día u hora (misma profesional, servicio y local). La usa la clienta desde
-// su enlace (y más adelante el panel). Con Koibox, el orden importa para no dejarla sin cita:
-//   1. comprobar la hora nueva (sin contar la propia cita);
-//   2. crear la cita nueva en Koibox; si Koibox dice que no, no se toca nada.
-//      Si la hora nueva pisa la de ahora, Koibox no deja crearla mientras la vieja ocupa a la misma
-//      profesional: entonces se anula antes la vieja y, si la nueva no entra, se recupera;
-//   3. guardar la hora nueva en nuestra base (con el id nuevo, y el viejo en koibox_previous_id);
-//   4. anular la vieja en Koibox (si no se anuló ya en el paso 2); si falla, lo recoge el reintento.
-import { and, eq } from "drizzle-orm";
+// Cambiar una cita de hora, de profesional o de duración.
+// - La clienta, desde su enlace: solo la hora (misma profesional y duración), con el plazo de
+//   cambios y los huecos de la web (moveAppointment).
+// - Recepción, desde el panel: hora, profesional y duración (moveStaffAppointment). Si se pisa con
+//   otra cita no se mueve; fuera de turno, en una ausencia o un bloqueo, solo si lo confirma.
+// Las dos terminan en relocate, que hace el cambio en Koibox y en nuestra base. Con Koibox, el
+// orden importa para no dejarla sin cita:
+//   1. crear la cita nueva en Koibox (en la cuenta de la profesional nueva); si Koibox dice que no,
+//      no se toca nada. Si la hora nueva pisa la de ahora con la misma profesional, Koibox no deja
+//      crearla mientras la vieja ocupa: entonces se anula antes la vieja y, si la nueva no entra,
+//      se recupera;
+//   2. guardar el cambio en nuestra base (con el id nuevo, y el viejo en koibox_previous_id/_account);
+//   3. anular la vieja en Koibox (si no se anuló ya en el paso 1); si falla, lo recoge el reintento.
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { DateTime } from "luxon";
+import { z } from "zod";
 import { db } from "../db";
-import { appointment, emailLog, service, staff } from "../db/schema";
+import { appointment, appointmentService, emailLog, staff } from "../db/schema";
 import type { Actor } from "./appointment-changes";
+import { resolveServices } from "./appointment-create";
 import { getAvailabilityForDay } from "./availability-db";
 import { confirmKoiboxSlot, KoiboxUnavailableError, type SnapshotLoader } from "./availability-koibox";
 import { pgErrorCode } from "./booking";
-import { koiboxPatchFor, webRefLine } from "./koibox/booking";
+import { koiboxPatchFor, webRefLine, type MovedBy } from "./koibox/booking";
 import type { KoiboxApi } from "./koibox/client";
 import { freshKoiboxSnapshot } from "./koibox/snapshot-cache";
 import { freesSlot, KOIBOX_STATUS } from "./koibox/statuses";
@@ -23,10 +30,15 @@ import {
   cleanupPreviousKoibox, koiboxApiFor, pushAppointmentToKoibox, writesToKoibox, type KoiboxApiFor,
 } from "./koibox-sync";
 import { toAvailabilityOptions, type SalonConfig } from "./salon-config";
+import type { SlotClash, SlotWarning } from "./slot-check";
+import { DURATION_MAX_MIN, DURATION_STEP_MIN } from "./staff-booking";
+import { checkStaffSlot } from "./staff-slot";
+
+type AppointmentStatus = typeof appointment.$inferSelect.status;
+type KoiboxOutcome = "synced" | "pending" | "none"; // "pending" = falta algo y lo hará el reintento
 
 export type MoveResult =
-  // koibox: "synced" = todo hecho allí; "pending" = falta algo y lo hará el reintento; "none" = sin Koibox
-  | { ok: true; koibox: "synced" | "pending" | "none" }
+  | { ok: true; koibox: KoiboxOutcome }
   | {
       ok: false;
       reason: "not_found" | "not_changeable" | "too_late" | "slot_unavailable" | "slot_taken" | "koibox_unavailable";
@@ -41,16 +53,9 @@ export type MoveOptions = {
 
 const MAX_ERROR = 500; // lo que admite la columna koibox_error
 
-export async function moveAppointment(
-  appointmentId: number,
-  newStartsAt: Date,
-  config: SalonConfig,
-  opts: MoveOptions = {},
-): Promise<MoveResult> {
-  const now = opts.now ?? new Date();
-  const actor = opts.actor ?? "client";
-  const avail = toAvailabilityOptions(config);
+// ---------- Lo que se lee de la cita ----------
 
+async function loadAppointment(appointmentId: number) {
   const [appt] = await db
     .select({
       id: appointment.id,
@@ -63,13 +68,27 @@ export async function moveAppointment(
       koiboxAccount: appointment.koiboxAccount,
       koiboxAppointmentId: appointment.koiboxAppointmentId,
       koiboxPreviousId: appointment.koiboxPreviousId,
-      koiboxUserId: staff.koiboxUserId,
-      durationMin: service.durationMin,
     })
     .from(appointment)
-    .innerJoin(service, eq(service.id, appointment.serviceId))
-    .innerJoin(staff, eq(staff.id, appointment.staffId))
     .where(eq(appointment.id, appointmentId));
+  return appt ?? null;
+}
+
+type LoadedAppointment = NonNullable<Awaited<ReturnType<typeof loadAppointment>>>;
+
+// ---------- La clienta, desde su enlace ----------
+
+export async function moveAppointment(
+  appointmentId: number,
+  newStartsAt: Date,
+  config: SalonConfig,
+  opts: MoveOptions = {},
+): Promise<MoveResult> {
+  const now = opts.now ?? new Date();
+  const actor = opts.actor ?? "client";
+  const avail = toAvailabilityOptions(config);
+
+  const appt = await loadAppointment(appointmentId);
   if (!appt) return { ok: false, reason: "not_found" };
   if (appt.status !== "booked") return { ok: false, reason: "not_changeable" };
 
@@ -82,12 +101,12 @@ export async function moveAppointment(
   if (newStartsAt.getTime() === appt.startsAt.getTime() || newStartsAt.getTime() > latest.toMillis()) {
     return { ok: false, reason: "slot_unavailable" };
   }
-  const newEndsAt = new Date(newStartsAt.getTime() + appt.durationMin * 60_000);
-  const koibox = writesToKoibox(config);
+  // La duración de la cita, no la del servicio: recepción puede haberla cambiado
+  const newEndsAt = new Date(newStartsAt.getTime() + (appt.endsAt.getTime() - appt.startsAt.getTime()));
 
-  // 1. ¿Está libre la hora nueva? Sin contar la propia cita.
+  // ¿Está libre la hora nueva? Sin contar la propia cita.
   try {
-    if (koibox) {
+    if (writesToKoibox(config)) {
       const free = await confirmKoiboxSlot(
         appt.locationId, appt.serviceId, appt.staffId, newStartsAt, avail, now, config.koibox,
         opts.loadFresh ?? freshKoiboxSnapshot,
@@ -104,35 +123,238 @@ export async function moveAppointment(
     throw error;
   }
 
-  const apiFor = opts.apiFor ?? koiboxApiFor(config);
+  return relocate(
+    appt,
+    { startsAt: newStartsAt, endsAt: newEndsAt, staffId: appt.staffId },
+    config,
+    { now, apiFor: opts.apiFor ?? koiboxApiFor(config), by: "web", statuses: ["booked"] },
+  );
+}
+
+// ---------- Recepción, desde el panel ----------
+
+const STEP_MS = DURATION_STEP_MIN * 60_000;
+
+export const staffMoveSchema = z.object({
+  startsAt: z.coerce.date().refine((d) => d.getTime() % STEP_MS === 0, "La hora va de 5 en 5 minutos"),
+  staffId: z.number().int().positive(),
+  durationMin: z
+    .number()
+    .int()
+    .min(DURATION_STEP_MIN)
+    .max(DURATION_MAX_MIN)
+    .refine((m) => m % DURATION_STEP_MIN === 0, "La duración va de 5 en 5 minutos"),
+  // Seguir aunque caiga fuera de turno, en una ausencia o un bloqueo (recepción ya vio el aviso)
+  force: z.boolean().default(false),
+});
+
+export type StaffMoveInput = z.input<typeof staffMoveSchema>;
+
+export type StaffMoveResult =
+  | { ok: true; koibox: KoiboxOutcome }
+  | { ok: false; reason: "invalid_input"; issues: string[] }
+  | {
+      ok: false;
+      reason: "not_found" | "not_changeable" | "no_change" | "staff_unavailable" | "slot_taken" | "koibox_unavailable";
+    }
+  | { ok: false; reason: "service_not_done"; serviceNames: string[] }
+  | { ok: false; reason: "clash"; clash: SlotClash }
+  | { ok: false; reason: "needs_confirmation"; warnings: SlotWarning[] };
+
+type StaffMoveFailure = Extract<StaffMoveResult, { ok: false }>;
+
+type CheckedMove = {
+  ok: true;
+  appt: LoadedAppointment;
+  target: Relocation;
+  warnings: SlotWarning[];
+  force: boolean;
+};
+
+type StaffMoveOptions = { now?: Date; apiFor?: KoiboxApiFor; loadFresh?: SnapshotLoader };
+
+// Todo lo que se comprueba antes de mover, sin mover nada. Los avisos (fuera de turno…) se
+// devuelven aparte: quien llama decide si seguir.
+async function checkStaffMove(
+  appointmentId: number,
+  raw: unknown,
+  config: SalonConfig,
+  opts: { now: Date; loadFresh?: SnapshotLoader },
+): Promise<CheckedMove | StaffMoveFailure> {
+  const parsed = staffMoveSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "invalid_input",
+      issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+    };
+  }
+  const input = parsed.data;
+
+  const appt = await loadAppointment(appointmentId);
+  if (!appt) return { ok: false, reason: "not_found" };
+  // Recepción puede mover también las que esperan el depósito (su plazo no cambia)
+  if (appt.status !== "booked" && appt.status !== "pending_deposit") return { ok: false, reason: "not_changeable" };
+
+  const endsAt = new Date(input.startsAt.getTime() + input.durationMin * 60_000);
+  const sameStaff = input.staffId === appt.staffId;
+  if (
+    sameStaff &&
+    input.startsAt.getTime() === appt.startsAt.getTime() &&
+    endsAt.getTime() === appt.endsAt.getTime()
+  ) {
+    return { ok: false, reason: "no_change" };
+  }
+
+  // Otra profesional: tiene que estar activa y hacer todos los servicios de la cita
+  if (!sameStaff) {
+    const [member] = await db.select({ active: staff.active }).from(staff).where(eq(staff.id, input.staffId));
+    if (!member?.active) return { ok: false, reason: "staff_unavailable" };
+
+    const lines = await db
+      .select({ serviceId: appointmentService.serviceId })
+      .from(appointmentService)
+      .where(eq(appointmentService.appointmentId, appt.id))
+      .orderBy(asc(appointmentService.position));
+    const resolved = await resolveServices({
+      locationId: appt.locationId,
+      staffId: input.staffId,
+      serviceIds: lines.length > 0 ? lines.map((l) => l.serviceId) : [appt.serviceId],
+    });
+    if (!resolved.ok) {
+      if (resolved.reason === "unknown_service") return { ok: false, reason: "not_changeable" };
+      return { ok: false, reason: "service_not_done", serviceNames: resolved.serviceNames };
+    }
+  }
+
+  // ¿Cabe? Sin contar la propia cita
+  let check;
+  try {
+    check = await checkStaffSlot({
+      staffId: input.staffId,
+      locationId: appt.locationId,
+      startsAt: input.startsAt,
+      endsAt,
+      config,
+      now: opts.now,
+      ignore: sameStaff
+        ? { appointmentId: appt.id, startsAt: appt.startsAt, endsAt: appt.endsAt }
+        : { appointmentId: appt.id },
+      loadFresh: opts.loadFresh,
+    });
+  } catch (error) {
+    if (error instanceof KoiboxUnavailableError) return { ok: false, reason: "koibox_unavailable" };
+    throw error;
+  }
+  if (!check) return { ok: false, reason: "staff_unavailable" };
+  if (check.clash) return { ok: false, reason: "clash", clash: check.clash };
+
+  return {
+    ok: true,
+    appt,
+    target: { startsAt: input.startsAt, endsAt, staffId: input.staffId },
+    warnings: check.warnings,
+    force: input.force,
+  };
+}
+
+export async function moveStaffAppointment(
+  appointmentId: number,
+  raw: unknown,
+  config: SalonConfig,
+  opts: StaffMoveOptions = {},
+): Promise<StaffMoveResult> {
+  const now = opts.now ?? new Date();
+  const checked = await checkStaffMove(appointmentId, raw, config, { now, loadFresh: opts.loadFresh });
+  if (!checked.ok) return checked;
+  if (checked.warnings.length > 0 && !checked.force) {
+    return { ok: false, reason: "needs_confirmation", warnings: checked.warnings };
+  }
+  return relocate(checked.appt, checked.target, config, {
+    now,
+    apiFor: opts.apiFor ?? koiboxApiFor(config),
+    by: "panel",
+    statuses: ["booked", "pending_deposit"],
+  });
+}
+
+// Lo que ve recepción en «¿Mover la cita?» antes de confirmar: si se puede, qué avisos hay y si
+// cambia de cuenta de Koibox (cuentas de antes y de después). No mueve nada.
+export type StaffMovePreview =
+  | { ok: true; warnings: SlotWarning[]; accountChange: { from: string | null; to: string | null } | null }
+  | StaffMoveFailure;
+
+export async function previewStaffMove(
+  appointmentId: number,
+  raw: unknown,
+  config: SalonConfig,
+  opts: { now?: Date; loadFresh?: SnapshotLoader } = {},
+): Promise<StaffMovePreview> {
+  const checked = await checkStaffMove(appointmentId, raw, config, {
+    now: opts.now ?? new Date(),
+    loadFresh: opts.loadFresh,
+  });
+  if (!checked.ok) return checked;
+
+  let accountChange: { from: string | null; to: string | null } | null = null;
+  if (writesToKoibox(config) && checked.target.staffId !== checked.appt.staffId) {
+    const rows = await db
+      .select({ id: staff.id, account: staff.koiboxAccount })
+      .from(staff)
+      .where(inArray(staff.id, [checked.appt.staffId, checked.target.staffId]));
+    const from = rows.find((r) => r.id === checked.appt.staffId)?.account ?? null;
+    const to = rows.find((r) => r.id === checked.target.staffId)?.account ?? null;
+    if (from !== to) accountChange = { from, to };
+  }
+  return { ok: true, warnings: checked.warnings, accountChange };
+}
+
+// ---------- El cambio en Koibox y en nuestra base ----------
+
+type Relocation = { startsAt: Date; endsAt: Date; staffId: number };
+
+type RelocateResult =
+  | { ok: true; koibox: KoiboxOutcome }
+  | { ok: false; reason: "not_changeable" | "slot_taken" | "koibox_unavailable" };
+
+async function relocate(
+  appt: LoadedAppointment,
+  to: Relocation,
+  config: SalonConfig,
+  opts: { now: Date; apiFor: KoiboxApiFor; by: MovedBy; statuses: AppointmentStatus[] },
+): Promise<RelocateResult> {
+  const koibox = writesToKoibox(config);
   const inKoibox = koibox && appt.koiboxAccount !== null && appt.koiboxAppointmentId !== null;
+  const sameStaff = to.staffId === appt.staffId;
 
   // Un cambio anterior a medias: antes de nada, anular la cita que sobraba (si no, se perdería)
   if (inKoibox && appt.koiboxPreviousId !== null) {
-    const cleaned = await cleanupPreviousKoibox(appt.id, config, { apiFor, now });
+    const cleaned = await cleanupPreviousKoibox(appt.id, config, { apiFor: opts.apiFor, now: opts.now, by: opts.by });
     if (!cleaned.ok) return { ok: false, reason: "koibox_unavailable" };
   }
 
-  // 2. Con Koibox: la cita nueva allí, antes de tocar nuestra base
+  // 1. Con Koibox: la cita nueva allí, antes de tocar nuestra base
   let newKoiboxId: number | null = null;
+  let newAccount: string | null = null;
+  let newApi: KoiboxApi | null = null;
   // ¿Se anuló ya la vieja en este paso? (solo cuando la hora nueva pisa la de ahora)
   let freedOld = false;
   let oldNotes: string | null | undefined;
   const oldId = appt.koiboxAppointmentId;
-  const api: KoiboxApi | null = inKoibox ? apiFor(appt.koiboxAccount!) : null;
+  const oldApi: KoiboxApi | null = inKoibox ? opts.apiFor(appt.koiboxAccount!) : null;
 
-  if (inKoibox && api && oldId !== null) {
+  if (inKoibox && oldApi && oldId !== null) {
     const overlapsOld =
-      newStartsAt.getTime() < appt.endsAt.getTime() && newEndsAt.getTime() > appt.startsAt.getTime();
+      sameStaff && to.startsAt.getTime() < appt.endsAt.getTime() && to.endsAt.getTime() > appt.startsAt.getTime();
     if (overlapsOld) {
       // Koibox no deja dos citas solapadas de la misma profesional: se libera antes la vieja
       try {
-        const current = await api.getAppointment(oldId);
+        const current = await oldApi.getAppointment(oldId);
         oldNotes = current?.notas;
         const patch = current
-          ? koiboxPatchFor({ kind: "moved", startsAt: newStartsAt, zone: config.timezone }, current)
+          ? koiboxPatchFor({ kind: "moved", startsAt: to.startsAt, zone: config.timezone, by: opts.by }, current)
           : null;
-        if (patch) await api.updateAppointment(oldId, patch);
+        if (patch) await oldApi.updateAppointment(oldId, patch);
         freedOld = true;
       } catch (error) {
         console.error(`[koibox] cita ${appt.id}: no se pudo liberar la hora de antes`, error);
@@ -141,58 +363,67 @@ export async function moveAppointment(
     }
 
     const created = await pushAppointmentToKoibox(appt.id, config, {
-      apiFor,
-      now,
-      at: { startsAt: newStartsAt, endsAt: newEndsAt },
+      apiFor: opts.apiFor,
+      now: opts.now,
+      at: to,
     });
     if (created.ok) {
       newKoiboxId = created.koiboxAppointmentId;
+      newAccount = created.account;
     } else if (created.outcome === "unknown") {
       // Se cortó: ¿llegó a crearse? Se busca por la referencia web y la hora nueva
-      newKoiboxId = await findMovedCopy(appt, newStartsAt, config, api);
+      const found = await findMovedCopy(appt.id, oldId, to, config, opts.apiFor);
+      if (found) {
+        newKoiboxId = found.id;
+        newAccount = found.account;
+      }
     }
 
-    if (newKoiboxId === null) {
-      // La nueva no entró: si se liberó la vieja, se recupera. La clienta conserva su cita.
-      if (freedOld) await restoreOld(appt.id, api, oldId, oldNotes);
+    if (newKoiboxId === null || newAccount === null) {
+      // La nueva no entró: si se liberó la vieja, se recupera. La cita sigue como estaba.
+      if (freedOld) await restoreOld(appt.id, oldApi, oldId, oldNotes);
       if (!created.ok && created.outcome === "rejected") {
-        console.error(`[koibox] cita ${appt.id}: Koibox no aceptó la hora nueva (${created.message})`);
+        console.error(`[koibox] cita ${appt.id}: Koibox no aceptó el cambio (${created.message})`);
         return { ok: false, reason: created.taken ? "slot_taken" : "koibox_unavailable" };
       }
-      console.error(`[koibox] cita ${appt.id}: no se sabe si se creó la hora nueva`);
+      console.error(`[koibox] cita ${appt.id}: no se sabe si se creó la cita nueva`);
       return { ok: false, reason: "koibox_unavailable" };
     }
+    newApi = opts.apiFor(newAccount);
   }
 
-  // 3. Guardar la hora nueva en nuestra base
+  // 2. Guardar el cambio en nuestra base
   // Si no se puede guardar: se anula la copia y, si hizo falta liberar la vieja, se recupera
   const undoCopy = async () => {
-    if (!api || newKoiboxId === null) return;
+    if (!newApi || newKoiboxId === null) return;
     try {
-      await api.updateAppointment(newKoiboxId, { estado: KOIBOX_STATUS.CANCELLED });
+      await newApi.updateAppointment(newKoiboxId, { estado: KOIBOX_STATUS.CANCELLED });
     } catch (error) {
       console.error(`[koibox] cita ${appt.id}: no se pudo anular la copia ${newKoiboxId} en Koibox`, error);
     }
-    if (freedOld && oldId !== null) await restoreOld(appt.id, api, oldId, oldNotes);
+    if (freedOld && oldApi && oldId !== null) await restoreOld(appt.id, oldApi, oldId, oldNotes);
   };
   try {
     const updated = await db
       .update(appointment)
       .set({
-        startsAt: newStartsAt,
-        endsAt: newEndsAt,
-        rescheduledAt: now,
+        startsAt: to.startsAt,
+        endsAt: to.endsAt,
+        staffId: to.staffId,
+        rescheduledAt: opts.now,
         ...(newKoiboxId !== null
           ? {
+              koiboxAccount: newAccount,
               koiboxAppointmentId: newKoiboxId,
               // Si ya se anuló la vieja (porque pisaba la nueva), no queda nada por limpiar
-              koiboxPreviousId: freedOld ? null : appt.koiboxAppointmentId,
-              koiboxSyncedAt: now,
+              koiboxPreviousId: freedOld ? null : oldId,
+              koiboxPreviousAccount: freedOld ? null : appt.koiboxAccount,
+              koiboxSyncedAt: opts.now,
               koiboxError: null,
             }
           : {}),
       })
-      .where(and(eq(appointment.id, appt.id), eq(appointment.status, "booked")))
+      .where(and(eq(appointment.id, appt.id), inArray(appointment.status, opts.statuses)))
       .returning({ id: appointment.id });
     if (updated.length === 0) {
       await undoCopy();
@@ -200,28 +431,30 @@ export async function moveAppointment(
     }
   } catch (error) {
     await undoCopy();
-    // 23P01: otra reserva se quedó ese hueco en nuestra base un instante antes
+    // 23P01: otra cita se quedó ese hueco en nuestra base un instante antes
     if (pgErrorCode(error) === "23P01") return { ok: false, reason: "slot_taken" };
     throw error;
   }
 
   // Si ya salió el recordatorio de la hora vieja, que pueda salir el de la nueva
-  // (la base solo admite un recordatorio por cita)
-  await db.delete(emailLog).where(and(eq(emailLog.appointmentId, appt.id), eq(emailLog.kind, "reminder")));
+  // (la base solo admite un recordatorio por cita). Solo si cambió la hora de empezar.
+  if (to.startsAt.getTime() !== appt.startsAt.getTime()) {
+    await db.delete(emailLog).where(and(eq(emailLog.appointmentId, appt.id), eq(emailLog.kind, "reminder")));
+  }
 
-  // 4. Anular la vieja en Koibox, si no se hizo ya (si falla, queda en koibox_previous_id para el reintento)
+  // 3. Anular la vieja en Koibox, si no se hizo ya (si falla, queda en koibox_previous_id para el reintento)
   if (newKoiboxId !== null) {
     if (freedOld) return { ok: true, koibox: "synced" };
-    const cleaned = await cleanupPreviousKoibox(appt.id, config, { apiFor, now });
+    const cleaned = await cleanupPreviousKoibox(appt.id, config, { apiFor: opts.apiFor, now: opts.now, by: opts.by });
     return { ok: true, koibox: cleaned.ok ? "synced" : "pending" };
   }
-  // Con Koibox pero sin apuntar todavía: el reintento la apuntará ya con la hora nueva
+  // Con Koibox pero sin apuntar todavía: el reintento la apuntará ya con el cambio
   return { ok: true, koibox: koibox ? "pending" : "none" };
 }
 
 // Si la cita nueva no entró en Koibox, se vuelve a poner la vieja como estaba (Pendiente y sus notas).
 // Si ni eso se puede, la cita queda sin enlace y con el error: el reintento la apuntará otra vez
-// a su hora (que en nuestra base no ha cambiado). Nunca se queda sin cita.
+// como esté en nuestra base (que no ha cambiado). Nunca se queda sin cita.
 async function restoreOld(appointmentId: number, api: KoiboxApi, oldId: number, notes: string | null | undefined) {
   try {
     await api.updateAppointment(oldId, {
@@ -241,27 +474,33 @@ async function restoreOld(appointmentId: number, api: KoiboxApi, oldId: number, 
   }
 }
 
-// Tras un corte al crear la copia: la busca en Koibox (misma referencia web, hora nueva)
+// Tras un corte al crear la copia: la busca en Koibox, en la cuenta de la profesional nueva
+// (misma referencia web, hora nueva)
 async function findMovedCopy(
-  appt: { id: number; koiboxAppointmentId: number | null; koiboxUserId: number | null },
-  newStartsAt: Date,
+  appointmentId: number,
+  oldKoiboxId: number,
+  to: Relocation,
   config: SalonConfig,
-  api: KoiboxApi,
-): Promise<number | null> {
-  if (appt.koiboxUserId === null) return null;
-  const local = DateTime.fromJSDate(newStartsAt, { zone: config.timezone });
+  apiFor: KoiboxApiFor,
+): Promise<{ id: number; account: string } | null> {
+  const [member] = await db
+    .select({ account: staff.koiboxAccount, userId: staff.koiboxUserId })
+    .from(staff)
+    .where(eq(staff.id, to.staffId));
+  if (!member?.account || member.userId === null) return null;
+  const local = DateTime.fromJSDate(to.startsAt, { zone: config.timezone });
   const day = local.toFormat("yyyy-MM-dd");
   const time = local.toFormat("HH:mm");
   try {
-    const list = await api.listAppointments({ from: day, to: day, userIds: [appt.koiboxUserId] });
+    const list = await apiFor(member.account).listAppointments({ from: day, to: day, userIds: [member.userId] });
     const copy = list.find(
       (a) =>
-        a.id !== appt.koiboxAppointmentId &&
+        a.id !== oldKoiboxId &&
         !freesSlot(refId(a.estado)) &&
         a.hora_inicio.slice(0, 5) === time &&
-        (a.notas ?? "").split("\n")[0].trim() === webRefLine(appt.id),
+        (a.notas ?? "").split("\n")[0].trim() === webRefLine(appointmentId),
     );
-    return copy?.id ?? null;
+    return copy ? { id: copy.id, account: member.account } : null;
   } catch {
     return null;
   }

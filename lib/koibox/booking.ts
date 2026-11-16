@@ -8,13 +8,13 @@ import { refId, type KoiboxAppointment, type KoiboxAppointmentInput, type Koibox
 // Una cita de nuestra base, ya con sus ids de Koibox resueltos
 export type WebBooking = {
   ref: number; // nuestro id de cita
-  serviceName: string;
+  serviceName: string; // con varios servicios, unidos: "Laminado de cejas + Diseño de cejas"
   startsAt: Date;
   endsAt: Date;
   zone: string; // zona horaria del salón: Koibox guarda fecha y hora locales
   koiboxUserId: number;
   koiboxClientId: number;
-  koiboxServiceId: number;
+  koiboxServiceIds: number[]; // en el orden en que se hacen
   clientName: string;
   clientEmail: string | null;
   // Depósito pendiente de pago, si lo lleva. `collector`: a quién se paga (solo si cobra más de una)
@@ -40,7 +40,7 @@ export function toKoiboxAppointment(b: WebBooking): KoiboxAppointmentInput {
     hora_fin: end.toFormat("HH:mm:ss"),
     user: b.koiboxUserId,
     cliente: b.koiboxClientId,
-    servicios: [b.koiboxServiceId],
+    servicios: b.koiboxServiceIds,
     // "Pendiente" es el estado normal de una cita que aún no ha llegado
     estado: KOIBOX_STATUS.PENDING,
     notas: buildAppointmentNotes({ ref: b.ref, clientName: b.clientName, clientEmail: b.clientEmail, lines }),
@@ -55,8 +55,11 @@ export type WebChange =
   | { kind: "cancelled_by_client" }
   | { kind: "cancelled_by_staff"; reason?: string | null }
   // Cambio de hora: esta se anula y se crea otra en Koibox (con la misma referencia web,
-  // porque en nuestra base sigue siendo la misma cita)
-  | { kind: "moved"; startsAt: Date; zone: string };
+  // porque en nuestra base sigue siendo la misma cita). `by`: quién la cambió (por defecto, la web).
+  | { kind: "moved"; startsAt: Date; zone: string; by?: MovedBy };
+
+// Quién cambió la cita de hora, para la nota que queda en Koibox
+export type MovedBy = "web" | "panel";
 
 // El PATCH que toca en Koibox, mirando cómo está ahora la cita allí.
 // null = no hay nada que cambiar (p. ej. ya estaba anulada: así repetir no hace daño).
@@ -87,7 +90,7 @@ export function koiboxPatchFor(change: WebChange, current: KoiboxAppointment): K
       return {
         estado: KOIBOX_STATUS.CANCELLED,
         notas: addNote(
-          `Cambiada de hora desde la web al ${DateTime.fromJSDate(change.startsAt, { zone: change.zone }).toFormat("dd/MM HH:mm")}`,
+          `Cambiada de hora desde ${change.by === "panel" ? "el panel" : "la web"} al ${DateTime.fromJSDate(change.startsAt, { zone: change.zone }).toFormat("dd/MM HH:mm")}`,
         ),
       };
   }

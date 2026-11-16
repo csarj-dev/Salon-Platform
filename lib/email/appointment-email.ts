@@ -18,6 +18,7 @@ import {
   type Messages,
 } from "./build";
 import { sendEmail } from "./driver";
+import { joinServiceNames, serviceNamesFor } from "../appointment-services";
 
 async function loadMessages(locale: string): Promise<Messages> {
   return (await import(`../../messages/${locale}.json`)).default as Messages;
@@ -65,6 +66,9 @@ export async function loadEmailData(
       ),
     );
 
+  // Con varios servicios, todos (en el idioma del correo); si no, el principal, como antes
+  const names = (await serviceNamesFor([row.id], { locale, defaultLocale: config.defaultLocale })).get(row.id);
+
   return {
     appointmentId: row.id,
     publicToken: row.publicToken,
@@ -73,7 +77,9 @@ export async function loadEmailData(
     locale,
     clientName: row.clientName,
     clientEmail: row.clientEmail,
-    serviceName: pickTranslation(translations, locale, config.defaultLocale, row.serviceName).name,
+    serviceName: names
+      ? joinServiceNames(names)
+      : pickTranslation(translations, locale, config.defaultLocale, row.serviceName).name,
     locationName: row.locationName,
     locationAddress: row.locationAddress,
     mapsUrl: row.mapsUrl,

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { db, pgClient } from "../db";
 import {
-  appointment, client, location, locationService, schedule,
+  appointment, appointmentService, client, location, locationService, schedule,
   service, staff, staffService, timeOff,
 } from "../db/schema";
 import { createAppointment, type BookingOptions } from "../lib/booking";
@@ -205,5 +205,26 @@ describe("createAppointment", () => {
 
     const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
     expect(row.clientEmail).toBe("laura@example.com");
+  });
+
+
+  it("guarda el servicio reservado como primera línea de la cita", async () => {
+    const r = await createAppointment(input(at("10:00")), opts, NOW);
+    if (!r.ok) throw new Error("La reserva debía funcionar");
+
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    const lines = await db
+      .select()
+      .from(appointmentService)
+      .where(eq(appointmentService.appointmentId, r.appointmentId));
+    expect(lines).toEqual([
+      {
+        appointmentId: r.appointmentId,
+        position: 0,
+        serviceId: ids.serviceId,
+        durationMin: 60,
+        priceCents: row.priceAppliedCents,
+      },
+    ]);
   });
 });

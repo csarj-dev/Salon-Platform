@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gt, gte, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import { appointment, client, location, service, staff } from "../db/schema";
+import { withServiceNames } from "./appointment-services";
 
 // Marca como caducadas las citas pendientes cuyo plazo venció. Devuelve cuántas.
 // Libera el hueco para siempre; la cita se conserva (con los datos de contacto)
@@ -100,7 +101,7 @@ export async function listDeposits(
     .orderBy(which === "expired" ? desc(appointment.depositDueAt) : asc(appointment.depositDueAt));
 
   // Una cita llega a estos estados solo desde un depósito, así que estas dos columnas existen
-  return rows.map((r) => ({
+  return (await withServiceNames(rows)).map((r) => ({
     ...r,
     status: which,
     depositCents: r.depositCents as number,

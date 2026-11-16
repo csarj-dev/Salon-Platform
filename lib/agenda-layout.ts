@@ -169,3 +169,27 @@ export function daySummary(
   const minutes = minutesOf(free);
   return { summary: minutes === 0 ? { kind: "full" } : { kind: "free", minutes }, free };
 }
+
+/**
+ * Los huecos libres en los que todavía se puede crear una cita: lo que aún no ha pasado, desde la
+ * siguiente hora redonda de `stepMin` minutos, y solo si queda al menos `minGap`.
+ */
+export function openGaps(free: Interval[], now: Date, minGap = 15, stepMin = 5): Interval[] {
+  const step = stepMin * MIN;
+  const from = Math.ceil(now.getTime() / step) * step;
+  return free.flatMap((g) => {
+    const start = Math.max(g.start.getTime(), from);
+    return g.end.getTime() - start >= minGap * MIN ? [{ start: new Date(start), end: g.end }] : [];
+  });
+}
+
+/**
+ * «Nueva cita» en la dirección de la página: "1" = el panel vacío (botón «+ Nueva cita»);
+ * "<profesional>@<hora>" = desde un hueco libre ("29@12:30"). Cualquier otra cosa: cerrado.
+ */
+export function parseNewSlot(v: string | undefined): { staffId?: number; time?: string } | null {
+  if (v === "1") return {};
+  const m = /^(\d{1,9})@([01]\d|2[0-3]):([0-5]\d)$/.exec(v ?? "");
+  if (!m || Number(m[1]) <= 0) return null;
+  return { staffId: Number(m[1]), time: `${m[2]}:${m[3]}` };
+}

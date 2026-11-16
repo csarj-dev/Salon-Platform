@@ -340,6 +340,9 @@ export const appointment = pgTable(
     // Cambio de hora con Koibox: id de la cita de la hora anterior, que falta anular allí.
     // Se vacía en cuanto se anula; si falla, lo recoge el reintento (lib/koibox/pending.ts).
     koiboxPreviousId: integer("koibox_previous_id"),
+    // En qué cuenta estaba esa cita anterior (al cambiar de profesional puede ser otra cuenta).
+    // Vacía en citas antiguas: entonces es la misma que koibox_account.
+    koiboxPreviousAccount: text("koibox_previous_account"),
     // Última vez que se cambió la cita de hora (para el panel)
     rescheduledAt: timestamp("rescheduled_at", { withTimezone: true }),
   },
@@ -369,6 +372,32 @@ export const appointment = pgTable(
     ),
     // Cada cita de Koibox corresponde a una sola cita nuestra
     uniqueIndex("appointment_koibox_once").on(t.koiboxAccount, t.koiboxAppointmentId),
+  ],
+);
+
+// Servicios de una cita, en el orden en que se hacen. Una reserva web lleva uno; recepción puede
+// juntar varios (p. ej. laminado y diseño de cejas seguidos). Minutos y precio son los de ese
+// momento: si luego cambia la carta, la cita no cambia. La duración REAL de la cita es la suya
+// (starts_at–ends_at), que recepción puede ajustar; aquí queda lo que dura cada servicio de base.
+// `appointment.service_id` sigue siendo el servicio principal (el de la posición 0).
+export const appointmentService = pgTable(
+  "appointment_service",
+  {
+    appointmentId: integer("appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    position: smallint("position").notNull(),
+    serviceId: integer("service_id").notNull().references(() => service.id),
+    durationMin: integer("duration_min").notNull(),
+    priceCents: integer("price_cents").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.appointmentId, t.position] }),
+    // El mismo servicio no se repite en una cita
+    uniqueIndex("appointment_service_once").on(t.appointmentId, t.serviceId),
+    check("appointment_service_position_valid", sql`${t.position} >= 0`),
+    check("appointment_service_duration_positive", sql`${t.durationMin} > 0`),
+    check("appointment_service_price_valid", sql`${t.priceCents} >= 0`),
   ],
 );
 

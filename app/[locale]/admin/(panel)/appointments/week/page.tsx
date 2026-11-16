@@ -9,13 +9,14 @@ import {
 } from "@/components/admin/agenda-ui";
 import { AppointmentsViewSwitch } from "@/components/admin/appointments-view-switch";
 import { AgendaDatePicker } from "@/components/admin/agenda-date-picker";
+import { MoveAppointmentForm } from "@/components/admin/move-appointment-form";
 import { Dot, SectionLabel, SegmentLinks, StatusPill, textAction } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
 import { loadAgendaWeek, type AgendaWeekRow } from "@/lib/agenda-db";
 import { loadAgendaKoibox } from "@/lib/agenda-koibox";
-import { daySummary, subtractIntervals, weekOf, type DaySummary } from "@/lib/agenda-layout";
+import { daySummary, openGaps, subtractIntervals, weekOf, type DaySummary } from "@/lib/agenda-layout";
 import { listAppointments, listFilterOptions, type AppointmentListRow } from "@/lib/appointment-list";
 import { chooseCollector } from "@/lib/collectors";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
@@ -151,6 +152,17 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
     const qs = q.toString();
     return `/admin/appointments${qs ? `?${qs}` : ""}`;
   };
+  // «Nueva cita» se abre en el Día: vacía, o en un hueco libre de una profesional
+  const canCreate = can(role, "appointments.manage");
+  const newHref = (date: string, staffId?: number, at?: Date) => {
+    const q = new URLSearchParams();
+    if (date !== today) q.set("date", date);
+    if (locationId) q.set("location", String(locationId));
+    if (all) q.set("all", "1");
+    q.set("new", staffId && at ? `${staffId}@${DateTime.fromJSDate(at, { zone }).toFormat("HH:mm")}` : "1");
+    if (staffId) q.set("col", String(staffId));
+    return `/admin/appointments?${q}`;
+  };
   const toggleHidden = (id: number) => {
     const next = new Set(hidden);
     if (next.has(id)) next.delete(id);
@@ -179,6 +191,10 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
     account ? chooseCollector(config, { koiboxAccount: account }).collector.color : null;
   const accountLabel = (account: string | null) =>
     account ? (config.koibox.accounts[account]?.label ?? account) : null;
+  // Cuentas de Koibox para el diálogo «¿Mover la cita?»
+  const moveAccounts = Object.fromEntries(
+    Object.keys(config.koibox.accounts).map((a) => [a, { label: accountLabel(a)! }]),
+  );
   const severalLocations = options.locations.length > 1;
 
   // ---- Lo de cada casilla: citas, ocupado en Koibox, huecos libres y resumen ----
@@ -238,7 +254,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
           {c.free.map((f) => (
             <span
               key={`f${f.start.getTime()}`}
-              className="absolute inset-y-0 bg-success/20 ring-1 ring-inset ring-success/60"
+              className="absolute inset-y-0 border border-dashed border-muted-foreground/50 bg-card"
               style={seg(f)}
             />
           ))}
@@ -263,7 +279,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
         <span
           className={cn(
             "text-xs font-medium",
-            c.summary.kind === "free" ? "text-success" : c.summary.kind === "absent" ? "text-warning" : "text-muted-foreground",
+            c.summary.kind === "free" ? "text-foreground" : c.summary.kind === "absent" ? "text-warning" : "text-muted-foreground",
           )}
         >
           {c.summary.kind === "off" ? "" : summaryText(c.summary)}
@@ -317,13 +333,35 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
           {t("koiboxBusy")}
         </div>
       ) })),
-      ...c.free.map((f) => ({ key: `f${f.start.getTime()}`, at: f.start.getTime(), node: (
-        <div className="rounded-lg border border-success/60 bg-success/10 p-3 text-sm">
-          <span className="block text-xs tabular-nums">{range(f)}</span>
-          <span className="font-medium">{t("freeSlot")}</span>
-          <span className="text-muted-foreground"> · {duration((f.end.getTime() - f.start.getTime()) / 60_000)}</span>
-        </div>
-      ) })),
+      ...c.free.map((f) => {
+        // Lo que aún no ha pasado se puede pulsar: abre «Nueva cita» en el Día, en ese hueco
+        const open = canCreate ? openGaps([f], now)[0] : undefined;
+        const body = (
+          <>
+            <span className="block text-xs tabular-nums">{range(f)}</span>
+            <span className="font-medium">{t("freeSlot")}</span>
+            <span className="text-muted-foreground"> · {duration((f.end.getTime() - f.start.getTime()) / 60_000)}</span>
+          </>
+        );
+        return {
+          key: `f${f.start.getTime()}`,
+          at: f.start.getTime(),
+          node: open ? (
+            <Link
+              href={newHref(c.date, selectedRow.staffId, open.start)}
+              aria-label={t("newAppointment.gapLabel", {
+                time: range(open),
+                duration: duration((open.end.getTime() - open.start.getTime()) / 60_000),
+              })}
+              className="block rounded-lg border border-dashed border-muted-foreground/40 p-3 text-sm outline-none hover:border-foreground/50 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div className="rounded-lg border border-dashed border-muted-foreground/40 p-3 text-sm">{body}</div>
+          ),
+        };
+      }),
       ...[...(c.day?.timeOff ?? []), ...(c.day?.blocks ?? [])].map((x) => ({ key: `x${x.start.getTime()}`, at: x.start.getTime(), node: (
         <div className="rounded-lg p-3 text-sm text-muted-foreground" style={{ backgroundImage: ABSENCE_STRIPES }}>
           <span className="block text-xs tabular-nums">{range(x)}</span>
@@ -394,6 +432,28 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
               canRetryKoibox={can(role, "appointments.manage")}
               layout="stack"
             />
+            {canCreate &&
+              (open.status === "booked" || open.status === "pending_deposit") &&
+              open.startsAt.getTime() > nowMs && (
+                <div className="border-t pt-3">
+                  <MoveAppointmentForm
+                    key={`${open.id}|${open.staffId}|${open.startsAt.getTime()}|${open.endsAt.getTime()}`}
+                    appointment={{
+                      id: open.id,
+                      staffId: open.staffId,
+                      start: open.startsAt.toISOString(),
+                      end: open.endsAt.toISOString(),
+                      client: open.clientName,
+                      service: open.serviceName,
+                      hasEmail: open.hasEmail,
+                    }}
+                    staff={options.staff.map((s) => ({ ...s, account: null }))}
+                    accounts={moveAccounts}
+                    locale={locale}
+                    zone={zone}
+                  />
+                </div>
+              )}
           </div>
         ) : (
           <div className="space-y-2 border-t pt-3">
@@ -461,6 +521,11 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
             }}
           />
         </h2>
+        {canCreate && (
+          <Link href={newHref(hasCell ? cellDate! : thisWeek ? today : week.from)} className={cn(navBase, "px-3.5 text-sm")}>
+            {t("newAppointment.open")}
+          </Link>
+        )}
         <div className="flex min-w-0 max-w-full flex-wrap gap-3 lg:ms-auto">
           <SegmentLinks
             label={t("viewLabel")}
@@ -526,7 +591,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
           {t("legend.pending")}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span aria-hidden className="h-3 w-5 rounded-sm bg-success/20 ring-1 ring-inset ring-success/60" />
+          <span aria-hidden className="h-3 w-5 rounded-sm border border-dashed border-muted-foreground/50 bg-card" />
           {t("legend.free")}
         </li>
         {koiboxShifts && (

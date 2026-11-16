@@ -7,13 +7,22 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { appointment } from "@/db/schema";
+import { freeGapsFor } from "@/lib/agenda-gaps";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
-import { retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox } from "@/lib/koibox-sync";
+import {
+  pushNewWebBooking, retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox,
+} from "@/lib/koibox-sync";
+import {
+  createStaffAppointment, findClientByPhone, type ClientLookup, type StaffBookingResult,
+} from "@/lib/staff-booking";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
+import {
+  moveStaffAppointment, previewStaffMove, type StaffMovePreview, type StaffMoveResult,
+} from "@/lib/move-appointment";
 
 export type StaffActionResult =
   | { ok: true }
@@ -169,5 +178,138 @@ export async function retryAllKoiboxAction(): Promise<KoiboxRetryAllResult> {
   } catch (error) {
     console.error("[appointments] reintentar todo Koibox", error);
     return { ok: false, error: "server" };
+  }
+}
+
+// ---- Crear citas desde recepción ----
+
+export type CreateStaffAppointmentResult =
+  | (Extract<StaffBookingResult, { ok: true }> & { koibox: "synced" | "pending" | "none" })
+  | Extract<StaffBookingResult, { ok: false }>
+  // Koibox no la aceptó: la nuestra queda anulada (como en la web) y recepción elige otra hora
+  | { ok: false; reason: "koibox_rejected" | "server" };
+
+// Recepción crea una cita (varios servicios, duración propia, depósito a elegir).
+// `sendEmail`: mandarle la confirmación (solo si queda confirmada; con enlace de pago,
+// el correo sale al validar el depósito, como en la web).
+export async function createStaffAppointmentAction(
+  input: unknown,
+  sendEmail = true,
+): Promise<CreateStaffAppointmentResult> {
+  const locale = await getLocale();
+  const { user } = await requireStaff(locale, "appointments.manage");
+
+  try {
+    const config = await loadSalonConfig();
+    const result = await createStaffAppointment(input, config, { userId: user.id });
+    if (!result.ok) return result;
+
+    // Con Koibox, apuntarla allí antes de dar la cita por buena
+    let koibox: "synced" | "pending" | "none" = "none";
+    if (writesToKoibox(config)) {
+      const pushed = await pushNewWebBooking(result.appointmentId, config);
+      if (!pushed.ok) {
+        refresh(locale);
+        return { ok: false, reason: pushed.reason === "slot_taken" ? "slot_taken" : "koibox_rejected" };
+      }
+      koibox = pushed.synced ? "synced" : "pending";
+    }
+
+    if (sendEmail && result.status === "booked") {
+      const appointmentId = result.appointmentId;
+      after(() => sendAppointmentEmail(appointmentId, "confirmation"));
+    }
+    refresh(locale);
+    return { ...result, koibox };
+  } catch (error) {
+    console.error("[appointments] create from panel", error);
+    return { ok: false, reason: "server" };
+  }
+}
+
+// Al escribir el teléfono en «Nueva cita»: ¿ya es clienta?
+export async function findClientByPhoneAction(phone: string): Promise<ClientLookup> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (typeof phone !== "string") return null;
+  return findClientByPhone(phone);
+}
+
+// ---- Mover una cita desde el panel (arrastrar, estirar o el formulario «Mover cita») ----
+
+export type MoveStaffAppointmentResult = StaffMoveResult | { ok: false; reason: "server" };
+
+// Recepción cambia la hora, la profesional y/o la duración. `notify`: mandarle a la clienta
+// «Tu cita ha cambiado» (la casilla «Avisar a la clienta», marcada por defecto).
+export async function moveStaffAppointmentAction(
+  appointmentId: number,
+  change: unknown,
+  notify = true,
+): Promise<MoveStaffAppointmentResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (!idSchema.safeParse(appointmentId).success) {
+    return { ok: false, reason: "invalid_input", issues: ["appointmentId"] };
+  }
+
+  let result: StaffMoveResult;
+  try {
+    result = await moveStaffAppointment(appointmentId, change, await loadSalonConfig());
+  } catch (error) {
+    console.error("[appointments] move from panel", error);
+    return { ok: false, reason: "server" };
+  }
+  if (!result.ok) return result;
+
+  // Koibox ya está hecho dentro; el correo, después de responder
+  if (notify) after(() => sendAppointmentEmail(appointmentId, "rescheduled"));
+  refresh(locale);
+  return result;
+}
+
+export type CheckStaffMoveResult = StaffMovePreview | { ok: false; reason: "server" };
+
+// «¿Mover la cita?»: comprueba el cambio sin hacerlo (avisos, choques, cambio de cuenta de Koibox)
+export async function checkStaffMoveAction(appointmentId: number, change: unknown): Promise<CheckStaffMoveResult> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (!idSchema.safeParse(appointmentId).success) {
+    return { ok: false, reason: "invalid_input", issues: ["appointmentId"] };
+  }
+  try {
+    return await previewStaffMove(appointmentId, change, await loadSalonConfig());
+  } catch (error) {
+    console.error("[appointments] check move from panel", error);
+    return { ok: false, reason: "server" };
+  }
+}
+
+// «Mover cita»: huecos libres de una profesional ese día, sin contar la cita que se mueve
+export async function freeGapsAction(
+  appointmentId: number,
+  staffId: number,
+  date: string,
+): Promise<{ start: string; end: string }[]> {
+  const locale = await getLocale();
+  await requireStaff(locale, "appointments.manage");
+  if (
+    !idSchema.safeParse(appointmentId).success ||
+    !idSchema.safeParse(staffId).success ||
+    typeof date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date)
+  ) {
+    return [];
+  }
+  try {
+    const gaps = await freeGapsFor(await loadSalonConfig(), {
+      staffId,
+      date,
+      ignoreAppointmentId: appointmentId,
+      now: new Date(),
+    });
+    return gaps.map((g) => ({ start: g.start.toISOString(), end: g.end.toISOString() }));
+  } catch (error) {
+    console.error("[appointments] free gaps", error);
+    return [];
   }
 }

@@ -60,6 +60,34 @@ export function resolveKoiboxTarget(
   };
 }
 
+// Una cita con varios servicios va entera a la cuenta de su profesional, con el id de cada
+// servicio en esa cuenta (en el mismo orden). Si alguno no está enlazado allí, no se manda.
+export type KoiboxTargets = Omit<KoiboxTarget, "koiboxServiceId"> & { koiboxServiceIds: number[] };
+
+export type RoutingManyResult =
+  | { ok: true; target: KoiboxTargets }
+  | Extract<RoutingResult, { ok: false }>;
+
+export function resolveKoiboxTargets(
+  staff: StaffKoiboxLink,
+  serviceIds: number[],
+  serviceLinks: ServiceKoiboxLink[],
+  accountIds: string[],
+): RoutingManyResult {
+  if (serviceIds.length === 0) {
+    return { ok: false, problem: "service_not_linked", message: "La cita no tiene servicios" };
+  }
+  const koiboxServiceIds: number[] = [];
+  let base: KoiboxTarget | null = null;
+  for (const serviceId of serviceIds) {
+    const routed = resolveKoiboxTarget(staff, serviceId, serviceLinks, accountIds);
+    if (!routed.ok) return routed;
+    base = routed.target;
+    koiboxServiceIds.push(routed.target.koiboxServiceId);
+  }
+  return { ok: true, target: { account: base!.account, koiboxUserId: base!.koiboxUserId, koiboxServiceIds } };
+}
+
 // Qué falta por enlazar antes de conectar la reserva: profesionales sin cuenta y servicios
 // que hace alguien de una cuenta pero no tienen id en esa cuenta.
 export type LinkReport = {

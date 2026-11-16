@@ -3,6 +3,7 @@ import { db } from "../db";
 import { appointment, location, service, serviceTranslation, staff } from "../db/schema";
 import { isDepositOverdue } from "./deposit";
 import { pickTranslation } from "./pick-translation";
+import { joinServiceNames, serviceNamesFor } from "./appointment-services";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -71,13 +72,17 @@ export async function getConfirmation(
     );
 
   const status: AppointmentStatus = isDepositOverdue(row, now) ? "expired" : row.status;
+  // Con varios servicios, todos (traducidos); si no, el principal, como antes
+  const names = (await serviceNamesFor([row.id], { locale, defaultLocale })).get(row.id);
 
   return {
     id: row.id,
     status,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
-    serviceName: pickTranslation(translations, locale, defaultLocale, row.serviceName).name,
+    serviceName: names
+      ? joinServiceNames(names)
+      : pickTranslation(translations, locale, defaultLocale, row.serviceName).name,
     locationName: row.locationName,
     locationAddress: row.locationAddress,
     staffName: row.staffName,
@@ -144,5 +149,11 @@ export async function getChangeTarget(
         inArray(serviceTranslation.locale, [...new Set([locale, defaultLocale])]),
       ),
     );
-  return { ...row, serviceName: pickTranslation(translations, locale, defaultLocale, row.serviceName).name };
+  const names = (await serviceNamesFor([row.id], { locale, defaultLocale })).get(row.id);
+  return {
+    ...row,
+    serviceName: names
+      ? joinServiceNames(names)
+      : pickTranslation(translations, locale, defaultLocale, row.serviceName).name,
+  };
 }

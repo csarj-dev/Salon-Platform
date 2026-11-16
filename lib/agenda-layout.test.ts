@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agendaWindow, placeInColumn, weekOf, subtractIntervals, minutesOf, daySummary } from "./agenda-layout";
+import { agendaWindow, placeInColumn, weekOf, subtractIntervals, minutesOf, daySummary, openGaps, parseNewSlot } from "./agenda-layout";
 
 const at = (iso: string) => new Date(iso);
 const iv = (from: string, to: string) => ({ start: at(from), end: at(to) });
@@ -128,5 +128,35 @@ describe("daySummary", () => {
       iv("2026-11-16T11:10:00Z", "2026-11-16T14:00:00Z"),
     ]);
     expect(r.summary).toEqual({ kind: "full" });
+  });
+});
+
+describe("openGaps", () => {
+  const free = [iv("2026-11-16T09:00:00Z", "2026-11-16T10:00:00Z"), iv("2026-11-16T12:00:00Z", "2026-11-16T14:00:00Z")];
+
+  it("antes del día: todos los huecos enteros", () => {
+    expect(openGaps(free, at("2026-11-16T07:00:00Z"))).toEqual(free);
+  });
+
+  it("hoy: lo que ya pasó no cuenta, y el hueco empieza en la siguiente hora de 5 en 5", () => {
+    expect(openGaps(free, at("2026-11-16T12:07:30Z"))).toEqual([iv("2026-11-16T12:10:00Z", "2026-11-16T14:00:00Z")]);
+  });
+
+  it("si queda menos de 15 minutos, ya no es hueco", () => {
+    expect(openGaps(free, at("2026-11-16T13:50:00Z"))).toEqual([]);
+  });
+});
+
+describe("parseNewSlot", () => {
+  it("vacío desde el botón, o profesional y hora desde un hueco", () => {
+    expect(parseNewSlot("1")).toEqual({});
+    expect(parseNewSlot("29@12:30")).toEqual({ staffId: 29, time: "12:30" });
+  });
+
+  it("cualquier otra cosa: cerrado", () => {
+    expect(parseNewSlot(undefined)).toBeNull();
+    expect(parseNewSlot("29@25:00")).toBeNull();
+    expect(parseNewSlot("0@10:00")).toBeNull();
+    expect(parseNewSlot("abc")).toBeNull();
   });
 });

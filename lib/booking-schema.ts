@@ -24,7 +24,7 @@ const clientBase = z.object({
 export const clientFormSchema = clientBase.extend({ email: requiredEmail });
 
 // Datos de la clienta al crear una cita: recepción o WhatsApp pueden no tener su email
-const clientDataSchema = clientBase.extend({ email: optionalEmail });
+export const clientDataSchema = clientBase.extend({ email: optionalEmail });
 
 export const bookingInputSchema = z
   .object({

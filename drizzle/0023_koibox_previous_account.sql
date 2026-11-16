@@ -1,0 +1,1 @@
+ALTER TABLE "appointment" ADD COLUMN "koibox_previous_account" text;
