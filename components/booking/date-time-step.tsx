@@ -10,7 +10,8 @@ import type { Flow } from "@/lib/booking-flow";
 import { addMonths, firstWeekdayOf, monthOfDay } from "@/lib/calendar";
 import { collectorForStaff } from "@/lib/collectors-db";
 import type { CatalogService } from "@/lib/catalog";
-import { formatDateTime, formatDayLong, formatPrice, formatTime } from "@/lib/format";
+import { depositForServices } from "@/lib/deposit";
+import { formatDateTime, formatDayLong, formatDuration, formatPrice, formatTime } from "@/lib/format";
 import { needsWhatsAppTab } from "@/lib/whatsapp-tab";
 import { KoiboxUnavailableError, confirmBookingSlot, getBookingAvailability } from "@/lib/availability-source";
 import type { SalonConfig } from "@/lib/salon-config";
@@ -24,9 +25,9 @@ type Props = {
   now: Date;
   flow: Flow;
   location: { id: number; name: string };
-  service: CatalogService;
+  services: CatalogService[]; // uno o varios, en el orden en que se hacen
   member: "any" | { id: number; name: string };
-  // Elecciones anteriores (local, servicio, profesional), ya pintadas
+  // Elecciones anteriores (local, servicios, profesional), ya pintadas
   summary: ReactNode[];
 };
 
@@ -35,10 +36,15 @@ const noon = (day: string) => new Date(`${day}T12:00:00Z`);
 
 // Pasos 4 y 5: primero se elige el día (calendario) y la hora; con la hora elegida, se piden los datos
 export async function DateTimeStep({
-  locale, config, now, flow, location, service, member, summary,
+  locale, config, now, flow, location, services, member, summary,
 }: Props) {
   const t = await getTranslations("Booking");
   const zone = config.timezone;
+
+  const ids = services.map((s) => s.id);
+  const totalMin = services.reduce((sum, s) => sum + s.durationMin, 0);
+  // Un depósito por categoría (los de cejas, uno; cejas + pestañas, se suman)
+  const depositCents = depositForServices(services);
 
   // Primer y último día en los que se puede reservar (fecha local del salón)
   const todayDt = DateTime.fromJSDate(now, { zone }).startOf("day");
@@ -66,9 +72,10 @@ export async function DateTimeStep({
   // Los huecos de TODO el rango reservable de una vez: en modo local con unas 6 consultas
   // (availability-range.ts); en modo Koibox con los datos de cada cuenta, en caché 2 minutos.
   // Así el calendario puede marcar qué días tienen huecos y cambiar de mes sin más cálculo.
+  // Con varios servicios, la cita dura la suma y solo cuentan las profesionales que los hacen todos.
   let availability: Map<string, ServiceAvailability>;
   try {
-    availability = await getBookingAvailability(config, location.id, service.id, today, last, now);
+    availability = await getBookingAvailability(config, location.id, ids, today, last, now);
   } catch (error) {
     if (!(error instanceof KoiboxUnavailableError)) throw error;
     console.error(error);
@@ -91,7 +98,7 @@ export async function DateTimeStep({
 
   const base: Flow = {
     location: location.id,
-    service: service.id,
+    services: ids,
     staff: member === "any" ? "any" : member.id,
   };
 
@@ -110,7 +117,7 @@ export async function DateTimeStep({
     if (stillFree && config.booking.availability === "koibox") {
       try {
         const staffChoice = member === "any" ? "any" : member.id;
-        expectedStaff = await confirmBookingSlot(config, location.id, service.id, staffChoice, at, now);
+        expectedStaff = await confirmBookingSlot(config, location.id, ids, staffChoice, at, now);
         stillFree = expectedStaff !== null;
       } catch (error) {
         if (!(error instanceof KoiboxUnavailableError)) throw error;
@@ -124,6 +131,7 @@ export async function DateTimeStep({
       // Si el depósito se pide por WhatsApp, el formulario abre la pestaña al enviar: depende de
       // quién cobra a esa profesional (docs/collectors.md)
       const collector = await collectorForStaff(expectedStaff, config);
+      const depositAmount = depositCents ? formatPrice(depositCents, locale, config.currency) : null;
       return (
         <div className="space-y-6">
           <div className="space-y-2">
@@ -137,10 +145,10 @@ export async function DateTimeStep({
           </div>
           <section>
             <Heading>{t("stepDetails")}</Heading>
-            {service.depositCents ? (
+            {depositAmount ? (
               <p className="mb-4 rounded-lg border bg-muted/50 p-3 text-sm">
                 {t("depositNotice", {
-                  amount: formatPrice(service.depositCents, locale, config.currency),
+                  amount: depositAmount,
                   hours: config.booking.deposit.holdHours,
                 })}
               </p>
@@ -148,18 +156,16 @@ export async function DateTimeStep({
             <BookingForm
               locale={locale}
               locationId={location.id}
-              serviceId={service.id}
+              serviceIds={ids}
               staff={member === "any" ? "any" : String(member.id)}
               at={flow.at}
               backHref={changeHref}
               opensWhatsApp={needsWhatsAppTab({
                 mode: collector.deposit.mode,
                 whatsapp: collector.deposit.whatsapp,
-                depositCents: service.depositCents,
+                depositCents,
               })}
-              depositAmount={
-                service.depositCents ? formatPrice(service.depositCents, locale, config.currency) : null
-              }
+              depositAmount={depositAmount}
             />
           </section>
         </div>
@@ -239,6 +245,11 @@ export async function DateTimeStep({
                 </li>
               ))}
             </ul>
+            {services.length > 1 && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                {t("timesFitAll", { duration: formatDuration(totalMin) })}
+              </p>
+            )}
           </>
         ) : (
           <p className="text-muted-foreground">

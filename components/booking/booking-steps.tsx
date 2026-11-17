@@ -1,12 +1,12 @@
 import { getTranslations } from "next-intl/server";
 import { ChoiceCard } from "@/components/booking/choice-card";
 import { DateTimeStep } from "@/components/booking/date-time-step";
+import { ServicePicker, type PickerGroup } from "@/components/booking/service-picker";
 import { Chosen, Heading, bookingHref } from "@/components/booking/step-ui";
-import {
-  listActiveLocations, listServicesForLocation, listStaffForService,
-} from "@/lib/catalog";
+import { joinServiceNames } from "@/lib/appointment-services";
+import { listActiveLocations, listServicesByCategory, listStaffForService } from "@/lib/catalog";
 import { parseFlowParams } from "@/lib/booking-flow";
-import { formatPrice } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
 import { initialsOf } from "@/lib/initials";
 import { getPhotoViews } from "@/lib/photos";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -71,65 +71,72 @@ export async function BookingSteps({ locale, searchParams }: Props) {
     );
   }
 
-  // Paso 2: servicio
-  const services = (
-    await listServicesForLocation(location.id, locale, config.defaultLocale)
-  ).filter((s) => !s.requiresConsultation);
-  const service = services.find((s) => s.id === flow.service);
+  // Paso 2: servicios. Se pueden marcar varios: se hacen seguidos, en la misma visita.
+  const groups = (await listServicesByCategory(location.id, locale, config.defaultLocale))
+    .map((g) => ({ ...g, services: g.services.filter((s) => !s.requiresConsultation) }))
+    .filter((g) => g.services.length > 0);
+  const catalog = groups.flatMap((g) => g.services);
+  // Los elegidos, en el orden de la carta. Si alguno ya no se ofrece aquí, se vuelve a elegir.
+  const wanted = flow.services ?? [];
+  const services = catalog.filter((s) => wanted.includes(s.id));
 
-  if (!service) {
+  if (services.length === 0 || services.length !== wanted.length) {
     const photos = await getPhotoViews(
-      services.map((s) => s.photoId),
+      catalog.map((s) => s.photoId),
       locale,
       config.defaultLocale,
     );
+    const pickerGroups: PickerGroup[] = groups.map((g) => ({
+      key: g.categoryId === null ? "none" : String(g.categoryId),
+      // Con una sola categoría sobra el título
+      name: groups.length > 1 ? (g.name ?? t("otherServices")) : null,
+      services: g.services.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        durationMin: s.durationMin,
+        priceCents: s.priceCents,
+        depositCents: s.depositCents,
+        categoryId: s.categoryId,
+        photo: s.photoId === null ? null : (photos.get(s.photoId) ?? null),
+      })),
+    }));
+    // Al volver con «Cambiar», los que ya tenía marcados
+    const initial = (flow.picked ?? wanted).filter((id) => catalog.some((s) => s.id === id));
     return (
       <div className="space-y-6">
         <div className="space-y-2">{summary}</div>
         <section>
           <Heading>{t("stepService")}</Heading>
-          {services.length === 0 ? (
+          {catalog.length === 0 ? (
             <p className="text-muted-foreground">{t("noServices")}</p>
           ) : (
-            <div className="space-y-3">
-              {services.map((s) => (
-                <ChoiceCard
-                  key={s.id}
-                  href={href({ location: location.id, service: s.id })}
-                  title={s.name}
-                  description={s.description}
-                  meta={[
-                    t("minutes", { count: s.durationMin }),
-                    formatPrice(s.priceCents, locale, config.currency),
-                    s.depositCents
-                      ? t("depositBadge", {
-                          amount: formatPrice(s.depositCents, locale, config.currency),
-                        })
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                  photo={s.photoId === null ? undefined : photos.get(s.photoId)}
-                />
-              ))}
-            </div>
+            <ServicePicker
+              locale={locale}
+              currency={config.currency}
+              locationId={location.id}
+              groups={pickerGroups}
+              initial={initial}
+            />
           )}
         </section>
       </div>
     );
   }
 
+  const ids = services.map((s) => s.id);
+  const totalMin = services.reduce((sum, s) => sum + s.durationMin, 0);
   summary.push(
     <Chosen
       key="svc"
-      label={service.name}
-      changeHref={href({ location: location.id })}
+      label={`${joinServiceNames(services.map((s) => s.name))} · ${formatDuration(totalMin)}`}
+      changeHref={href({ location: location.id, picked: ids })}
       changeText={t("change")}
     />,
   );
 
-  // Paso 3: profesional
-  const team = await listStaffForService(location.id, service.id);
+  // Paso 3: profesional (solo las que hacen todos los servicios elegidos)
+  const team = await listStaffForService(location.id, ids);
   const member = flow.staff === "any" ? "any" : team.find((m) => m.id === flow.staff);
 
   if (!member) {
@@ -144,18 +151,21 @@ export async function BookingSteps({ locale, searchParams }: Props) {
         <section>
           <Heading>{t("stepStaff")}</Heading>
           {team.length === 0 ? (
-            <p className="text-muted-foreground">{t("noStaff")}</p>
+            <p className="text-muted-foreground">
+              {services.length > 1 ? t("noStaffTogether") : t("noStaff")}
+            </p>
           ) : (
             <div className="space-y-3">
+              {services.length > 1 && <p className="text-sm text-muted-foreground">{t("staffDoesAll")}</p>}
               <ChoiceCard
-                href={href({ location: location.id, service: service.id, staff: "any" })}
+                href={href({ location: location.id, services: ids, staff: "any" })}
                 title={t("anyStaff")}
                 description={t("anyStaffHint")}
               />
               {team.map((m) => (
                 <ChoiceCard
                   key={m.id}
-                  href={href({ location: location.id, service: service.id, staff: m.id })}
+                  href={href({ location: location.id, services: ids, staff: m.id })}
                   title={m.name}
                   photo={m.photoId === null ? undefined : photos.get(m.photoId)}
                   initials={initialsOf(m.name)}
@@ -173,7 +183,7 @@ export async function BookingSteps({ locale, searchParams }: Props) {
     <Chosen
       key="staff"
       label={member === "any" ? t("anyStaff") : member.name}
-      changeHref={href({ location: location.id, service: service.id })}
+      changeHref={href({ location: location.id, services: ids })}
       changeText={t("change")}
     />,
   );
@@ -186,7 +196,7 @@ export async function BookingSteps({ locale, searchParams }: Props) {
       now={now}
       flow={flow}
       location={location}
-      service={service}
+      services={services}
       member={member === "any" ? "any" : { id: member.id, name: member.name }}
       summary={summary}
     />

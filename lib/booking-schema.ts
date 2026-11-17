@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SERVICES_MAX } from "./booking-catalog";
 
 // Quita espacios y guiones, y exige entre 9 y 15 dígitos con "+" opcional
 const phone = z
@@ -29,7 +30,10 @@ export const clientDataSchema = clientBase.extend({ email: optionalEmail });
 export const bookingInputSchema = z
   .object({
     locationId: z.number().int().positive(),
-    serviceId: z.number().int().positive(),
+    // Los servicios, en el orden en que se hacen. `serviceId` (uno solo) sigue valiendo:
+    // lo usan los scripts y los tests de antes.
+    serviceIds: z.array(z.number().int().positive()).min(1).max(SERVICES_MAX).optional(),
+    serviceId: z.number().int().positive().optional(),
     staffId: z.number().int().positive(),
     startsAt: z.coerce.date(),
     source: z.enum(["web", "phone", "whatsapp"]).default("web"),
@@ -43,6 +47,10 @@ export const bookingInputSchema = z
   .refine((d) => d.source !== "web" || d.consent, {
     message: "Hace falta aceptar la política de privacidad",
     path: ["consent"],
+  })
+  .refine((d) => d.serviceIds !== undefined || d.serviceId !== undefined, {
+    message: "Falta el servicio",
+    path: ["serviceIds"],
   });
 
 export type BookingInput = z.infer<typeof bookingInputSchema>;

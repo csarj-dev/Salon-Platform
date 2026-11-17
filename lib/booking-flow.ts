@@ -1,8 +1,10 @@
+import { SERVICES_MAX } from "./booking-catalog";
 import { isMonthKey } from "./calendar";
 
 export type Flow = {
   location?: number;
-  service?: number;
+  services?: number[]; // los servicios elegidos, en el orden en que se hacen (URL: service=31,30)
+  picked?: number[]; // al volver a elegir servicios: los que ya estaban marcados (URL: picked=31,30)
   staff?: number | "any";
   month?: string; // mes del calendario, "2026-11"
   date?: string; // día elegido, "2026-11-02" (fecha local del salón)
@@ -20,6 +22,20 @@ function toId(v?: string | string[]): number | undefined {
   if (!s || !/^\d+$/.test(s)) return undefined;
   const n = Number(s);
   return n > 0 ? n : undefined;
+}
+
+// "31,30": ids separados por comas, sin repetidos y como mucho SERVICES_MAX.
+// Si alguno no es válido se ignora la lista entera (mejor volver a elegir que reservar otra cosa).
+function toIds(v?: string | string[]): number[] | undefined {
+  const s = first(v);
+  if (!s) return undefined;
+  const ids: number[] = [];
+  for (const part of s.split(",")) {
+    const id = toId(part);
+    if (id === undefined) return undefined;
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids.length > 0 && ids.length <= SERVICES_MAX ? ids : undefined;
 }
 
 // "2026-11-02" y que sea un día real (no "2026-02-31").
@@ -58,7 +74,8 @@ export function parseFlowParams(raw: RawParams): Flow {
   const staffRaw = first(raw.staff);
   return {
     location: toId(raw.location),
-    service: toId(raw.service),
+    services: toIds(raw.service),
+    picked: toIds(raw.picked),
     staff: staffRaw === "any" ? "any" : toId(raw.staff),
     month: toMonth(raw.month),
     date: toDay(raw.date),
@@ -70,7 +87,8 @@ export function parseFlowParams(raw: RawParams): Flow {
 export function flowQuery(flow: Flow): Record<string, string> {
   const q: Record<string, string> = {};
   if (flow.location !== undefined) q.location = String(flow.location);
-  if (flow.service !== undefined) q.service = String(flow.service);
+  if (flow.services?.length) q.service = flow.services.join(",");
+  if (flow.picked?.length) q.picked = flow.picked.join(",");
   if (flow.staff !== undefined) q.staff = String(flow.staff);
   if (flow.month !== undefined) q.month = flow.month;
   if (flow.date !== undefined) q.date = flow.date;

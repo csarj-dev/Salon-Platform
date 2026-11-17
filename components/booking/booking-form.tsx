@@ -12,7 +12,7 @@ import { DESKTOP_QUERY } from "@/lib/whatsapp-tab";
 type Props = {
   locale: string;
   locationId: number;
-  serviceId: number;
+  serviceIds: number[]; // en el orden en que se hacen
   staff: string; // id de la profesional o "any"
   at: string; // hora elegida (ISO, UTC)
   backHref: BookingHref; // volver a elegir otra hora
@@ -47,7 +47,7 @@ function Field({
 }
 
 export function BookingForm({
-  locale, locationId, serviceId, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
+  locale, locationId, serviceIds, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
 }: Props) {
   const t = useTranslations("Booking");
   const router = useRouter();
@@ -113,7 +113,7 @@ export function BookingForm({
     <form action={formAction} onSubmit={handleSubmit} className="space-y-4" noValidate>
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="location" value={locationId} />
-      <input type="hidden" name="service" value={serviceId} />
+      <input type="hidden" name="service" value={serviceIds.join(",")} />
       <input type="hidden" name="staff" value={staff} />
       <input type="hidden" name="at" value={at} />
       {depositAmount && <input type="hidden" name="depositTermsShown" value="1" />}

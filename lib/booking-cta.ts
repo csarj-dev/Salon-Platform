@@ -39,7 +39,7 @@ export function resolveBookingCta({
       type: "internal",
       href: {
         pathname: "/booking",
-        query: flowQuery({ location: locationId, service: service.id }),
+        query: flowQuery({ location: locationId, services: [service.id] }),
       },
       labelKey: "book",
     });

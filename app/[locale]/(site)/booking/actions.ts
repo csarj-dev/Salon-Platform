@@ -56,7 +56,7 @@ export async function submitBooking(
     staff: text(formData, "staff"),
     at: text(formData, "at"),
   });
-  if (!flow.location || !flow.service || !flow.staff || !flow.at) {
+  if (!flow.location || !flow.services || !flow.staff || !flow.at) {
     return { error: "slot_unavailable", values };
   }
 
@@ -99,7 +99,7 @@ export async function submitBooking(
     //    En modo Koibox se pregunta a Koibox sin caché; si no responde, no se reserva.
     let staffId: number | null;
     try {
-      staffId = await confirmBookingSlot(config, flow.location, flow.service, flow.staff, startsAt, now);
+      staffId = await confirmBookingSlot(config, flow.location, flow.services, flow.staff, startsAt, now);
     } catch (error) {
       if (!(error instanceof KoiboxUnavailableError)) throw error;
       console.error(error);
@@ -111,7 +111,7 @@ export async function submitBooking(
     const result = await createAppointment(
       {
         locationId: flow.location,
-        serviceId: flow.service,
+        serviceIds: flow.services,
         staffId,
         startsAt,
         source: "web",

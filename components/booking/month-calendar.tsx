@@ -35,6 +35,8 @@ export function MonthCalendar({
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, mon - 1, 1)));
+  // Solo la primera letra en mayúscula («Noviembre de 2026»). Con CSS `capitalize`
+  const titleText = title.charAt(0).toLocaleUpperCase(locale) + title.slice(1);
 
   const weekdays = weekdayOrder(firstWeekday).map((w) => {
     const date = referenceDateForWeekday(w);
@@ -55,8 +57,8 @@ export function MonthCalendar({
         ) : (
           <span className="size-11" aria-hidden="true" />
         )}
-        <h3 className="font-medium capitalize" aria-live="polite">
-          {title}
+        <h3 className="font-medium" aria-live="polite">
+          {titleText}
         </h3>
         {nextHref ? (
           <Link href={nextHref} aria-label={labels.next} className={navClass}>
