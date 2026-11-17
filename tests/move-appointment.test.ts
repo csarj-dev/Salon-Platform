@@ -42,7 +42,7 @@ const NOW = new Date("2026-10-29T10:00:00Z");
 const MON = "2026-11-02"; // lunes; en Canarias, UTC+0
 const at = (hhmm: string) => new Date(`${MON}T${hhmm}:00Z`);
 
-let ids: { loc: number; laminado: number; lucia: number };
+let ids: { loc: number; laminado: number; diseno: number; lucia: number };
 let fake: FakeKoibox;
 let api: KoiboxApi;
 let apiFor: KoiboxApiFor;
@@ -64,15 +64,27 @@ beforeAll(async () => {
   await migrate(db, { migrationsFolder: "./drizzle" });
   await wipe();
   const [loc] = await db.insert(location).values({ name: "Move test", slug: "move-test" }).returning();
-  const [laminado] = await db
+  const [laminado, diseno] = await db
     .insert(service)
-    .values({ name: "Laminado de cejas", durationMin: 60, priceCents: 4500 })
+    .values([
+      { name: "Laminado de cejas", durationMin: 60, priceCents: 4500 },
+      { name: "Diseño de cejas", durationMin: 30, priceCents: 1800 },
+    ])
     .returning();
   const [lucia] = await db.insert(staff).values({ name: "Lucía", koiboxAccount: "salon", koiboxUserId: 11 }).returning();
-  await db.insert(locationService).values({ locationId: loc.id, serviceId: laminado.id });
-  await db.insert(staffService).values({ staffId: lucia.id, serviceId: laminado.id });
-  await db.insert(koiboxServiceMap).values({ serviceId: laminado.id, account: "salon", koiboxServiceId: 501 });
-  ids = { loc: loc.id, laminado: laminado.id, lucia: lucia.id };
+  await db.insert(locationService).values([
+    { locationId: loc.id, serviceId: laminado.id },
+    { locationId: loc.id, serviceId: diseno.id },
+  ]);
+  await db.insert(staffService).values([
+    { staffId: lucia.id, serviceId: laminado.id },
+    { staffId: lucia.id, serviceId: diseno.id },
+  ]);
+  await db.insert(koiboxServiceMap).values([
+    { serviceId: laminado.id, account: "salon", koiboxServiceId: 501 },
+    { serviceId: diseno.id, account: "salon", koiboxServiceId: 502 },
+  ]);
+  ids = { loc: loc.id, laminado: laminado.id, diseno: diseno.id, lucia: lucia.id };
 }, 30_000);
 
 beforeEach(async () => {
@@ -81,7 +93,10 @@ beforeEach(async () => {
   fake = createFakeKoibox({
     salon: {
       users: [{ id: 11, name: "Lucía", from: "09:00", to: "20:00" }],
-      services: [{ id: 501, name: "Laminado", duration: "01:00:00", userIds: [11] }],
+      services: [
+        { id: 501, name: "Laminado", duration: "01:00:00", userIds: [11] },
+        { id: 502, name: "Diseño", duration: "00:30:00", userIds: [11] },
+      ],
       clients: [{ id: 900, nombre: "Marta", movil: "611 222 333" }],
     },
   });
@@ -95,11 +110,11 @@ afterAll(async () => {
   await pgClient.end();
 });
 
-async function bookInKoibox(hhmm: string) {
+async function bookInKoibox(hhmm: string, serviceIds?: number[]) {
   const r = await createAppointment(
     {
       locationId: ids.loc,
-      serviceId: ids.laminado,
+      ...(serviceIds ? { serviceIds } : { serviceId: ids.laminado }),
       staffId: ids.lucia,
       startsAt: at(hhmm),
       source: "web",
@@ -225,5 +240,15 @@ describe("moveAppointment con Koibox", () => {
     expect(await move(id, "16:00", { now: new Date(`${MON}T08:00:00Z`) })).toEqual({ ok: false, reason: "too_late" });
     await db.update(appointment).set({ status: "cancelled" }).where(eq(appointment.id, id));
     expect(await move(id, "16:00")).toEqual({ ok: false, reason: "not_changeable" });
+  });
+});
+
+describe("moveAppointment con varios servicios", () => {
+  it("la hora nueva tiene que dejar sitio a todos (1 h 30)", async () => {
+    const { id } = await bookInKoibox("10:00", [ids.laminado, ids.diseno]);
+    // 19:00 + 1 h 30 = 20:30, y el turno acaba a las 20:00 (solo con el laminado cabría)
+    expect(await move(id, "19:00")).toEqual({ ok: false, reason: "slot_unavailable" });
+    expect(await move(id, "18:30")).toEqual({ ok: true, koibox: "synced" });
+    expect((await row(id)).endsAt).toEqual(at("20:00"));
   });
 });

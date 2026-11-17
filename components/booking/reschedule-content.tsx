@@ -105,7 +105,7 @@ export async function RescheduleContent({ params, searchParams }: Props) {
   const last = todayDt.plus({ days: config.booking.maxDaysAhead }).toFormat(DAY_FORMAT);
   let slotsByDay: Map<string, Date[]>;
   try {
-    const availability = await getBookingAvailability(config, target.locationId, target.serviceId, today, last, now, {
+    const availability = await getBookingAvailability(config, target.locationId, target.serviceIds, today, last, now, {
       appointmentId: target.id,
       staffId: target.staffId,
       startsAt: target.startsAt,

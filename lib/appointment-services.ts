@@ -8,6 +8,17 @@ import { pickTranslation } from "./pick-translation";
 export const SERVICE_SEPARATOR = " + ";
 export const joinServiceNames = (names: string[]) => names.join(SERVICE_SEPARATOR);
 
+// Los servicios de una cita, en el orden en que se hacen (para calcular sus horas al moverla).
+// Una cita antigua sin líneas: su servicio principal.
+export async function serviceIdsOf(appointmentId: number, mainServiceId: number): Promise<number[]> {
+  const lines = await db
+    .select({ serviceId: appointmentService.serviceId })
+    .from(appointmentService)
+    .where(eq(appointmentService.appointmentId, appointmentId))
+    .orderBy(asc(appointmentService.position));
+  return lines.length > 0 ? lines.map((l) => l.serviceId) : [mainServiceId];
+}
+
 // Con idioma: el nombre traducido (lo que ve la clienta). Sin él: el nombre interno (el panel).
 export type ServiceNamesLocale = { locale: string; defaultLocale: string };
 
