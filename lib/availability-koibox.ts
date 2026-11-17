@@ -4,13 +4,14 @@
 import { and, asc, eq, gt, inArray, lt, ne, notInArray, or } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, koiboxServiceMap, location, locationService, service, staff, staffService } from "../db/schema";
+import { appointment, koiboxServiceMap, location, staff } from "../db/schema";
 import type { AvailabilityOptions } from "./availability-db";
 import type { ServiceAvailability } from "./availability-service";
 import { computeKoiboxAvailability, type KoiboxTeamMember } from "./koibox/availability";
-import { resolveKoiboxTarget } from "./koibox/routing";
+import { resolveKoiboxTargets } from "./koibox/routing";
 import type { KoiboxSnapshot } from "./koibox/schedule";
 import type { KoiboxConfig } from "./salon-config";
+import { loadServiceSet, staffDoingAll, type ServiceIds } from "./service-set";
 import { dayRange } from "./working-hours";
 
 const DAY_FORMAT = "yyyy-MM-dd";
@@ -28,39 +29,38 @@ export type SnapshotLoader = (account: string, from: string, to: string) => Prom
 // Al cambiar una cita de hora: esa cita no ocupa (ni en nuestra base ni en Koibox)
 export type SlotIgnore = { appointmentId: number; staffId: number; startsAt: Date; endsAt: Date };
 
-// Profesionales que hacen el servicio en este local, enlazadas con Koibox, y la duración del servicio.
-// null si el servicio no existe o este local no lo ofrece.
+// Profesionales que hacen los servicios en este local, enlazadas con Koibox (todos los servicios),
+// y la duración total. null si algún servicio no existe o este local no lo ofrece.
 export async function loadKoiboxTeam(
   locationId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   koibox: KoiboxConfig,
 ): Promise<{ durationMin: number; team: KoiboxTeamMember[] } | null> {
-  const [svc] = await db.select({ durationMin: service.durationMin }).from(service).where(eq(service.id, serviceId));
-  if (!svc) return null;
+  const set = await loadServiceSet(locationId, services);
+  if (!set) return null;
 
-  const [offered] = await db
-    .select({ slug: location.slug })
-    .from(locationService)
-    .innerJoin(location, eq(location.id, locationService.locationId))
-    .where(and(eq(locationService.locationId, locationId), eq(locationService.serviceId, serviceId)));
+  const [offered] = await db.select({ slug: location.slug }).from(location).where(eq(location.id, locationId));
   if (!offered) return null;
+
+  const doers = await staffDoingAll(set.ids);
+  if (doers.length === 0) return { durationMin: set.durationMin, team: [] };
 
   const [members, links] = await Promise.all([
     db
       .select({ id: staff.id, name: staff.name, account: staff.koiboxAccount, userId: staff.koiboxUserId })
       .from(staff)
-      .innerJoin(staffService, eq(staffService.staffId, staff.id))
-      .where(and(eq(staffService.serviceId, serviceId), eq(staff.active, true)))
+      .where(and(inArray(staff.id, doers), eq(staff.active, true)))
       .orderBy(asc(staff.name)),
-    db.select().from(koiboxServiceMap).where(eq(koiboxServiceMap.serviceId, serviceId)),
+    db.select().from(koiboxServiceMap).where(inArray(koiboxServiceMap.serviceId, set.ids)),
   ]);
 
   const accountIds = Object.keys(koibox.accounts);
   const team: KoiboxTeamMember[] = [];
   for (const m of members) {
-    const routed = resolveKoiboxTarget(
+    // Tiene que tener enlazados en su cuenta TODOS los servicios de la cita
+    const routed = resolveKoiboxTargets(
       { staffId: m.id, staffName: m.name, koiboxAccount: m.account, koiboxUserId: m.userId },
-      serviceId,
+      set.ids,
       links,
       accountIds,
     );
@@ -78,10 +78,10 @@ export async function loadKoiboxTeam(
       staffName: m.name,
       account: routed.target.account,
       koiboxUserId: routed.target.koiboxUserId,
-      koiboxServiceId: routed.target.koiboxServiceId,
+      koiboxServiceId: routed.target.koiboxServiceIds[0], // el principal; las horas no dependen de él
     });
   }
-  return { durationMin: svc.durationMin, team };
+  return { durationMin: set.durationMin, team };
 }
 
 // Citas de nuestra base que ocupan hueco (las de la web pueden no estar aún en Koibox).
@@ -138,7 +138,7 @@ async function snapshotsFor(team: KoiboxTeamMember[], from: string, to: string, 
 // Llamadas a Koibox: las de `load` por cada cuenta implicada, nada más.
 export async function getKoiboxAvailabilityForRange(
   locationId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   from: string,
   to: string,
   opts: AvailabilityOptions,
@@ -147,7 +147,7 @@ export async function getKoiboxAvailabilityForRange(
   load: SnapshotLoader,
   ignore?: SlotIgnore,
 ): Promise<Map<string, ServiceAvailability>> {
-  const info = await loadKoiboxTeam(locationId, serviceId, koibox);
+  const info = await loadKoiboxTeam(locationId, services, koibox);
   if (!info || info.team.length === 0 || to < from) return new Map();
 
   const [snapshots, busy] = await Promise.all([
@@ -173,7 +173,7 @@ export async function getKoiboxAvailabilityForRange(
 // o null si ya no está libre. Si Koibox no responde, lanza KoiboxUnavailableError.
 export async function confirmKoiboxSlot(
   locationId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   staffChoice: number | "any",
   at: Date,
   opts: AvailabilityOptions,
@@ -182,7 +182,7 @@ export async function confirmKoiboxSlot(
   loadFresh: SnapshotLoader,
   ignore?: SlotIgnore
 ): Promise<number | null> {
-  const info = await loadKoiboxTeam(locationId, serviceId, koibox);
+  const info = await loadKoiboxTeam(locationId, services, koibox);
   if (!info) return null;
   const team = staffChoice === "any" ? info.team : info.team.filter((m) => m.staffId === staffChoice);
   if (team.length === 0) return null;

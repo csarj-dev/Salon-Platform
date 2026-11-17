@@ -7,6 +7,7 @@ import { getAvailabilityForService, type ServiceAvailability } from "./availabil
 import { confirmKoiboxSlot, getKoiboxAvailabilityForRange, type SlotIgnore } from "./availability-koibox";
 import { cachedKoiboxSnapshot, freshKoiboxSnapshot } from "./koibox/snapshot-cache";
 import { toAvailabilityOptions, type SalonConfig } from "./salon-config";
+import type { ServiceIds } from "./service-set";
 
 export { KoiboxUnavailableError } from "./availability-koibox";
 
@@ -14,7 +15,7 @@ export { KoiboxUnavailableError } from "./availability-koibox";
 export function getBookingAvailability(
   config: SalonConfig,
   locationId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   from: string,
   to: string,
   now: Date,
@@ -23,10 +24,10 @@ export function getBookingAvailability(
   const opts = toAvailabilityOptions(config);
   if (config.booking.availability === "koibox") {
     return getKoiboxAvailabilityForRange(
-      locationId, serviceId, from, to, opts, now, config.koibox, cachedKoiboxSnapshot, ignore,
+      locationId, services, from, to, opts, now, config.koibox, cachedKoiboxSnapshot, ignore,
     );
   }
-  return getAvailabilityForRange(locationId, serviceId, from, to, opts, now, ignore?.appointmentId);
+  return getAvailabilityForRange(locationId, services, from, to, opts, now, ignore?.appointmentId);
 }
 
 // ¿Sigue libre esa hora? Devuelve la profesional que la atiende o null.
@@ -36,18 +37,18 @@ export function getBookingAvailability(
 export async function confirmBookingSlot(
   config: SalonConfig,
   locationId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   staffChoice: number | "any",
   at: Date,
   now: Date,
 ): Promise<number | null> {
   const opts = toAvailabilityOptions(config);
   if (config.booking.availability === "koibox") {
-    return confirmKoiboxSlot(locationId, serviceId, staffChoice, at, opts, now, config.koibox, freshKoiboxSnapshot);
+    return confirmKoiboxSlot(locationId, services, staffChoice, at, opts, now, config.koibox, freshKoiboxSnapshot);
   }
   if (staffChoice !== "any") return staffChoice;
   const day = DateTime.fromJSDate(at, { zone: config.timezone }).toFormat("yyyy-MM-dd");
-  const availability = await getAvailabilityForService(locationId, serviceId, day, opts, now);
+  const availability = await getAvailabilityForService(locationId, services, day, opts, now);
   const slot = availability.any.find((s) => s.startsAt.getTime() === at.getTime());
   return slot ? slot.staffIds[0] : null;
 }

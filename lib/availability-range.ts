@@ -1,13 +1,12 @@
 import { and, asc, eq, gt, inArray, lt, notInArray, ne, or } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import {
-  appointment, locationService, schedule, service, staff, staffService, timeOff,
-} from "../db/schema";
+import { appointment, schedule, staff, timeOff } from "../db/schema";
 import { getAvailableSlots, type Interval } from "./availability";
 import type { AvailabilityOptions } from "./availability-db";
 import type { ServiceAvailability } from "./availability-service";
 import { mergeSlots, type StaffSlots } from "./merge-slots";
+import { loadServiceSet, staffDoingAll, type ServiceIds } from "./service-set";
 import { buildWorkingHours, dayRange } from "./working-hours";
 
 const DAY_FORMAT = "yyyy-MM-dd";
@@ -21,7 +20,7 @@ const DAY_FORMAT = "yyyy-MM-dd";
 // (lo comprueba tests/availability-range.test.ts).
 export async function getAvailabilityForRange(
   locationId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   fromDate: string, // "2026-11-02", fecha local del salón
   toDate: string, // incluido
   opts: AvailabilityOptions,
@@ -31,25 +30,17 @@ export async function getAvailabilityForRange(
   const result = new Map<string, ServiceAvailability>();
   if (toDate < fromDate) return result;
 
-  // 1. ¿Existe el servicio y lo ofrece este local?
-  const [svc] = await db
-    .select({ durationMin: service.durationMin })
-    .from(service)
-    .where(eq(service.id, serviceId));
-  if (!svc) return result;
+  // 1. ¿Existen los servicios y los ofrece todos este local? (duración = la suma)
+  const set = await loadServiceSet(locationId, services);
+  if (!set) return result;
 
-  const [offeredHere] = await db
-    .select()
-    .from(locationService)
-    .where(and(eq(locationService.locationId, locationId), eq(locationService.serviceId, serviceId)));
-  if (!offeredHere) return result;
-
-  // 2. Profesionales activas que hacen el servicio
+  // 2. Profesionales activas que los hacen todos
+  const doers = await staffDoingAll(set.ids);
+  if (doers.length === 0) return result;
   const team = await db
     .select({ id: staff.id, name: staff.name })
     .from(staff)
-    .innerJoin(staffService, eq(staffService.staffId, staff.id))
-    .where(and(eq(staffService.serviceId, serviceId), eq(staff.active, true)))
+    .where(and(inArray(staff.id, doers), eq(staff.active, true)))
     .orderBy(asc(staff.name));
   if (team.length === 0) return result;
   const teamIds = team.map((m) => m.id);
@@ -123,7 +114,7 @@ export async function getAvailabilityForRange(
         busy: data.busy.filter(
           (b) => b.start.getTime() < dayBounds.end.getTime() && b.end.getTime() > dayBounds.start.getTime(),
         ),
-        durationMin: svc.durationMin,
+        durationMin: set.durationMin,
         stepMin: opts.stepMin,
         bufferMin: opts.bufferMin,
         now,

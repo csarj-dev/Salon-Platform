@@ -1,10 +1,9 @@
 import { and, eq, ne, lt, gt, or, notInArray } from "drizzle-orm";
 import { db } from "../db";
-import {
-  service, staffService, locationService, schedule, appointment, timeOff,
-} from "../db/schema";
+import { schedule, appointment, timeOff } from "../db/schema";
 import { dayRange, buildWorkingHours } from "./working-hours";
 import { getAvailableSlots } from "./availability";
+import { loadServiceSet, staffDoingAll, type ServiceIds } from "./service-set";
 
 export type AvailabilityOptions = {
   zone: string;
@@ -16,35 +15,16 @@ export type AvailabilityOptions = {
 export async function getAvailabilityForDay(
   locationId: number,
   staffId: number,
-  serviceId: number,
+  services: ServiceIds, // uno o varios seguidos
   date: string, // "2026-11-02", fecha local del salón
   opts: AvailabilityOptions,
   now: Date = new Date(),
   ignoreAppointmentId?: number, // para mover una cita sin que se bloquee a sí misma
 ): Promise<Date[]> {
-  // 1. ¿Existe el servicio, lo ofrece este local y lo hace esta profesional?
-  const [svc] = await db
-    .select({ durationMin: service.durationMin })
-    .from(service)
-    .where(eq(service.id, serviceId));
-  if (!svc) throw new Error(`Servicio ${serviceId} no existe`);
-
-  const [offeredHere] = await db
-    .select()
-    .from(locationService)
-    .where(
-      and(
-        eq(locationService.locationId, locationId),
-        eq(locationService.serviceId, serviceId),
-      ),
-    );
-  if (!offeredHere) return [];
-
-  const [staffCanDo] = await db
-    .select()
-    .from(staffService)
-    .where(and(eq(staffService.staffId, staffId), eq(staffService.serviceId, serviceId)));
-  if (!staffCanDo) return [];
+  // 1. ¿Existen los servicios, los ofrece este local y los hace todos esta profesional?
+  const set = await loadServiceSet(locationId, services);
+  if (!set) return [];
+  if (!(await staffDoingAll(set.ids)).includes(staffId)) return [];
 
   // 2. Rango del día y datos de la base de datos
   const range = dayRange(date, opts.zone);
@@ -93,7 +73,7 @@ export async function getAvailabilityForDay(
   return getAvailableSlots({
     workingHours: buildWorkingHours(date, opts.zone, scheduleRows),
     busy: [...appts, ...offs],
-    durationMin: svc.durationMin,
+    durationMin: set.durationMin,
     stepMin: opts.stepMin,
     bufferMin: opts.bufferMin,
     now,
