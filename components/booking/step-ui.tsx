@@ -17,20 +17,25 @@ export function Heading({ children }: { children: ReactNode }) {
   return <h2 className="mb-3 text-lg font-medium">{children}</h2>;
 }
 
-// Una elección ya hecha, con su enlace para cambiarla
+// Una elección ya hecha, con su enlace para cambiarla. `caption`: qué es («Profesional»…)
 export function Chosen({
+  caption,
   label,
   changeHref,
   changeText,
 }: {
+  caption?: string;
   label: string;
   changeHref: BookingHref;
   changeText: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-      <span>{label}</span>
-      <Link href={changeHref} className="text-muted-foreground underline underline-offset-4">
+    <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2 text-sm">
+      <span className="min-w-0">
+        {caption && <span className="block text-xs text-muted-foreground">{caption}</span>}
+        <span className="block font-medium">{label}</span>
+      </span>
+      <Link href={changeHref} className="shrink-0 underline underline-offset-4">
         {changeText}
       </Link>
     </div>

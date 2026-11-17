@@ -1,12 +1,16 @@
 import { getTranslations } from "next-intl/server";
 import { ChoiceCard } from "@/components/booking/choice-card";
+import {
+  BookingShell, PickedRows, YourAppointment, summarizeServices,
+  type PickedSummary, type StepNames, type SummaryLabels,
+} from "@/components/booking/booking-shell";
 import { DateTimeStep } from "@/components/booking/date-time-step";
-import { ServicePicker, type PickerGroup } from "@/components/booking/service-picker";
-import { Chosen, Heading, bookingHref } from "@/components/booking/step-ui";
-import { joinServiceNames } from "@/lib/appointment-services";
+import {
+  ServicePickerAside, ServicePickerList, ServicePickerState, type PickerGroup,
+} from "@/components/booking/service-picker";
+import { Heading, bookingHref } from "@/components/booking/step-ui";
 import { listActiveLocations, listServicesByCategory, listStaffForService } from "@/lib/catalog";
 import { parseFlowParams } from "@/lib/booking-flow";
-import { formatDuration } from "@/lib/format";
 import { initialsOf } from "@/lib/initials";
 import { getPhotoViews } from "@/lib/photos";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -32,6 +36,23 @@ export async function BookingSteps({ locale, searchParams }: Props) {
   await io();
   const now = new Date();
 
+  const names: StepNames = {
+    aria: t("stepsLabel"),
+    steps: [t("stepsServices"), t("stepsStaff"), t("stepsWhen"), t("stepsDetails")],
+  };
+  const labels: SummaryLabels = {
+    title: t("summaryTitle"),
+    location: t("summaryLocation"),
+    services: t("summaryServices"),
+    staff: t("summaryStaff"),
+    when: t("summaryWhen"),
+    notChosen: t("summaryNotChosen"),
+    change: t("change"),
+    total: t("summaryTotal"),
+    deposit: t("summaryDeposit"),
+    noServices: t("summaryNoServices"),
+  };
+
   // Paso 1: local (se omite si solo hay uno)
   const locations = await listActiveLocations();
   if (locations.length === 0) {
@@ -47,29 +68,28 @@ export async function BookingSteps({ locale, searchParams }: Props) {
       config.defaultLocale,
     );
     return (
-      <section>
-        <Heading>{t("stepLocation")}</Heading>
-        <div className="space-y-3">
-          {locations.map((l) => (
-            <ChoiceCard
-              key={l.id}
-              href={href({ location: l.id })}
-              title={l.name}
-              description={l.address}
-              photo={l.photoId === null ? undefined : photos.get(l.photoId)}
-            />
-          ))}
-        </div>
-      </section>
+      <BookingShell step={1} names={names}>
+        <section>
+          <Heading>{t("stepLocation")}</Heading>
+          <div className="space-y-3">
+            {locations.map((l) => (
+              <ChoiceCard
+                key={l.id}
+                href={href({ location: l.id })}
+                title={l.name}
+                description={l.address}
+                photo={l.photoId === null ? undefined : photos.get(l.photoId)}
+              />
+            ))}
+          </div>
+        </section>
+      </BookingShell>
     );
   }
 
-  const summary: React.ReactNode[] = [];
-  if (locations.length > 1) {
-    summary.push(
-      <Chosen key="loc" label={location.name} changeHref={href({})} changeText={t("change")} />,
-    );
-  }
+  const summary: PickedSummary = {
+    location: { name: location.name, changeHref: locations.length > 1 ? href({}) : undefined },
+  };
 
   // Paso 2: servicios. Se pueden marcar varios: se hacen seguidos, en la misma visita.
   const groups = (await listServicesByCategory(location.id, locale, config.defaultLocale))
@@ -104,36 +124,30 @@ export async function BookingSteps({ locale, searchParams }: Props) {
     // Al volver con «Cambiar», los que ya tenía marcados
     const initial = (flow.picked ?? wanted).filter((id) => catalog.some((s) => s.id === id));
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">{summary}</div>
-        <section>
-          <Heading>{t("stepService")}</Heading>
-          {catalog.length === 0 ? (
-            <p className="text-muted-foreground">{t("noServices")}</p>
-          ) : (
-            <ServicePicker
-              locale={locale}
-              currency={config.currency}
-              locationId={location.id}
-              groups={pickerGroups}
-              initial={initial}
-            />
-          )}
-        </section>
-      </div>
+      <ServicePickerState groups={pickerGroups} initial={initial}>
+        <BookingShell
+          step={1}
+          names={names}
+          picked={<PickedRows summary={summary} labels={labels} />}
+          aside={
+            <ServicePickerAside locale={locale} currency={config.currency} locationId={location.id} summary={summary} />
+          }
+        >
+          <section>
+            <Heading>{t("stepService")}</Heading>
+            {catalog.length === 0 ? (
+              <p className="text-muted-foreground">{t("noServices")}</p>
+            ) : (
+              <ServicePickerList locale={locale} currency={config.currency} locationId={location.id} />
+            )}
+          </section>
+        </BookingShell>
+      </ServicePickerState>
     );
   }
 
   const ids = services.map((s) => s.id);
-  const totalMin = services.reduce((sum, s) => sum + s.durationMin, 0);
-  summary.push(
-    <Chosen
-      key="svc"
-      label={`${joinServiceNames(services.map((s) => s.name))} · ${formatDuration(totalMin)}`}
-      changeHref={href({ location: location.id, picked: ids })}
-      changeText={t("change")}
-    />,
-  );
+  summary.services = summarizeServices(services, locale, config.currency, href({ location: location.id, picked: ids }));
 
   // Paso 3: profesional (solo las que hacen todos los servicios elegidos)
   const team = await listStaffForService(location.id, ids);
@@ -146,8 +160,12 @@ export async function BookingSteps({ locale, searchParams }: Props) {
       config.defaultLocale,
     );
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">{summary}</div>
+      <BookingShell
+        step={2}
+        names={names}
+        picked={<PickedRows summary={summary} labels={labels} />}
+        aside={<YourAppointment summary={summary} labels={labels} />}
+      >
         <section>
           <Heading>{t("stepStaff")}</Heading>
           {team.length === 0 ? (
@@ -175,18 +193,14 @@ export async function BookingSteps({ locale, searchParams }: Props) {
             </div>
           )}
         </section>
-      </div>
+      </BookingShell>
     );
   }
 
-  summary.push(
-    <Chosen
-      key="staff"
-      label={member === "any" ? t("anyStaff") : member.name}
-      changeHref={href({ location: location.id, services: ids })}
-      changeText={t("change")}
-    />,
-  );
+  summary.staff = {
+    name: member === "any" ? t("anyStaff") : member.name,
+    changeHref: href({ location: location.id, services: ids }),
+  };
 
   // Pasos 4 y 5: día y hora, y datos de la clienta
   return (
@@ -199,6 +213,8 @@ export async function BookingSteps({ locale, searchParams }: Props) {
       services={services}
       member={member === "any" ? "any" : { id: member.id, name: member.name }}
       summary={summary}
+      labels={labels}
+      names={names}
     />
   );
 }

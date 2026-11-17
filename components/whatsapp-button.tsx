@@ -35,7 +35,7 @@ export function WhatsAppFloating({ href, label }: { href: string; label: string 
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed right-4 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+var(--floating-offset,0rem))] z-50 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="fixed right-4 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+var(--floating-offset,0rem))] lg:bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <FaWhatsapp className={iconClass} aria-hidden="true" />
       {label}

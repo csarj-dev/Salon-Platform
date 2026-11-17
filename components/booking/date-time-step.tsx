@@ -1,10 +1,13 @@
-import type { ReactNode } from "react";
 import { DateTime } from "luxon";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { BookingForm } from "@/components/booking/booking-form";
+import {
+  BookingShell, PickedRows, YourAppointment,
+  type PickedSummary, type StepNames, type SummaryLabels,
+} from "@/components/booking/booking-shell";
 import { MonthCalendar } from "@/components/booking/month-calendar";
-import { Chosen, Heading, bookingHref } from "@/components/booking/step-ui";
+import { Heading, bookingHref } from "@/components/booking/step-ui";
 import type { ServiceAvailability } from "@/lib/availability-service";
 import type { Flow } from "@/lib/booking-flow";
 import { addMonths, firstWeekdayOf, monthOfDay } from "@/lib/calendar";
@@ -27,8 +30,10 @@ type Props = {
   location: { id: number; name: string };
   services: CatalogService[]; // uno o varios, en el orden en que se hacen
   member: "any" | { id: number; name: string };
-  // Elecciones anteriores (local, servicios, profesional), ya pintadas
-  summary: ReactNode[];
+  // Lo elegido hasta ahora (local, servicios, profesional) y los textos para pintarlo
+  summary: PickedSummary;
+  labels: SummaryLabels;
+  names: StepNames;
 };
 
 // Un día como fecha "de calendario": a mediodía UTC para que ninguna zona horaria lo mueva de día
@@ -36,7 +41,7 @@ const noon = (day: string) => new Date(`${day}T12:00:00Z`);
 
 // Pasos 4 y 5: primero se elige el día (calendario) y la hora; con la hora elegida, se piden los datos
 export async function DateTimeStep({
-  locale, config, now, flow, location, services, member, summary,
+  locale, config, now, flow, location, services, member, summary, labels, names,
 }: Props) {
   const t = await getTranslations("Booking");
   const zone = config.timezone;
@@ -46,27 +51,36 @@ export async function DateTimeStep({
   // Un depósito por categoría (los de cejas, uno; cejas + pestañas, se suman)
   const depositCents = depositForServices(services);
 
+  // El marco del paso 3 (calendario): filas arriba y «Tu cita» en el ordenador
+  const dateShell = (children: React.ReactNode) => (
+    <BookingShell
+      step={3}
+      names={names}
+      picked={<PickedRows summary={summary} labels={labels} />}
+      aside={<YourAppointment summary={summary} labels={labels} />}
+    >
+      {children}
+    </BookingShell>
+  );
+
   // Primer y último día en los que se puede reservar (fecha local del salón)
   const todayDt = DateTime.fromJSDate(now, { zone }).startOf("day");
   const today = todayDt.toFormat(DAY_FORMAT);
   const last = todayDt.plus({ days: config.booking.maxDaysAhead }).toFormat(DAY_FORMAT);
 
   // Si Koibox no responde, no se enseñan horas (podrían estar ya ocupadas): aviso y WhatsApp
-  const agendaUnavailable = (
-    <div className="space-y-6">
-      <div className="space-y-2">{summary}</div>
-      <section className="space-y-3 rounded-lg border bg-muted/50 p-4" role="status">
-        <p>{t("agendaUnavailable")}</p>
-        {config.contact.whatsapp ? (
-          <a
-            href={buildWhatsAppLink(config.contact.whatsapp)}
-            className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
-          >
-            {t("agendaUnavailableWhatsApp")}
-          </a>
-        ) : null}
-      </section>
-    </div>
+  const agendaUnavailable = dateShell(
+    <section className="space-y-3 rounded-lg border bg-muted/50 p-4" role="status">
+      <p>{t("agendaUnavailable")}</p>
+      {config.contact.whatsapp ? (
+        <a
+          href={buildWhatsAppLink(config.contact.whatsapp)}
+          className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+        >
+          {t("agendaUnavailableWhatsApp")}
+        </a>
+      ) : null}
+    </section>,
   );
 
   // Los huecos de TODO el rango reservable de una vez: en modo local con unas 6 consultas
@@ -132,17 +146,14 @@ export async function DateTimeStep({
       // quién cobra a esa profesional (docs/collectors.md)
       const collector = await collectorForStaff(expectedStaff, config);
       const depositAmount = depositCents ? formatPrice(depositCents, locale, config.currency) : null;
+      const withWhen: PickedSummary = { ...summary, when: { label: formatDateTime(at, locale, zone), changeHref } };
       return (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            {summary}
-            <Chosen
-              key="when"
-              label={formatDateTime(at, locale, zone)}
-              changeHref={changeHref}
-              changeText={t("change")}
-            />
-          </div>
+        <BookingShell
+          step={4}
+          names={names}
+          picked={<PickedRows summary={withWhen} labels={labels} />}
+          aside={<YourAppointment summary={withWhen} labels={labels} />}
+        >
           <section>
             <Heading>{t("stepDetails")}</Heading>
             {depositAmount ? (
@@ -168,7 +179,7 @@ export async function DateTimeStep({
               depositAmount={depositAmount}
             />
           </section>
-        </div>
+        </BookingShell>
       );
     }
     // Si el hueco ya no existe (alguien lo reservó, o la URL está manipulada), se vuelve a elegir
@@ -192,10 +203,8 @@ export async function DateTimeStep({
 
   const dayLabel = (day: string) => formatDayLong(noon(day), locale, "UTC");
 
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">{summary}</div>
-
+  return dateShell(
+    <>
       <section>
         <Heading>{t("stepDate")}</Heading>
 
@@ -257,6 +266,6 @@ export async function DateTimeStep({
           </p>
         )}
       </section>
-    </div>
+    </>,
   );
 }

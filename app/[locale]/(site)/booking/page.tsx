@@ -24,7 +24,7 @@ export default async function BookPage({ params, searchParams }: Props) {
   if (!config.booking.channels.includes("online")) notFound();
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-6">
+    <main className="mx-auto max-w-xl px-6 py-6 lg:max-w-5xl">
       <div className="mb-6">
         <Link href="/" className="text-sm text-muted-foreground">
           ← {t("back")}
