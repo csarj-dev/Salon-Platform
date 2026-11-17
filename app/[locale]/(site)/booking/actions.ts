@@ -21,7 +21,7 @@ import { sendAppointmentEmail } from "@/lib/email/appointment-email";
 export type BookingFormState = {
   error?: "invalid" | "slot_taken" | "slot_unavailable" | "server";
   // Campos con error, para marcarlos
-  fields?: Partial<Record<"name" | "phone" | "email" | "consent", true>>;
+  fields?: Partial<Record<"name" | "phone" | "email" | "depositTerms" | "consent", true>>;
   // Lo que escribió la clienta, para no obligarla a repetirlo
   values?: { name: string; phone: string; email: string };
   // Reserva hecha con la pestaña de WhatsApp ya abierta (ordenador): el formulario
@@ -62,8 +62,12 @@ export async function submitBooking(
 
   // 2. Datos de la clienta
   const consent = formData.get("consent") === "on";
+  // La casilla del depósito solo sale si el servicio lo pide (el formulario lo indica).
+  // Aunque el navegador mintiera, createAppointment la vuelve a exigir con el depósito real.
+  const depositTermsShown = formData.get("depositTermsShown") === "1";
+  const depositTerms = formData.get("depositTerms") === "on";
   const client = clientFormSchema.safeParse(values);
-  if (!client.success || !consent) {
+  if (!client.success || !consent || (depositTermsShown && !depositTerms)) {
     const fields: NonNullable<BookingFormState["fields"]> = {};
     if (!client.success) {
       for (const issue of client.error.issues) {
@@ -71,6 +75,7 @@ export async function submitBooking(
         if (key === "name" || key === "phone" || key === "email") fields[key] = true;
       }
     }
+    if (depositTermsShown && !depositTerms) fields.depositTerms = true;
     if (!consent) fields.consent = true;
     return { error: "invalid", fields, values };
   }
@@ -80,7 +85,13 @@ export async function submitBooking(
   let whatsappHref: string | null = null;
   try {
     const config = await loadSalonConfig();
-    const bookingOptions = toBookingOptions(config);
+    const tb = await getTranslations({ locale, namespace: "Booking" });
+    const bookingOptions = {
+      ...toBookingOptions(config),
+      // El mismo texto que ve en la casilla, con el importe real: es el que se guarda con la cita
+      depositTermsText: (cents: number) =>
+        `${tb("depositTermsStrong", { amount: formatPrice(cents, locale, config.currency) })} ${tb("depositTermsRest")}`,
+    };
     const now = new Date();
     const startsAt = new Date(flow.at);
 
@@ -107,12 +118,14 @@ export async function submitBooking(
         client: client.data,
         locale,
         consent,
+        depositTermsAccepted: depositTerms,
       },
       bookingOptions,
       now,
     );
 
     if (!result.ok) {
+      if (result.reason === "deposit_terms") return { error: "invalid", fields: { depositTerms: true }, values };
       if (result.reason === "slot_taken") return { error: "slot_taken", values };
       if (result.reason === "invalid_input") return { error: "invalid", values };
       return { error: "slot_unavailable", values };

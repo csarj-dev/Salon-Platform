@@ -57,6 +57,8 @@
     "phone": "Phone",
     "email": "Email (we'll send your confirmation)",
     "consent": "I agree to my details being stored to manage my appointment.",
+    "depositTermsStrong": "I understand that the {amount} deposit is non-refundable",
+    "depositTermsRest": "if I cancel or don't show up.",
     "submit": "Book appointment",
     "submitting": "Booking…",
     "depositNotice": "This service requires a {amount} deposit. When you book, we hold your slot for {hours, plural, one {# hour} other {# hours}} so you can pay it; until then the appointment stays pending.",
@@ -69,6 +71,8 @@
     "errorPhone": "Enter a valid phone number (9 to 15 digits).",
     "errorEmail": "That email isn't valid.",
     "errorConsent": "We need your consent to book.",
+    "errorDepositTerms": "Tick this box to continue.",
+    "errorDepositTermsTop": "To book, please confirm that you understand the deposit is non-refundable.",
     "pickAnother": "Choose another time"
   },
   "Showcase": {
@@ -121,6 +125,7 @@
     "price": "Price",
     "depositTitle": "Deposit: {amount}",
     "depositDue": "You have until {date} to pay it. After that, the slot is released.",
+    "depositTermsAccepted": "You accepted that the deposit is non-refundable ({date}).",
     "payTo": "The deposit is paid to {name}.",
     "howToPay": "How to pay",
     "payNoInstructions": "The salon will message you with the payment instructions.",
@@ -262,6 +267,7 @@
       "urgent": "expires soon",
       "expiredOn": "expired on {date}",
       "validatedBy": "Deposit validated by {name}",
+      "depositTermsAccepted": "Accepted that the deposit is non-refundable on {date}",
       "rescheduledAt": "Time changed on {date}",
       "cancelledBy": "Cancelled by {name} on {date}",
       "cancelledNoAuthor": "Cancelled on {date} (by the client or not recorded)",

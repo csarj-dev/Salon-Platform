@@ -37,6 +37,8 @@ export const bookingInputSchema = z
     // Idioma de la clienta (para sus correos)
     locale: z.string().min(2).max(10).optional(),
     consent: z.boolean().default(false),
+    // Casilla «el depósito no se devuelve». Solo cuenta en reservas web con depósito.
+    depositTermsAccepted: z.boolean().default(false),
   })
   .refine((d) => d.source !== "web" || d.consent, {
     message: "Hace falta aceptar la política de privacidad",

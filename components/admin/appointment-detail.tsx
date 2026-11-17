@@ -33,6 +33,7 @@ export type AppointmentDetailData = {
   cancelReason?: string | null;
   cancelledByName?: string | null;
   validatedByName?: string | null;
+  depositTermsAcceptedAt?: Date | null; // casilla «el depósito no se devuelve» (reserva web)
   rescheduledAt?: Date | null;
   // Solo en la lista de citas: la clienta tiene email y cómo fue el último correo
   hasEmail?: boolean;
@@ -133,6 +134,9 @@ export async function AppointmentDetail({
         )}
       </p>,
     );
+  }
+  if (data.depositTermsAcceptedAt) {
+    lines.push(<p key="terms">{t("depositTermsAccepted", { date: fmt(data.depositTermsAcceptedAt) })}</p>);
   }
   if (data.validatedByName) lines.push(<p key="validated">{t("validatedBy", { name: data.validatedByName })}</p>);
   if (data.rescheduledAt) lines.push(<p key="moved">{t("rescheduledAt", { date: fmt(data.rescheduledAt) })}</p>);

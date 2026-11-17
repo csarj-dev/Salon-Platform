@@ -126,6 +126,7 @@ async function book(
       startsAt: at(hhmm),
       source: extra.source ?? "web",
       consent: true,
+      depositTermsAccepted: true,
       client: who,
     },
     bookingOpts,

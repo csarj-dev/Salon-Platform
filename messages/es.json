@@ -57,6 +57,8 @@
     "phone": "Teléfono",
     "email": "Email (te enviaremos la confirmación)",
     "consent": "Acepto que guarden mis datos para gestionar mi cita.",
+    "depositTermsStrong": "Entiendo que el depósito de {amount} no se devuelve",
+    "depositTermsRest": "si anulo la cita o no vengo.",
     "submit": "Reservar cita",
     "submitting": "Reservando…",
     "depositNotice": "Este servicio requiere un depósito de {amount}. Al reservar te guardamos el hueco {hours, plural, one {# hora} other {# horas}} para que lo pagues; hasta entonces la cita queda pendiente.",
@@ -69,6 +71,8 @@
     "errorPhone": "Escribe un teléfono válido (entre 9 y 15 cifras).",
     "errorEmail": "Ese email no es válido.",
     "errorConsent": "Necesitamos tu consentimiento para reservar.",
+    "errorDepositTerms": "Marca esta casilla para seguir.",
+    "errorDepositTermsTop": "Para reservar tienes que marcar que entiendes que el depósito no se devuelve.",
     "pickAnother": "Elegir otra hora"
   },
   "Showcase": {
@@ -121,6 +125,7 @@
     "price": "Precio",
     "depositTitle": "Depósito: {amount}",
     "depositDue": "Tienes hasta el {date} para pagarlo. Si no, el hueco se libera.",
+    "depositTermsAccepted": "Aceptaste que el depósito no se devuelve ({date}).",
     "payTo": "El depósito se paga a {name}.",
     "howToPay": "Cómo pagar",
     "payNoInstructions": "El salón te escribirá con las instrucciones de pago.",
@@ -262,6 +267,7 @@
       "urgent": "vence pronto",
       "expiredOn": "caducó el {date}",
       "validatedBy": "Depósito validado por {name}",
+      "depositTermsAccepted": "Aceptó que el depósito no se devuelve el {date}",
       "rescheduledAt": "Cambiada de hora el {date}",
       "cancelledBy": "Cancelada por {name} el {date}",
       "cancelledNoAuthor": "Cancelada el {date} (por la clienta o sin registro)",

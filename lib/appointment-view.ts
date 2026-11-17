@@ -24,6 +24,7 @@ export type ConfirmationView = {
   priceCents: number;
   depositCents: number | null;
   depositDueAt: Date | null;
+  depositTermsAcceptedAt: Date | null; // cuándo marcó la casilla del depósito
   rescheduledAt: Date | null; // última vez que se cambió de hora
 };
 
@@ -52,6 +53,7 @@ export async function getConfirmation(
       priceCents: appointment.priceAppliedCents,
       depositCents: appointment.depositCents,
       depositDueAt: appointment.depositDueAt,
+      depositTermsAcceptedAt: appointment.depositTermsAcceptedAt,
       rescheduledAt: appointment.rescheduledAt,
     })
     .from(appointment)
@@ -89,6 +91,7 @@ export async function getConfirmation(
     priceCents: row.priceCents,
     depositCents: row.depositCents,
     depositDueAt: row.depositDueAt,
+    depositTermsAcceptedAt: row.depositTermsAcceptedAt,
     rescheduledAt: row.rescheduledAt,
   };
 }

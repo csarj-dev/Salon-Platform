@@ -157,6 +157,9 @@ export async function DateTimeStep({
                 whatsapp: collector.deposit.whatsapp,
                 depositCents: service.depositCents,
               })}
+              depositAmount={
+                service.depositCents ? formatPrice(service.depositCents, locale, config.currency) : null
+              }
             />
           </section>
         </div>

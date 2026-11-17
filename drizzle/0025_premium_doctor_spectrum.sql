@@ -1,0 +1,4 @@
+ALTER TABLE "appointment" ADD COLUMN "deposit_terms_accepted_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "appointment" ADD COLUMN "deposit_terms_text" text;--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_deposit_terms_together" CHECK (("appointment"."deposit_terms_accepted_at" IS NULL) = ("appointment"."deposit_terms_text" IS NULL));--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_deposit_terms_text_length" CHECK ("appointment"."deposit_terms_text" IS NULL OR char_length("appointment"."deposit_terms_text") <= 500);

@@ -176,6 +176,13 @@
       "when": 1794868826749,
       "tag": "0024_category_color",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794910972915,
+      "tag": "0025_premium_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

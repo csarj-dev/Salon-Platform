@@ -17,6 +17,7 @@ type Props = {
   at: string; // hora elegida (ISO, UTC)
   backHref: BookingHref; // volver a elegir otra hora
   opensWhatsApp?: boolean; // si al reservar se acabará en WhatsApp (depósito por WhatsApp)
+  depositAmount?: string | null; // depósito ya formateado («15,00 €»); null = sin depósito ni casilla
 };
 
 const inputClass =
@@ -46,7 +47,7 @@ function Field({
 }
 
 export function BookingForm({
-  locale, locationId, serviceId, staff, at, backHref, opensWhatsApp = false,
+  locale, locationId, serviceId, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
 }: Props) {
   const t = useTranslations("Booking");
   const router = useRouter();
@@ -90,13 +91,21 @@ export function BookingForm({
       tabRef.current = null;
     }
   }, [state, router]);
+  // Con un error en los datos, el foco va al primer campo marcado (la casilla incluida)
+  useEffect(() => {
+    const first = (["name", "phone", "email", "depositTerms", "consent"] as const).find((k) => state.fields?.[k]);
+    if (first) document.getElementById(first)?.focus();
+  }, [state.fields]);
+
   const errorMessage = state.error
-    ? {
-        invalid: t("errorInvalid"),
-        slot_taken: t("errorTaken"),
-        slot_unavailable: t("errorUnavailable"),
-        server: t("errorServer"),
-      }[state.error]
+    ? state.fields?.depositTerms
+      ? t("errorDepositTermsTop")
+      : {
+          invalid: t("errorInvalid"),
+          slot_taken: t("errorTaken"),
+          slot_unavailable: t("errorUnavailable"),
+          server: t("errorServer"),
+        }[state.error]
     : null;
   const slotProblem = state.error === "slot_taken" || state.error === "slot_unavailable";
 
@@ -107,6 +116,7 @@ export function BookingForm({
       <input type="hidden" name="service" value={serviceId} />
       <input type="hidden" name="staff" value={staff} />
       <input type="hidden" name="at" value={at} />
+      {depositAmount && <input type="hidden" name="depositTermsShown" value="1" />}
 
       {errorMessage && (
         <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
@@ -162,9 +172,35 @@ export function BookingForm({
         />
       </Field>
 
+      {depositAmount && (
+        <div className="space-y-1">
+          <label className="flex min-h-11 items-start gap-3 text-sm">
+            <input
+              id="depositTerms"
+              type="checkbox"
+              name="depositTerms"
+              required
+              aria-invalid={state.fields?.depositTerms ? true : undefined}
+              aria-describedby={state.fields?.depositTerms ? "depositTerms-error" : undefined}
+              className="mt-0.5 size-5 shrink-0 aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive"
+            />
+            <span>
+              <strong className="font-medium">{t("depositTermsStrong", { amount: depositAmount })}</strong>{" "}
+              {t("depositTermsRest")}
+            </span>
+          </label>
+          {state.fields?.depositTerms && (
+            <p id="depositTerms-error" className="pl-8 text-sm text-destructive">
+              {t("errorDepositTerms")}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="space-y-1">
         <label className="flex min-h-11 items-start gap-3 text-sm">
           <input
+            id="consent"
             type="checkbox"
             name="consent"
             required

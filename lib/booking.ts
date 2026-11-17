@@ -15,6 +15,9 @@ export type BookingOptions = AvailabilityOptions & {
   // De dónde salen los huecos (por defecto, "local"). Con "koibox" la hora ya la comprobó
   // confirmBookingSlot contra Koibox, y aquí no se miran nuestros turnos.
   availability?: AvailabilitySource;
+  // Texto de la casilla del depósito tal y como lo vio la clienta (en su idioma y con el
+  // importe). Lo pone la acción del formulario; si falta (scripts, tests) se usa uno genérico.
+  depositTermsText?: (depositCents: number) => string;
 };
 
 export function toBookingOptions(c: SalonConfig): BookingOptions {
@@ -37,7 +40,9 @@ export type BookingResult =
       deposit: { cents: number; dueAt: Date } | null;
     }
   | { ok: false; reason: "invalid_input"; issues: string[] }
-  | { ok: false; reason: "slot_unavailable" | "slot_taken" };
+  | { ok: false; reason: "slot_unavailable" | "slot_taken" }
+  // Reserva web con depósito sin la casilla «el depósito no se devuelve»
+  | { ok: false; reason: "deposit_terms" };
 
 // Busca el código de error de Postgres, que según la versión de Drizzle
 // puede venir en el propio error o dentro de `cause`
@@ -97,6 +102,13 @@ export async function createAppointment(
   });
   if (!resolved.ok) return { ok: false, reason: "slot_unavailable" };
 
+  // 3b. Depósito: solo en reservas hechas por la web (recepción lo elige en su propio flujo).
+  //     Si lo hay, la clienta tiene que haber marcado que entiende que no se devuelve.
+  const depositCents = input.source === "web" ? resolved.depositCents : null;
+  if (depositCents !== null && !input.depositTermsAccepted) {
+    return { ok: false, reason: "deposit_terms" };
+  }
+
   // 4. Comprobación previa: el hueco debe estar entre los disponibles (turnos, bloqueos y
   //    antelación mínima). Sirve para dar un error claro.
   if (opts.availability === "koibox") {
@@ -129,8 +141,6 @@ export async function createAppointment(
 
       const endsAt = new Date(input.startsAt.getTime() + resolved.durationMin * 60_000);
 
-      // Depósito: solo en reservas hechas por la web. Recepción lo elige en su propio flujo.
-      const depositCents = input.source === "web" ? resolved.depositCents : null;
       const deposit =
         depositCents === null
           ? null
@@ -155,6 +165,10 @@ export async function createAppointment(
           status: deposit ? "pending_deposit" : "booked",
           depositCents: deposit?.cents ?? null,
           depositDueAt: deposit?.dueAt ?? null,
+          depositTermsAcceptedAt: deposit ? now : null,
+          depositTermsText: deposit
+            ? (opts.depositTermsText?.(deposit.cents) ?? defaultDepositTermsText(deposit.cents))
+            : null,
         },
         resolved.lines,
         now,
@@ -175,4 +189,9 @@ export async function createAppointment(
     if (pgErrorCode(e) === "23P01") return { ok: false, reason: "slot_taken" };
     throw e;
   }
+}
+
+// Texto de la casilla cuando no lo da el formulario (scripts y tests)
+function defaultDepositTermsText(cents: number): string {
+  return `Entiendo que el depósito de ${(cents / 100).toFixed(2).replace(".", ",")} € no se devuelve si anulo la cita o no vengo.`;
 }

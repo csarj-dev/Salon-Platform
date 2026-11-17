@@ -111,6 +111,12 @@ export async function ConfirmationContent({ params }: Props) {
         <Row label={t("price")}>{formatPrice(view.priceCents, locale, config.currency)}</Row>
       </dl>
 
+      {view.depositTermsAcceptedAt && (
+        <p className="mt-4 rounded-lg bg-muted/50 p-3 text-sm">
+          {t("depositTermsAccepted", { date: formatDateTime(view.depositTermsAcceptedAt, locale, zone) })}
+        </p>
+      )}
+
       {view.status === "pending_deposit" && deposit && view.depositDueAt && (
         <section className="mt-6 space-y-3 rounded-lg border bg-muted/50 p-4">
           <h2 className="font-medium">{t("depositTitle", { amount: deposit })}</h2>
