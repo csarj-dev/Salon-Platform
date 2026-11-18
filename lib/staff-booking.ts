@@ -13,7 +13,7 @@ import { db } from "../db";
 import { appointment, client, staff } from "../db/schema";
 import { insertAppointment, resolveServices, upsertClient } from "./appointment-create";
 import { KoiboxUnavailableError, type SnapshotLoader } from "./availability-koibox";
-import { pgErrorCode } from "./booking";
+import { isSlotConflict } from "./booking";
 import { DURATION_MAX_MIN, DURATION_STEP_MIN, SERVICES_MAX } from "./booking-catalog";
 import { clientDataSchema } from "./booking-schema";
 import { depositDueAt } from "./deposit";
@@ -165,7 +165,7 @@ export async function createStaffAppointment(
     };
   } catch (error) {
     // 23P01 = exclusion_violation: otra cita se quedó el hueco un instante antes
-    if (pgErrorCode(error) === "23P01") return { ok: false, reason: "slot_taken" };
+    if (isSlotConflict(error)) return { ok: false, reason: "slot_taken" };
     throw error;
   }
 }

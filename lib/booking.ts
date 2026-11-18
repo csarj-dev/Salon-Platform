@@ -57,6 +57,14 @@ export function pgErrorCode(e: unknown): string | undefined {
   return undefined;
 }
 
+// ¿Otra cita se quedó el hueco a la vez? Postgres lo dice con el choque de la regla anti-solape
+// (23P01) o, si dos reservas comprueban esa regla en el mismo instante, cancelando una con un
+// interbloqueo (40P01). En los dos casos la otra ha entrado: para esta, el hueco está ocupado.
+export function isSlotConflict(e: unknown): boolean {
+  const code = pgErrorCode(e);
+  return code === "23P01" || code === "40P01";
+}
+
 export async function createAppointment(
   rawInput: unknown,
   opts: BookingOptions,
@@ -187,7 +195,7 @@ export async function createAppointment(
     };
   } catch (e) {
     // 23P01 = exclusion_violation: otra reserva se quedó el hueco un instante antes
-    if (pgErrorCode(e) === "23P01") return { ok: false, reason: "slot_taken" };
+    if (isSlotConflict(e)) return { ok: false, reason: "slot_taken" };
     throw e;
   }
 }

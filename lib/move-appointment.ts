@@ -21,7 +21,7 @@ import { resolveServices } from "./appointment-create";
 import { serviceIdsOf } from "./appointment-services";
 import { getAvailabilityForDay } from "./availability-db";
 import { confirmKoiboxSlot, KoiboxUnavailableError, type SnapshotLoader } from "./availability-koibox";
-import { pgErrorCode } from "./booking";
+import { isSlotConflict } from "./booking";
 import { koiboxPatchFor, webRefLine, type MovedBy } from "./koibox/booking";
 import type { KoiboxApi } from "./koibox/client";
 import { freshKoiboxSnapshot } from "./koibox/snapshot-cache";
@@ -434,7 +434,7 @@ async function relocate(
   } catch (error) {
     await undoCopy();
     // 23P01: otra cita se quedó ese hueco en nuestra base un instante antes
-    if (pgErrorCode(error) === "23P01") return { ok: false, reason: "slot_taken" };
+    if (isSlotConflict(error)) return { ok: false, reason: "slot_taken" };
     throw error;
   }
 

@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { db } from "../db";
 import { appointment, service } from "../db/schema";
 import { getAvailabilityForDay } from "./availability-db";
-import { pgErrorCode, type BookingOptions } from "./booking";
+import { isSlotConflict, type BookingOptions } from "./booking";
 import type { SalonConfig } from "./salon-config";
 
 export type ChangeOptions = { cancellationNoticeHours: number };
@@ -142,7 +142,7 @@ export async function rescheduleAppointment(
     return { ok: true };
   } catch (e) {
     // 23P01 = exclusion_violation: otra reserva se quedó ese hueco un instante antes
-    if (pgErrorCode(e) === "23P01") return { ok: false, reason: "slot_taken" };
+    if (isSlotConflict(e)) return { ok: false, reason: "slot_taken" };
     throw e;
   }
 }
