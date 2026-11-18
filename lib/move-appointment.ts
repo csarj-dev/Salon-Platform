@@ -18,6 +18,7 @@ import { db } from "../db";
 import { appointment, appointmentService, emailLog, staff } from "../db/schema";
 import type { Actor } from "./appointment-changes";
 import { resolveServices } from "./appointment-create";
+import { serviceIdsOf } from "./appointment-services";
 import { getAvailabilityForDay } from "./availability-db";
 import { confirmKoiboxSlot, KoiboxUnavailableError, type SnapshotLoader } from "./availability-koibox";
 import { pgErrorCode } from "./booking";
@@ -104,18 +105,19 @@ export async function moveAppointment(
   // La duración de la cita, no la del servicio: recepción puede haberla cambiado
   const newEndsAt = new Date(newStartsAt.getTime() + (appt.endsAt.getTime() - appt.startsAt.getTime()));
 
-  // ¿Está libre la hora nueva? Sin contar la propia cita.
+  // ¿Está libre la hora nueva? Sin contar la propia cita, y con sitio para todos sus servicios.
+  const services = await serviceIdsOf(appt.id, appt.serviceId);
   try {
     if (writesToKoibox(config)) {
       const free = await confirmKoiboxSlot(
-        appt.locationId, appt.serviceId, appt.staffId, newStartsAt, avail, now, config.koibox,
+        appt.locationId, services, appt.staffId, newStartsAt, avail, now, config.koibox,
         opts.loadFresh ?? freshKoiboxSnapshot,
         { appointmentId: appt.id, staffId: appt.staffId, startsAt: appt.startsAt, endsAt: appt.endsAt },
       );
       if (free === null) return { ok: false, reason: "slot_unavailable" };
     } else {
       const date = DateTime.fromJSDate(newStartsAt, { zone: config.timezone }).toFormat("yyyy-MM-dd");
-      const slots = await getAvailabilityForDay(appt.locationId, appt.staffId, appt.serviceId, date, avail, now, appt.id);
+      const slots = await getAvailabilityForDay(appt.locationId, appt.staffId, services, date, avail, now, appt.id);
       if (!slots.some((s) => s.getTime() === newStartsAt.getTime())) return { ok: false, reason: "slot_unavailable" };
     }
   } catch (error) {

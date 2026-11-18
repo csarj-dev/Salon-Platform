@@ -66,7 +66,7 @@ export async function RescheduleContent({ params, searchParams }: Props) {
         <Link href={appointmentHref} className="text-sm text-muted-foreground">
           ← {t("back")}
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">{t("title")}</h1>
       </div>
       <section className="rounded-lg border p-4 text-sm">
         <h2 className="font-medium">{t("current")}</h2>
@@ -105,7 +105,7 @@ export async function RescheduleContent({ params, searchParams }: Props) {
   const last = todayDt.plus({ days: config.booking.maxDaysAhead }).toFormat(DAY_FORMAT);
   let slotsByDay: Map<string, Date[]>;
   try {
-    const availability = await getBookingAvailability(config, target.locationId, target.serviceId, today, last, now, {
+    const availability = await getBookingAvailability(config, target.locationId, target.serviceIds, today, last, now, {
       appointmentId: target.id,
       staffId: target.staffId,
       startsAt: target.startsAt,
@@ -206,6 +206,7 @@ export async function RescheduleContent({ params, searchParams }: Props) {
             prev: tb("prevMonth"),
             next: tb("nextMonth"),
             unavailable: tb("dayUnavailable"),
+            legend: tb("calendarLegend"),
           }}
         />
         {firstDay && selected !== firstDay && (

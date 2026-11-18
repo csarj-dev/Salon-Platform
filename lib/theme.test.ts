@@ -49,6 +49,21 @@ describe("tema del salón", () => {
   });
 });
 
+describe("letra de los títulos", () => {
+  it("sans por defecto; serif si el salón la elige", () => {
+    const sans = salonConfigSchema.parse({ ...base, theme: {} }).theme;
+    expect(sans.displayFont).toBe("sans");
+    expect(themeToCssVars(sans)["--display-font"]).toBe("var(--font-geist-sans)");
+
+    const serif = salonConfigSchema.parse({ ...base, theme: { displayFont: "serif" } }).theme;
+    expect(themeToCssVars(serif)["--display-font"]).toBe("var(--font-cormorant)");
+  });
+
+  it("no admite otras letras", () => {
+    expect(() => salonConfigSchema.parse({ ...base, theme: { displayFont: "comic" } })).toThrow();
+  });
+});
+
 describe("color de cada cobrador", () => {
   const withCollector = (color: string) => ({
     ...base,

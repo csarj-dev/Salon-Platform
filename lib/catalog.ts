@@ -3,11 +3,12 @@ import { db } from "../db";
 import {
   location, locationHours, locationService, schedule, service,
   serviceCategory, serviceCategoryTranslation, servicePhoto, serviceTranslation,
-  staff, staffService, locationPhoto, staffTranslation
+  staff, locationPhoto, staffTranslation
 } from "../db/schema";
 import { pickTranslation } from "./pick-translation";
 import { hasServiceDetail, pickLongDescription } from "./service-detail";
 import type { HoursRow } from "./opening-hours";
+import { serviceIdList, staffDoingAll, type ServiceIds } from "./service-set";
 
 export async function listActiveLocations() {
   return db
@@ -225,20 +226,15 @@ export async function listServicesByCategory(
   return groups;
 }
 
-// Profesionales activas que hacen el servicio y trabajan en ese local
-export async function listStaffForService(locationId: number, serviceId: number) {
+// Profesionales activas que hacen el servicio (o TODOS, si son varios) y trabajan en ese local
+export async function listStaffForService(locationId: number, services: ServiceIds) {
+  const doers = await staffDoingAll(serviceIdList(services));
+  if (doers.length === 0) return [];
   return db
     .selectDistinct({ id: staff.id, name: staff.name, photoId: staff.photoId })
     .from(staff)
-    .innerJoin(staffService, eq(staffService.staffId, staff.id))
     .innerJoin(schedule, eq(schedule.staffId, staff.id))
-    .where(
-      and(
-        eq(staffService.serviceId, serviceId),
-        eq(schedule.locationId, locationId),
-        eq(staff.active, true),
-      ),
-    )
+    .where(and(inArray(staff.id, doers), eq(schedule.locationId, locationId), eq(staff.active, true)))
     .orderBy(asc(staff.name));
 }
 

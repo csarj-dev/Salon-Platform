@@ -88,7 +88,15 @@ export async function ConfirmationContent({ params }: Props) {
       {view.status === "pending_deposit" && viaWhatsApp && payLinkHref && (
         <OpenWhatsAppOnce href={payLinkHref} />
       )}
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      {(view.status === "booked" || view.status === "pending_deposit") && (
+        <span
+          aria-hidden="true"
+          className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground"
+        >
+          ✓
+        </span>
+      )}
+      <h1 className="font-display text-3xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("reference", { id: view.id })}</p>
       {view.status === "booked" && view.rescheduledAt && (
         <p className="mt-1 text-sm text-muted-foreground">
@@ -109,7 +117,14 @@ export async function ConfirmationContent({ params }: Props) {
         </Row>
         <Row label={t("with")}>{view.staffName}</Row>
         <Row label={t("price")}>{formatPrice(view.priceCents, locale, config.currency)}</Row>
+        {deposit && <Row label={t("depositRow")}>{deposit}</Row>}
       </dl>
+
+      {view.depositTermsAcceptedAt && (
+        <p className="mt-4 rounded-lg bg-muted/50 p-3 text-sm">
+          {t("depositTermsAccepted", { date: formatDateTime(view.depositTermsAcceptedAt, locale, zone) })}
+        </p>
+      )}
 
       {view.status === "pending_deposit" && deposit && view.depositDueAt && (
         <section className="mt-6 space-y-3 rounded-lg border bg-muted/50 p-4">
@@ -186,6 +201,15 @@ export async function ConfirmationContent({ params }: Props) {
           <WhatsAppButton href={contactHref} variant="outline">
             {t("contact")}
           </WhatsAppButton>
+        )}
+        {(view.status === "booked" || view.status === "pending_deposit") && (
+          <a
+            href={`/api/appointments/${token}/calendar?lang=${locale}`}
+            download
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-5")}
+          >
+            {t("addToCalendar")}
+          </a>
         )}
         <Link href="/" className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "h-11 px-5")}>
           {t("home")}

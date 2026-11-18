@@ -73,6 +73,7 @@ const config = {
     warning: "#8a6230",
     danger: "#8a3b2e",
     radius: "0.25rem",
+    displayFont: "serif",
   },
   contact: {
     whatsapp: "34600000000", // provisional; tu número real va en SALON_WHATSAPP

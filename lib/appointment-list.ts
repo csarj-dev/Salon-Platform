@@ -40,6 +40,7 @@ export type AppointmentListRow = {
   koiboxSyncedAt: Date | null;
   cancelledBy: string | null;
   depositPaidAt: Date | null;
+  depositTermsAcceptedAt: Date | null;
   koiboxPreviousId: number | null;
   rescheduledAt: Date | null;
 };
@@ -133,6 +134,7 @@ export async function listAppointments(
       koiboxSyncedAt: appointment.koiboxSyncedAt,
       cancelledBy: appointment.cancelledBy,
       depositPaidAt: appointment.depositPaidAt,
+      depositTermsAcceptedAt: appointment.depositTermsAcceptedAt,
       koiboxPreviousId: appointment.koiboxPreviousId,
       rescheduledAt: appointment.rescheduledAt,
     })

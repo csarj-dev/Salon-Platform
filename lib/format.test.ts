@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDateTime, formatDayChip, formatDayLong, formatPrice, formatTime, timeLeftParts, calendarDayDiff, formatShortDate } from "./format";
+import { formatDateTime, formatDayChip, formatDayLong, formatDuration, formatPrice, formatTime, timeLeftParts, calendarDayDiff, formatShortDate } from "./format";
 
 describe("formatPrice", () => {
   it("formatea en euros según el idioma", () => {
@@ -77,5 +77,14 @@ describe("formatShortDate", () => {
   });
   it("con año si es de otro", () => {
     expect(formatShortDate(new Date("2025-10-03T10:00:00Z"), "es", "Atlantic/Canary", now)).toContain("2025");
+  });
+});
+
+describe("formatDuration", () => {
+  it("minutos, horas y horas con minutos", () => {
+    expect(formatDuration(45)).toBe("45 min");
+    expect(formatDuration(60)).toBe("1 h");
+    expect(formatDuration(90)).toBe("1 h 30 min");
+    expect(formatDuration(135)).toBe("2 h 15 min");
   });
 });

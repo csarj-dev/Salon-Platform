@@ -330,6 +330,10 @@ export const appointment = pgTable(
     // Hasta cuándo se guarda el hueco esperando el pago (solo citas pendientes)
     depositDueAt: timestamp("deposit_due_at", { withTimezone: true }),
     depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
+    // Casilla «el depósito no se devuelve» de la reserva web: cuándo la marcó y el texto
+    // exacto que vio (con el importe). Las dos o ninguna; las citas sin depósito no la llevan.
+    depositTermsAcceptedAt: timestamp("deposit_terms_accepted_at", { withTimezone: true }),
+    depositTermsText: text("deposit_terms_text"),
     // Auditoría: quién del equipo validó el depósito / canceló la cita.
     // null = lo hizo la clienta, un script, o es anterior a esta auditoría.
     depositValidatedBy: text("deposit_validated_by").references(() => user.id, {
@@ -364,6 +368,14 @@ export const appointment = pgTable(
     check(
       "appointment_cancel_reason_length",
       sql`${t.cancelReason} IS NULL OR char_length(${t.cancelReason}) <= 300`,
+    ),
+    check(
+      "appointment_deposit_terms_together",
+      sql`(${t.depositTermsAcceptedAt} IS NULL) = (${t.depositTermsText} IS NULL)`,
+    ),
+    check(
+      "appointment_deposit_terms_text_length",
+      sql`${t.depositTermsText} IS NULL OR char_length(${t.depositTermsText}) <= 500`,
     ),
     // Una cita pendiente de depósito siempre sabe cuánto y hasta cuándo
     check(

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { db, pgClient } from "../db";
 import {
-  appointment, client, location, locationService, schedule,
+  appointment, appointmentService, client, location, locationService, schedule,
   service, staff, staffService, timeOff, user
 } from "../db/schema";
 import { listAppointments } from "../lib/appointment-list";
@@ -50,6 +50,7 @@ const input = (
   startsAt,
   source: "web",
   consent: true,
+  depositTermsAccepted: true,
   client: { name: "Clienta Test", phone },
   ...extra,
 });
@@ -121,6 +122,86 @@ beforeEach(async () => {
 afterAll(async () => {
   await db.delete(user).where(eq(user.id, RECEPTION));
   await pgClient.end();
+});
+
+describe("casilla «el depósito no se devuelve»", () => {
+  it("sin marcarla no se reserva un servicio con depósito", async () => {
+    const r = await createAppointment(input(withDeposit, at("10:00"), { depositTermsAccepted: false }), opts, NOW);
+    expect(r).toEqual({ ok: false, reason: "deposit_terms" });
+    expect(await db.select().from(appointment)).toHaveLength(0);
+  });
+
+  it("guarda cuándo la marcó y el texto que vio", async () => {
+    const r = await createAppointment(
+      input(withDeposit, at("10:00")),
+      { ...opts, depositTermsText: (cents) => `Texto de prueba ${cents}` },
+      NOW,
+    );
+    if (!r.ok) throw new Error(r.reason);
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.depositTermsAcceptedAt).toEqual(NOW);
+    expect(row.depositTermsText).toBe("Texto de prueba 1500");
+
+    const view = await getConfirmation(r.publicToken, "es", "es", NOW);
+    expect(view?.depositTermsAcceptedAt).toEqual(NOW);
+  });
+
+  it("sin depósito no hace falta y no se guarda nada", async () => {
+    const r = await createAppointment(input(plain, at("10:00"), { depositTermsAccepted: false }), opts, NOW);
+    if (!r.ok) throw new Error(r.reason);
+    const [row] = await db.select().from(appointment);
+    expect(row.depositTermsAcceptedAt).toBeNull();
+    expect(row.depositTermsText).toBeNull();
+  });
+
+  it("recepción no la necesita", async () => {
+    const r = await createAppointment(
+      input(withDeposit, at("10:00"), { source: "phone", depositTermsAccepted: false }),
+      opts,
+      NOW,
+    );
+    expect(r).toMatchObject({ ok: true, status: "booked", deposit: null });
+    const [row] = await db.select().from(appointment);
+    expect(row.depositTermsAcceptedAt).toBeNull();
+  });
+});
+
+describe("varios servicios en una reserva web", () => {
+  // Función y no constante: los ids se asignan en beforeAll, después de cargar el archivo
+  const both = () => ({ serviceId: undefined, serviceIds: [withDeposit, plain] });
+
+  it("una cita con los dos: dura la suma, precio sumado y sus líneas en orden", async () => {
+    const r = await createAppointment(input(plain, at("10:00"), both()), opts, NOW);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.deposit?.cents).toBe(1500);
+
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, r.appointmentId));
+    expect(row.serviceId).toBe(withDeposit); // el principal es el primero
+    expect(row.endsAt).toEqual(at("12:00")); // 60 + 60 min
+    expect(row.priceAppliedCents).toBe(7500);
+
+    const lines = await db
+      .select()
+      .from(appointmentService)
+      .where(eq(appointmentService.appointmentId, r.appointmentId))
+      .orderBy(appointmentService.position);
+    expect(lines.map((l) => l.serviceId)).toEqual([withDeposit, plain]);
+  });
+
+  it("no se reserva si la suma no cabe en el turno", async () => {
+    // 13:00 + 2 h = 15:00, y el turno acaba a las 14:00
+    const r = await createAppointment(input(plain, at("13:00"), both()), opts, NOW);
+    expect(r).toEqual({ ok: false, reason: "slot_unavailable" });
+  });
+
+  it("si uno pide consulta previa, no se reserva por la web", async () => {
+    const r = await createAppointment(
+      input(plain, at("10:00"), { serviceId: undefined, serviceIds: [plain, consult] }),
+      opts,
+      NOW,
+    );
+    expect(r).toEqual({ ok: false, reason: "slot_unavailable" });
+  });
 });
 
 describe("reservar con y sin depósito", () => {

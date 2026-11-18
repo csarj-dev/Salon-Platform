@@ -3,7 +3,7 @@ import { db } from "../db";
 import { appointment, location, service, serviceTranslation, staff } from "../db/schema";
 import { isDepositOverdue } from "./deposit";
 import { pickTranslation } from "./pick-translation";
-import { joinServiceNames, serviceNamesFor } from "./appointment-services";
+import { joinServiceNames, serviceIdsOf, serviceNamesFor } from "./appointment-services";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,6 +24,7 @@ export type ConfirmationView = {
   priceCents: number;
   depositCents: number | null;
   depositDueAt: Date | null;
+  depositTermsAcceptedAt: Date | null; // cuándo marcó la casilla del depósito
   rescheduledAt: Date | null; // última vez que se cambió de hora
 };
 
@@ -52,6 +53,7 @@ export async function getConfirmation(
       priceCents: appointment.priceAppliedCents,
       depositCents: appointment.depositCents,
       depositDueAt: appointment.depositDueAt,
+      depositTermsAcceptedAt: appointment.depositTermsAcceptedAt,
       rescheduledAt: appointment.rescheduledAt,
     })
     .from(appointment)
@@ -89,6 +91,7 @@ export async function getConfirmation(
     priceCents: row.priceCents,
     depositCents: row.depositCents,
     depositDueAt: row.depositDueAt,
+    depositTermsAcceptedAt: row.depositTermsAcceptedAt,
     rescheduledAt: row.rescheduledAt,
   };
 }
@@ -113,6 +116,7 @@ export type ChangeTarget = {
   staffName: string;
   locationId: number;
   serviceId: number;
+  serviceIds: number[]; // todos sus servicios, en orden: las horas nuevas tienen que dejar sitio a todos
   serviceName: string;
 };
 
@@ -152,6 +156,7 @@ export async function getChangeTarget(
   const names = (await serviceNamesFor([row.id], { locale, defaultLocale })).get(row.id);
   return {
     ...row,
+    serviceIds: await serviceIdsOf(row.id, row.serviceId),
     serviceName: names
       ? joinServiceNames(names)
       : pickTranslation(translations, locale, defaultLocale, row.serviceName).name,

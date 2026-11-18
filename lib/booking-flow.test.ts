@@ -5,7 +5,7 @@ describe("parseFlowParams", () => {
   it("devuelve todo vacío sin parámetros", () => {
     expect(parseFlowParams({})).toEqual({
       location: undefined,
-      service: undefined,
+      services: undefined,
       staff: undefined,
     });
   });
@@ -13,7 +13,7 @@ describe("parseFlowParams", () => {
   it("lee ids numéricos y el valor 'any'", () => {
     expect(parseFlowParams({ location: "1", service: "7", staff: "any" })).toEqual({
       location: 1,
-      service: 7,
+      services: [7],
       staff: "any",
     });
   });
@@ -21,7 +21,7 @@ describe("parseFlowParams", () => {
   it("ignora valores inválidos", () => {
     const r = parseFlowParams({ location: "abc", service: "-3", staff: "0" });
     expect(r.location).toBeUndefined();
-    expect(r.service).toBeUndefined();
+    expect(r.services).toBeUndefined();
     expect(r.staff).toBeUndefined();
   });
 
@@ -30,15 +30,37 @@ describe("parseFlowParams", () => {
   });
 });
 
-describe("flowQuery", () => {
-  it("omite lo que no está elegido", () => {
-    expect(flowQuery({ location: 1, service: undefined })).toEqual({ location: "1" });
+describe("varios servicios en la URL", () => {
+  it("lee la lista en su orden y quita repetidos", () => {
+    expect(parseFlowParams({ service: "31,30" }).services).toEqual([31, 30]);
+    expect(parseFlowParams({ service: "31,30,31" }).services).toEqual([31, 30]);
   });
 
-  it("incluye 'any' como texto", () => {
-    expect(flowQuery({ location: 1, service: 2, staff: "any" })).toEqual({
+  it("si alguno no vale, ignora la lista entera", () => {
+    expect(parseFlowParams({ service: "31,x" }).services).toBeUndefined();
+    expect(parseFlowParams({ service: "31,,30" }).services).toBeUndefined();
+  });
+
+  it("como mucho 6 servicios", () => {
+    expect(parseFlowParams({ service: "1,2,3,4,5,6" }).services).toHaveLength(6);
+    expect(parseFlowParams({ service: "1,2,3,4,5,6,7" }).services).toBeUndefined();
+  });
+
+  it("lee los marcados al volver a elegir", () => {
+    expect(parseFlowParams({ picked: "31,30" }).picked).toEqual([31, 30]);
+  });
+});
+
+describe("flowQuery", () => {
+  it("omite lo que no está elegido", () => {
+    expect(flowQuery({ location: 1, services: undefined })).toEqual({ location: "1" });
+    expect(flowQuery({ location: 1, services: [] })).toEqual({ location: "1" });
+  });
+
+  it("incluye 'any' como texto y los servicios separados por comas", () => {
+    expect(flowQuery({ location: 1, services: [2, 5], staff: "any" })).toEqual({
       location: "1",
-      service: "2",
+      service: "2,5",
       staff: "any",
     });
   });
@@ -74,7 +96,7 @@ describe("día y hora en la URL", () => {
 
   it("flowQuery las devuelve tal cual, en el mismo formato", () => {
     const flow = {
-      location: 1, service: 2, staff: "any" as const,
+      location: 1, services: [2, 3], staff: "any" as const,
       month: "2026-11", date: "2026-11-04", at: "2026-11-04T10:30:00.000Z",
     };
     expect(parseFlowParams(flowQuery(flow))).toEqual(flow);
