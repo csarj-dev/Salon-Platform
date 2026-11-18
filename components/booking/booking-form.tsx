@@ -18,6 +18,7 @@ type Props = {
   backHref: BookingHref; // volver a elegir otra hora
   opensWhatsApp?: boolean; // si al reservar se acabará en WhatsApp (depósito por WhatsApp)
   depositAmount?: string | null; // depósito ya formateado («15,00 €»); null = sin depósito ni casilla
+  depositNotice?: string | null; // el aviso del depósito (va debajo del aviso de error, si lo hay)
 };
 
 const inputClass =
@@ -48,6 +49,7 @@ function Field({
 
 export function BookingForm({
   locale, locationId, serviceIds, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
+  depositNotice = null,
 }: Props) {
   const t = useTranslations("Booking");
   const router = useRouter();
@@ -128,6 +130,8 @@ export function BookingForm({
           )}
         </div>
       )}
+
+      {depositNotice && <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{depositNotice}</p>}
 
       {/* En el ordenador, nombre y teléfono uno al lado del otro */}
       <div className="grid gap-4 lg:grid-cols-2">

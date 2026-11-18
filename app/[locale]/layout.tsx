@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
-import { Geist } from "next/font/google";
+import { Cormorant_Garamond, Geist } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
@@ -11,6 +11,14 @@ import { assertLocalesMatch } from "@/lib/locales-guard";
 import "../globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+// Solo para los títulos si el salón elige theme.displayFont = "serif". Sin preload: se descarga
+// únicamente en las páginas que la usan.
+const serifDisplay = Cormorant_Garamond({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  preload: false,
+});
 
 type Props = {
   children: ReactNode;
@@ -43,7 +51,7 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <html lang={locale} style={themeToCssVars(config.theme) as CSSProperties}>
-      <body className={`${geistSans.variable} font-sans antialiased`}>
+      <body className={`${geistSans.variable} ${serifDisplay.variable} font-sans antialiased`}>
         <NextIntlClientProvider messages={messages}>
           {children}
         </NextIntlClientProvider>

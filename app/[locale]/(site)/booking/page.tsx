@@ -30,7 +30,7 @@ export default async function BookPage({ params, searchParams }: Props) {
           ← {t("back")}
         </Link>
       </div>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">{t("title")}</h1>
+      <h1 className="mb-6 font-display text-3xl font-semibold tracking-tight">{t("title")}</h1>
 
       {/* La URL y la base de datos se leen dentro de Suspense */}
       <Suspense fallback={<StepSkeleton />}>

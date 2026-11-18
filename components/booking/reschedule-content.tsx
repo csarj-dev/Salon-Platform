@@ -66,7 +66,7 @@ export async function RescheduleContent({ params, searchParams }: Props) {
         <Link href={appointmentHref} className="text-sm text-muted-foreground">
           ← {t("back")}
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">{t("title")}</h1>
       </div>
       <section className="rounded-lg border p-4 text-sm">
         <h2 className="font-medium">{t("current")}</h2>

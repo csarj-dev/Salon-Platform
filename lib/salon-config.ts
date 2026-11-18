@@ -40,6 +40,8 @@ const themeSchema = z.object({
     .string()
     .regex(/^\d+(\.\d+)?(rem|px)$/, "Ejemplo: 0.5rem")
     .default("0.5rem"),
+  // Letra de los títulos grandes de la web de clientas («Reservar cita»…). El panel no cambia.
+  displayFont: z.enum(["sans", "serif"]).default("sans"),
 });
 
 const brandingSchema = z.object({

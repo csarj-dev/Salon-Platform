@@ -156,15 +156,12 @@ export async function DateTimeStep({
         >
           <section>
             <Heading>{t("stepDetails")}</Heading>
-            {depositAmount ? (
-              <p className="mb-4 rounded-lg bg-muted p-3 text-sm leading-relaxed">
-                {t("depositNotice", {
-                  amount: depositAmount,
-                  hours: config.booking.deposit.holdHours,
-                })}
-              </p>
-            ) : null}
             <BookingForm
+              depositNotice={
+                depositAmount
+                  ? t("depositNotice", { amount: depositAmount, hours: config.booking.deposit.holdHours })
+                  : null
+              }
               locale={locale}
               locationId={location.id}
               serviceIds={ids}
