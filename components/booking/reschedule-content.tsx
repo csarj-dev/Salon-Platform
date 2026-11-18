@@ -206,6 +206,7 @@ export async function RescheduleContent({ params, searchParams }: Props) {
             prev: tb("prevMonth"),
             next: tb("nextMonth"),
             unavailable: tb("dayUnavailable"),
+            legend: tb("calendarLegend"),
           }}
         />
         {firstDay && selected !== firstDay && (

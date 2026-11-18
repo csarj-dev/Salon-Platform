@@ -204,10 +204,24 @@ export async function DateTimeStep({
   const dayLabel = (day: string) => formatDayLong(noon(day), locale, "UTC");
 
   return dateShell(
-    <>
-      <section>
-        <Heading>{t("stepDate")}</Heading>
+    <section>
+      <Heading>{t("stepDate")}</Heading>
 
+      {/* El próximo hueco, en su franja (si el día elegido no es ya ese) */}
+      {firstDay && selected !== firstDay && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-muted px-4 py-2.5 text-sm">
+          <span>{t("nextAvailable", { day: dayLabel(firstDay) })}</span>
+          <Link
+            href={bookingHref({ ...base, month: monthOfDay(firstDay), date: firstDay }, "times")}
+            className="inline-flex min-h-11 shrink-0 items-center font-medium underline underline-offset-4"
+          >
+            {t("goToDay")}
+          </Link>
+        </div>
+      )}
+
+      {/* En el ordenador, el calendario a la izquierda y las horas a la derecha */}
+      <div className="space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
         <MonthCalendar
           locale={locale}
           month={month}
@@ -225,47 +239,39 @@ export async function DateTimeStep({
             prev: t("prevMonth"),
             next: t("nextMonth"),
             unavailable: t("dayUnavailable"),
+            legend: t("calendarLegend"),
           }}
         />
 
-        {firstDay && selected !== firstDay && (
-          <Link
-            href={bookingHref({ ...base, month: monthOfDay(firstDay), date: firstDay }, "times")}
-            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4"
-          >
-            {t("nextAvailable", { day: dayLabel(firstDay) })}
-          </Link>
-        )}
-      </section>
-
-      <section id="times" aria-live="polite" className="scroll-mt-4">
-        {selected ? (
-          <>
-            <h3 className="mb-3 font-medium">{t("timesFor", { day: dayLabel(selected) })}</h3>
-            <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {(slotsByDay.get(selected) ?? []).map((slot) => (
-                <li key={slot.getTime()}>
-                  <Link
-                    href={bookingHref({ ...base, month, date: selected, at: slot.toISOString() })}
-                    className="flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {formatTime(slot, locale, zone)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {services.length > 1 && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {t("timesFitAll", { duration: formatDuration(totalMin) })}
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="text-muted-foreground">
-            {firstDay ? t("noSlotsMonth") : t("noSlotsAtAll")}
-          </p>
-        )}
-      </section>
-    </>,
+        <div id="times" aria-live="polite" className="scroll-mt-4">
+          {selected ? (
+            <>
+              <h3 className="mb-3 font-medium">{t("timesFor", { day: dayLabel(selected) })}</h3>
+              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3">
+                {(slotsByDay.get(selected) ?? []).map((slot) => (
+                  <li key={slot.getTime()}>
+                    <Link
+                      href={bookingHref({ ...base, month, date: selected, at: slot.toISOString() })}
+                      className="flex min-h-11 items-center justify-center rounded-lg border bg-card px-3 text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {formatTime(slot, locale, zone)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {services.length > 1 && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {t("timesFitAll", { duration: formatDuration(totalMin) })}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              {firstDay ? t("noSlotsMonth") : t("noSlotsAtAll")}
+            </p>
+          )}
+        </div>
+      </div>
+    </section>,
   );
 }

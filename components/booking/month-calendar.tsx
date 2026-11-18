@@ -16,11 +16,11 @@ type Props = {
   dayHref: (day: string) => BookingHref;
   prevHref: BookingHref | null;
   nextHref: BookingHref | null;
-  labels: { calendar: string; prev: string; next: string; unavailable: string };
+  labels: { calendar: string; prev: string; next: string; unavailable: string; legend: string };
 };
 
 const navClass =
-  "inline-flex size-11 items-center justify-center rounded-lg outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex size-11 items-center justify-center rounded-lg border outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
 
 // Un día como fecha "de calendario": a mediodía UTC para que ninguna zona horaria lo mueva de día
 const noon = (day: string) => new Date(`${day}T12:00:00Z`);
@@ -48,7 +48,7 @@ export function MonthCalendar({
   });
 
   return (
-    <div>
+    <div className="rounded-xl border bg-card p-3">
       <div className="mb-2 flex items-center justify-between">
         {prevHref ? (
           <Link href={prevHref} aria-label={labels.prev} className={navClass}>
@@ -107,7 +107,7 @@ export function MonthCalendar({
                           "font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           isSelected
                             ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted",
+                            : "bg-muted/60 hover:bg-muted",
                         )}
                       >
                         {number}
@@ -128,6 +128,7 @@ export function MonthCalendar({
           ))}
         </tbody>
       </table>
+      <p className="mt-2 px-1 text-xs text-muted-foreground">{labels.legend}</p>
     </div>
   );
 }

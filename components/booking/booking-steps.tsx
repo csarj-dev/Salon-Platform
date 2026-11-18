@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { getTranslations } from "next-intl/server";
 import { ChoiceCard } from "@/components/booking/choice-card";
 import {
@@ -12,6 +13,9 @@ import { Heading, bookingHref } from "@/components/booking/step-ui";
 import { listActiveLocations, listServicesByCategory, listStaffForService } from "@/lib/catalog";
 import { parseFlowParams } from "@/lib/booking-flow";
 import { initialsOf } from "@/lib/initials";
+import { KoiboxUnavailableError, getBookingAvailability } from "@/lib/availability-source";
+import { formatDayLong } from "@/lib/format";
+import type { SalonConfig } from "@/lib/salon-config";
 import { getPhotoViews } from "@/lib/photos";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { io } from "next/cache";
@@ -22,6 +26,33 @@ type Props = {
 };
 
 const href = bookingHref;
+const DAY_FORMAT = "yyyy-MM-dd";
+
+// Primer día con hueco de cada profesional (y de «cualquiera») para estos servicios.
+// Es el mismo cálculo que el calendario (con Koibox, la misma consulta en caché).
+// null si Koibox no responde: las tarjetas salen sin esa línea.
+async function nextDays(config: SalonConfig, locationId: number, ids: number[], now: Date) {
+  const start = DateTime.fromJSDate(now, { zone: config.timezone }).startOf("day");
+  const from = start.toFormat(DAY_FORMAT);
+  const to = start.plus({ days: config.booking.maxDaysAhead }).toFormat(DAY_FORMAT);
+  try {
+    const availability = await getBookingAvailability(config, locationId, ids, from, to, now);
+    const byStaff = new Map<number, string>();
+    let any: string | null = null;
+    for (const day of [...availability.keys()].sort()) {
+      const a = availability.get(day)!;
+      if (any === null && a.any.length > 0) any = day;
+      for (const p of a.perStaff) {
+        if (p.slots.length > 0 && !byStaff.has(p.staffId)) byStaff.set(p.staffId, day);
+      }
+    }
+    return { any, byStaff, today: from, tomorrow: start.plus({ days: 1 }).toFormat(DAY_FORMAT) };
+  } catch (error) {
+    if (!(error instanceof KoiboxUnavailableError)) throw error;
+    console.error(error);
+    return null;
+  }
+}
 
 export async function BookingSteps({ locale, searchParams }: Props) {
   const [raw, config, t] = await Promise.all([
@@ -154,11 +185,27 @@ export async function BookingSteps({ locale, searchParams }: Props) {
   const member = flow.staff === "any" ? "any" : team.find((m) => m.id === flow.staff);
 
   if (!member) {
-    const photos = await getPhotoViews(
-      team.map((m) => m.photoId),
-      locale,
-      config.defaultLocale,
-    );
+    const [photos, next] = await Promise.all([
+      getPhotoViews(
+        team.map((m) => m.photoId),
+        locale,
+        config.defaultLocale,
+      ),
+      team.length > 0 ? nextDays(config, location.id, ids, now) : Promise.resolve(null),
+    ]);
+    // «Próximo hueco: mañana» / «…: jueves, 19 de noviembre»
+    const nextLine = (day: string | null | undefined) => {
+      if (!next) return undefined; // Koibox no respondió: sin línea
+      if (!day) return t("staffNoSlots");
+      const label =
+        day === next.today
+          ? t("today")
+          : day === next.tomorrow
+            ? t("tomorrow")
+            : formatDayLong(new Date(`${day}T12:00:00Z`), locale, "UTC");
+      return t("staffNext", { day: label });
+    };
+    const anyLine = nextLine(next?.any);
     return (
       <BookingShell
         step={2}
@@ -178,13 +225,14 @@ export async function BookingSteps({ locale, searchParams }: Props) {
               <ChoiceCard
                 href={href({ location: location.id, services: ids, staff: "any" })}
                 title={t("anyStaff")}
-                description={t("anyStaffHint")}
+                description={anyLine ? `${t("anyStaffHint")} · ${anyLine}` : t("anyStaffHint")}
               />
               {team.map((m) => (
                 <ChoiceCard
                   key={m.id}
                   href={href({ location: location.id, services: ids, staff: m.id })}
                   title={m.name}
+                  description={nextLine(next?.byStaff.get(m.id))}
                   photo={m.photoId === null ? undefined : photos.get(m.photoId)}
                   initials={initialsOf(m.name)}
                   round

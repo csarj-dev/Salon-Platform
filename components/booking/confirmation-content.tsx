@@ -88,6 +88,14 @@ export async function ConfirmationContent({ params }: Props) {
       {view.status === "pending_deposit" && viaWhatsApp && payLinkHref && (
         <OpenWhatsAppOnce href={payLinkHref} />
       )}
+      {(view.status === "booked" || view.status === "pending_deposit") && (
+        <span
+          aria-hidden="true"
+          className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground"
+        >
+          ✓
+        </span>
+      )}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("reference", { id: view.id })}</p>
       {view.status === "booked" && view.rescheduledAt && (
@@ -109,6 +117,7 @@ export async function ConfirmationContent({ params }: Props) {
         </Row>
         <Row label={t("with")}>{view.staffName}</Row>
         <Row label={t("price")}>{formatPrice(view.priceCents, locale, config.currency)}</Row>
+        {deposit && <Row label={t("depositRow")}>{deposit}</Row>}
       </dl>
 
       {view.depositTermsAcceptedAt && (
@@ -192,6 +201,15 @@ export async function ConfirmationContent({ params }: Props) {
           <WhatsAppButton href={contactHref} variant="outline">
             {t("contact")}
           </WhatsAppButton>
+        )}
+        {(view.status === "booked" || view.status === "pending_deposit") && (
+          <a
+            href={`/api/appointments/${token}/calendar?lang=${locale}`}
+            download
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-5")}
+          >
+            {t("addToCalendar")}
+          </a>
         )}
         <Link href="/" className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "h-11 px-5")}>
           {t("home")}
