@@ -22,6 +22,7 @@ import { NewAppointmentPanel } from "@/components/admin/new-appointment-panel";
 import { listAppointments, listFilterOptions } from "@/lib/appointment-list";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
+import { monthOfDay } from "@/lib/calendar";
 import { koiboxCardState } from "@/lib/koibox/card-state";
 import { writesToKoibox } from "@/lib/koibox-sync";
 import { AGENDA_STATUSES, BLOCK_STYLE, BLOCK_TONE, STRIPES, duration, isDay, navBase, positiveId } from "@/components/admin/agenda-ui";
@@ -198,6 +199,13 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     const qs = q.toString();
     return `/admin/appointments/week${qs ? `?${qs}` : ""}`;
   })();
+  const monthHref = (() => {
+    const q = new URLSearchParams();
+    if (monthOfDay(date) !== monthOfDay(today)) q.set("month", monthOfDay(date));
+    if (locationId) q.set("location", String(locationId));
+    const qs = q.toString();
+    return `/admin/appointments/month${qs ? `?${qs}` : ""}`;
+  })();
 
   const time = (d: Date) => formatTime(d, locale, zone);
   const range = (iv: Interval) => `${time(iv.start)}–${time(iv.end)}`;
@@ -299,6 +307,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             items={[
               { href: href({ appt: null }), label: t("day"), active: true },
               { href: weekHref, label: t("week"), active: false },
+              { href: monthHref, label: t("month"), active: false },
             ]}
           />
           {severalLocations && (
