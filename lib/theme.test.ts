@@ -56,7 +56,7 @@ describe("letra de los títulos", () => {
     expect(themeToCssVars(sans)["--display-font"]).toBe("var(--font-geist-sans)");
 
     const serif = salonConfigSchema.parse({ ...base, theme: { displayFont: "serif" } }).theme;
-    expect(themeToCssVars(serif)["--display-font"]).toBe("var(--font-serif)");
+    expect(themeToCssVars(serif)["--display-font"]).toBe("var(--font-cormorant)");
   });
 
   it("no admite otras letras", () => {

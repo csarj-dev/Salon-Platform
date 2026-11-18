@@ -14,7 +14,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 // Solo para los títulos si el salón elige theme.displayFont = "serif". Sin preload: se descarga
 // únicamente en las páginas que la usan.
 const serifDisplay = Cormorant_Garamond({
-  variable: "--font-serif",
+  variable: "--font-cormorant", // no "--font-serif": ese nombre ya lo usa Tailwind para su serif genérica
   subsets: ["latin"],
   weight: ["500", "600"],
   preload: false,
@@ -50,8 +50,12 @@ export default async function LocaleLayout({ children, params }: Props) {
   assertLocalesMatch(config, routing);
 
   return (
-    <html lang={locale} style={themeToCssVars(config.theme) as CSSProperties}>
-      <body className={`${geistSans.variable} ${serifDisplay.variable} font-sans antialiased`}>
+    <html
+      lang={locale}
+      className={`${geistSans.variable} ${serifDisplay.variable}`}
+      style={themeToCssVars(config.theme) as CSSProperties}
+    >
+      <body className="font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
           {children}
         </NextIntlClientProvider>

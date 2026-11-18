@@ -26,6 +26,6 @@ export function themeToCssVars(t: SalonConfig["theme"]): Record<string, string> 
     "--danger": t.danger,
     "--destructive": t.danger,
     // Títulos grandes: Geist (sans) o Cormorant Garamond (serif), cargadas en el layout
-    "--display-font": t.displayFont === "serif" ? "var(--font-serif)" : "var(--font-geist-sans)",
+    "--display-font": t.displayFont === "serif" ? "var(--font-cormorant)" : "var(--font-geist-sans)",
   };
 }
