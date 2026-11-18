@@ -21,7 +21,7 @@ type Props = {
 };
 
 const inputClass =
-  "h-11 w-full rounded-lg border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
+  "h-12 w-full rounded-lg border bg-card px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
 
 function Field({
   id, label, error, children,
@@ -129,34 +129,37 @@ export function BookingForm({
         </div>
       )}
 
-      <Field id="name" label={t("name")} error={state.fields?.name ? t("errorName") : undefined}>
-        <input
-          id="name"
-          name="name"
-          type="text"
-          autoComplete="name"
-          required
-          defaultValue={state.values?.name}
-          aria-invalid={state.fields?.name ? true : undefined}
-          aria-describedby={state.fields?.name ? "name-error" : undefined}
-          className={inputClass}
-        />
-      </Field>
+      {/* En el ordenador, nombre y teléfono uno al lado del otro */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Field id="name" label={t("name")} error={state.fields?.name ? t("errorName") : undefined}>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            autoComplete="name"
+            required
+            defaultValue={state.values?.name}
+            aria-invalid={state.fields?.name ? true : undefined}
+            aria-describedby={state.fields?.name ? "name-error" : undefined}
+            className={inputClass}
+          />
+        </Field>
 
-      <Field id="phone" label={t("phone")} error={state.fields?.phone ? t("errorPhone") : undefined}>
-        <input
-          id="phone"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          required
-          defaultValue={state.values?.phone}
-          aria-invalid={state.fields?.phone ? true : undefined}
-          aria-describedby={state.fields?.phone ? "phone-error" : undefined}
-          className={inputClass}
-        />
-      </Field>
+        <Field id="phone" label={t("phone")} error={state.fields?.phone ? t("errorPhone") : undefined}>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+            defaultValue={state.values?.phone}
+            aria-invalid={state.fields?.phone ? true : undefined}
+            aria-describedby={state.fields?.phone ? "phone-error" : undefined}
+            className={inputClass}
+          />
+        </Field>
+      </div>
 
       <Field id="email" label={t("email")} error={state.fields?.email ? t("errorEmail") : undefined}>
         <input
@@ -182,7 +185,7 @@ export function BookingForm({
               required
               aria-invalid={state.fields?.depositTerms ? true : undefined}
               aria-describedby={state.fields?.depositTerms ? "depositTerms-error" : undefined}
-              className="mt-0.5 size-5 shrink-0 aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive"
+              className="mt-0.5 size-5 shrink-0 accent-primary aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive"
             />
             <span>
               <strong className="font-medium">{t("depositTermsStrong", { amount: depositAmount })}</strong>{" "}
@@ -206,7 +209,7 @@ export function BookingForm({
             required
             aria-invalid={state.fields?.consent ? true : undefined}
             aria-describedby={state.fields?.consent ? "consent-error" : undefined}
-            className="mt-0.5 size-5 shrink-0"
+            className="mt-0.5 size-5 shrink-0 accent-primary"
           />
           <span>{t("consent")}</span>
         </label>

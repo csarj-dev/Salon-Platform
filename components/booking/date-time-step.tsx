@@ -157,7 +157,7 @@ export async function DateTimeStep({
           <section>
             <Heading>{t("stepDetails")}</Heading>
             {depositAmount ? (
-              <p className="mb-4 rounded-lg border bg-muted/50 p-3 text-sm">
+              <p className="mb-4 rounded-lg bg-muted p-3 text-sm leading-relaxed">
                 {t("depositNotice", {
                   amount: depositAmount,
                   hours: config.booking.deposit.holdHours,
@@ -202,6 +202,10 @@ export async function DateTimeStep({
       : (inMonth[0] ?? null);
 
   const dayLabel = (day: string) => formatDayLong(noon(day), locale, "UTC");
+  // En la franja, «hoy» y «mañana» como en las tarjetas de profesional
+  const tomorrow = todayDt.plus({ days: 1 }).toFormat(DAY_FORMAT);
+  const nearDayLabel = (day: string) =>
+    day === today ? t("today") : day === tomorrow ? t("tomorrow") : dayLabel(day);
 
   return dateShell(
     <section>
@@ -210,7 +214,7 @@ export async function DateTimeStep({
       {/* El próximo hueco, en su franja (si el día elegido no es ya ese) */}
       {firstDay && selected !== firstDay && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-muted px-4 py-2.5 text-sm">
-          <span>{t("nextAvailable", { day: dayLabel(firstDay) })}</span>
+          <span>{t("nextAvailable", { day: nearDayLabel(firstDay) })}</span>
           <Link
             href={bookingHref({ ...base, month: monthOfDay(firstDay), date: firstDay }, "times")}
             className="inline-flex min-h-11 shrink-0 items-center font-medium underline underline-offset-4"
