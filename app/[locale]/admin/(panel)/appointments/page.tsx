@@ -22,6 +22,7 @@ import { NewAppointmentPanel } from "@/components/admin/new-appointment-panel";
 import { listAppointments, listFilterOptions } from "@/lib/appointment-list";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatTime } from "@/lib/format";
+import { monthOfDay } from "@/lib/calendar";
 import { koiboxCardState } from "@/lib/koibox/card-state";
 import { writesToKoibox } from "@/lib/koibox-sync";
 import { AGENDA_STATUSES, BLOCK_STYLE, BLOCK_TONE, STRIPES, duration, isDay, navBase, positiveId } from "@/components/admin/agenda-ui";
@@ -38,6 +39,7 @@ type SearchParams = {
   appt?: string; // la cita abierta en la ficha
   col?: string; // en el móvil, la profesional que se ve (una columna cada vez)
   new?: string; // «Nueva cita»: "1" desde el botón, o "<profesional>@<hora>" desde un hueco libre
+  svc?: string; // «Nueva cita» desde «Buscar hueco» del Mes: los servicios ya elegidos, "30,31"
 };
 
 type Props = {
@@ -147,6 +149,12 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     return openGaps(daySummary(c, [...ours, ...koiboxOnly]).free, now);
   };
   const catalog = newSlot ? await loadBookingCatalog() : null;
+  // Los servicios que llegan del Mes (solo los que existen, en el orden de la carta)
+  const newServiceIds = catalog
+    ? catalog.services
+        .filter((s) => (sp.svc ?? "").split(",").map((v) => positiveId(v)).includes(s.id))
+        .map((s) => s.id)
+    : [];
   const newStaffId = newSlot?.staffId ?? focusId ?? null;
   const newColumn = columns.find((c) => c.staffId === newStaffId);
   const newGap =
@@ -198,6 +206,13 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     const qs = q.toString();
     return `/admin/appointments/week${qs ? `?${qs}` : ""}`;
   })();
+  const monthHref = (() => {
+    const q = new URLSearchParams();
+    if (monthOfDay(date) !== monthOfDay(today)) q.set("month", monthOfDay(date));
+    if (locationId) q.set("location", String(locationId));
+    const qs = q.toString();
+    return `/admin/appointments/month${qs ? `?${qs}` : ""}`;
+  })();
 
   const time = (d: Date) => formatTime(d, locale, zone);
   const range = (iv: Interval) => `${time(iv.start)}–${time(iv.end)}`;
@@ -233,9 +248,15 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
         className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
       >
         <NewAppointmentPanel
-          key={`${date}|${sp.new}`}
+          key={`${date}|${sp.new}|${sp.svc ?? ""}`}
           catalog={catalog}
-          initial={{ staffId: newStaffId, locationId: newLocationId, date, time: newSlot.time ?? "" }}
+          initial={{
+            staffId: newStaffId,
+            locationId: newLocationId,
+            date,
+            time: newSlot.time ?? "",
+            serviceIds: newServiceIds,
+          }}
           gap={newGap && { start: newGap.start.toISOString(), end: newGap.end.toISOString() }}
           accounts={accounts}
           closeHref={href({ new: null })}
@@ -299,6 +320,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
             items={[
               { href: href({ appt: null }), label: t("day"), active: true },
               { href: weekHref, label: t("week"), active: false },
+              { href: monthHref, label: t("month"), active: false },
             ]}
           />
           {severalLocations && (

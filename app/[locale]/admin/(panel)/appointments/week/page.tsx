@@ -21,6 +21,7 @@ import { listAppointments, listFilterOptions, type AppointmentListRow } from "@/
 import { chooseCollector } from "@/lib/collectors";
 import { latestEmailByAppointment } from "@/lib/email/email-status";
 import { formatDayLong, formatShortDate, formatTime } from "@/lib/format";
+import { monthOfDay } from "@/lib/calendar";
 import { koiboxCardState } from "@/lib/koibox/card-state";
 import { writesToKoibox } from "@/lib/koibox-sync";
 import { can } from "@/lib/permissions";
@@ -152,6 +153,15 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
     const qs = q.toString();
     return `/admin/appointments${qs ? `?${qs}` : ""}`;
   };
+  // «Mes»: el mes de la semana que se ve (o del día elegido)
+  const monthHref = (() => {
+    const q = new URLSearchParams();
+    const m = monthOfDay(hasCell ? cellDate! : week.from);
+    if (m !== monthOfDay(today)) q.set("month", m);
+    if (locationId) q.set("location", String(locationId));
+    const qs = q.toString();
+    return `/admin/appointments/month${qs ? `?${qs}` : ""}`;
+  })();
   // «Nueva cita» se abre en el Día: vacía, o en un hueco libre de una profesional
   const canCreate = can(role, "appointments.manage");
   const newHref = (date: string, staffId?: number, at?: Date) => {
@@ -546,6 +556,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
             items={[
               { href: dayHref(hasCell ? cellDate! : thisWeek ? today : week.from), label: t("day"), active: false },
               { href: href({}), label: t("week"), active: true },
+              { href: monthHref, label: t("month"), active: false },
             ]}
           />
           {severalLocations && (
