@@ -117,13 +117,24 @@ npx tsx db/collectors.ts clear <staffId>          vuelve al de su cuenta o al de
 
 Solo admite cobradores que existen en el config. Lo que guarda es la columna `staff.collector` (migración `0018_staff_collector`).
 
-## Más adelante
+## Pago con tarjeta (Redsys)
 
-- **Pago online (entrega 7):** cada cobrador tendrá su TPV (BBVA/Redsys) para cobrar el depósito en la web. Irá dentro de su entrada en `payments.collectors`.
-- **Panel (entrega 6):** ver y asignar el cobrador de cada profesional desde la pantalla de enlaces, además de con el script.
+Cada cobrador puede tener su TPV virtual de Redsys (BBVA) para cobrar el depósito con tarjeta en la web:
 
-## Desde el panel
+```ts
+luz: {
+  label: "The Room Micropigmentación",
+  deposit: { mode: "whatsapp" },
+  redsys: { merchantCode: "123456789", terminal: 1, keyEnv: "REDSYS_KEY_LUZ" },
+},
+```
 
-En **Panel → Cobros** (administrador y dirección) se ve cada cobrador, cómo paga la clienta y a quién
-cobra, y se elige quién cobra a cada profesional. Es lo mismo que `db/collectors.ts set/clear`:
-«Según su cuenta» deja la columna vacía. Los cobradores en sí se siguen definiendo en el config.
+- `merchantCode` es el número de comercio (FUC) que da el banco; `terminal`, el número de terminal (casi siempre 1).
+- La clave de firma **nunca** va en el config: va en la variable de entorno que dice `keyEnv` (en Vercel).
+- Entorno: `REDSYS_ENVIRONMENT=live` usa estos TPV de verdad. Sin esa variable (o con `test`) todo se cobra
+  en el comercio de pruebas público de Redsys, con tarjetas de prueba: así se desarrolla y se prueba sin
+  datos del banco.
+- Redsys avisa del resultado a `/api/payments/redsys/notify` (la dirección va en cada pago, con `APP_URL`).
+  En local, para que el aviso llegue hace falta un túnel (cloudflared) y poner su dirección en `APP_URL`.
+
+Los intentos de pago se guardan en la tabla `payment` (migración `0026_payments`): uno por número de pedido.

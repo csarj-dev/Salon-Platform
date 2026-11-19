@@ -137,6 +137,16 @@ const collectorSchema = z.object({
       instructions: localizedText.optional(),
     })
     .prefault({}),
+  // TPV de Redsys (BBVA) de esta titular, para cobrar con tarjeta en la web. Solo se usa en el
+  // entorno real (REDSYS_ENVIRONMENT=live); en pruebas se cobra en el comercio de pruebas de Redsys.
+  // La clave no va aquí: `keyEnv` dice en qué variable de entorno está (en Vercel).
+  redsys: z
+    .object({
+      merchantCode: z.string().regex(/^\d{9}$/, "Número de comercio (FUC) de 9 cifras"),
+      terminal: z.number().int().min(1).max(999).default(1),
+      keyEnv: z.string().regex(/^REDSYS_KEY_[A-Z0-9_]+$/, "Nombre de variable tipo REDSYS_KEY_LUZ"),
+    })
+    .optional(),
 });
 
 const paymentsSchema = z.object({

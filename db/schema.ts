@@ -422,6 +422,50 @@ export const appointmentService = pgTable(
   ],
 );
 
+// Pagos con tarjeta (Redsys). Cada intento de pago es una fila con su número de pedido: si la clienta
+// vuelve a intentarlo, es otra fila. "created": la clienta fue a la página de pago y aún no hay
+// respuesta · "paid" / "failed": lo que avisó Redsys · "refunded": devuelto desde el panel.
+export const paymentStatus = pgEnum("payment_status", ["created", "paid", "failed", "refunded"]);
+
+export const payment = pgTable(
+  "payment",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    appointmentId: integer("appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    // Quién cobra (id de payments.collectors) y con qué TPV, tal como era al empezar el pago
+    collector: text("collector").notNull(),
+    environment: text("environment").notNull(), // "test" (pruebas de Redsys) o "live"
+    merchantCode: text("merchant_code").notNull(),
+    terminal: smallint("terminal").notNull(),
+    // Número de pedido de Redsys (Ds_Merchant_Order): único, 4 cifras y 8 letras o cifras
+    orderCode: text("order_code").notNull().unique(),
+    amountCents: integer("amount_cents").notNull(),
+    status: paymentStatus("status").notNull().default("created"),
+    // Lo que respondió Redsys: Ds_Response (0–99 = pagado) y el código de autorización del banco
+    responseCode: integer("response_code"),
+    authCode: text("auth_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Cuándo llegó el aviso de Redsys (pagado o denegado)
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("payment_appointment_idx").on(t.appointmentId),
+    check("payment_amount_positive", sql`${t.amountCents} > 0`),
+    check("payment_environment_valid", sql`${t.environment} IN ('test', 'live')`),
+    check("payment_order_code_format", sql`${t.orderCode} ~ '^[0-9]{4}[0-9A-Za-z]{8}$'`),
+    check("payment_terminal_valid", sql`${t.terminal} BETWEEN 1 AND 999`),
+    // Un pago con respuesta de Redsys sabe cuándo llegó
+    check(
+      "payment_notified_has_time",
+      sql`${t.status} = 'created' OR ${t.notifiedAt} IS NOT NULL`,
+    ),
+    check("payment_refunded_has_time", sql`${t.status} <> 'refunded' OR ${t.refundedAt} IS NOT NULL`),
+  ],
+);
+
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
 export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);
