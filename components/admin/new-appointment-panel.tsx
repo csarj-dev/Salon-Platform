@@ -23,7 +23,7 @@ import { Dot } from "./panel-ui";
 export type NewAppointmentPanelProps = {
   catalog: BookingCatalog;
   // Lo que viene puesto: desde un hueco libre, profesional, día y hora; desde el botón, lo que haya
-  initial: { staffId: number | null; locationId: number | null; date: string; time: string };
+  initial: { staffId: number | null; locationId: number | null; date: string; time: string; serviceIds?: number[] };
   gap: { start: string; end: string } | null; // el hueco libre pulsado (ISO), para el encabezado
   accounts: Record<string, { label: string; color: string | null }>; // cuentas de Koibox (vacío sin Koibox)
   closeHref: string;
@@ -80,7 +80,8 @@ export function NewAppointmentPanel(p: NewAppointmentPanelProps) {
   const [lookup, setLookup] = useState<{ phone: string; client: ClientLookup } | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [serviceIds, setServiceIds] = useState<number[]>([]);
+  // Desde «Buscar hueco» del Mes llegan los servicios ya elegidos
+  const [serviceIds, setServiceIds] = useState<number[]>(p.initial.serviceIds ?? []);
   // null = la suma de los servicios; un número = la que puso recepción
   const [customDuration, setCustomDuration] = useState<number | null>(null);
   const [deposit, setDeposit] = useState<DepositChoice>("link");

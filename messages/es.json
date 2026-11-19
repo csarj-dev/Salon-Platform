@@ -712,6 +712,7 @@
         "hint": "Marca uno o varios servicios para ver qué días caben.",
         "first": "Primer hueco: {day} a las {time}, con {staff} ({duration})",
         "none": "Este mes no cabe. Pasa al mes siguiente con ›.",
+        "notDoing": "{staff} no hace estos servicios juntos. Elige a otra o a «Cualquiera».",
         "koiboxDown": "Koibox no responde ahora: no se pueden buscar huecos.",
         "create": "Crear ahí",
         "fits": "Cabe",

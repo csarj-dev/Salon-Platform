@@ -39,6 +39,7 @@ type SearchParams = {
   appt?: string; // la cita abierta en la ficha
   col?: string; // en el móvil, la profesional que se ve (una columna cada vez)
   new?: string; // «Nueva cita»: "1" desde el botón, o "<profesional>@<hora>" desde un hueco libre
+  svc?: string; // «Nueva cita» desde «Buscar hueco» del Mes: los servicios ya elegidos, "30,31"
 };
 
 type Props = {
@@ -148,6 +149,12 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
     return openGaps(daySummary(c, [...ours, ...koiboxOnly]).free, now);
   };
   const catalog = newSlot ? await loadBookingCatalog() : null;
+  // Los servicios que llegan del Mes (solo los que existen, en el orden de la carta)
+  const newServiceIds = catalog
+    ? catalog.services
+        .filter((s) => (sp.svc ?? "").split(",").map((v) => positiveId(v)).includes(s.id))
+        .map((s) => s.id)
+    : [];
   const newStaffId = newSlot?.staffId ?? focusId ?? null;
   const newColumn = columns.find((c) => c.staffId === newStaffId);
   const newGap =
@@ -241,9 +248,15 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
         className="space-y-3 rounded-xl border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-50 max-md:overflow-y-auto max-md:rounded-none max-md:border-0 xl:sticky xl:top-4 xl:w-[24rem] xl:shrink-0"
       >
         <NewAppointmentPanel
-          key={`${date}|${sp.new}`}
+          key={`${date}|${sp.new}|${sp.svc ?? ""}`}
           catalog={catalog}
-          initial={{ staffId: newStaffId, locationId: newLocationId, date, time: newSlot.time ?? "" }}
+          initial={{
+            staffId: newStaffId,
+            locationId: newLocationId,
+            date,
+            time: newSlot.time ?? "",
+            serviceIds: newServiceIds,
+          }}
           gap={newGap && { start: newGap.start.toISOString(), end: newGap.end.toISOString() }}
           accounts={accounts}
           closeHref={href({ new: null })}

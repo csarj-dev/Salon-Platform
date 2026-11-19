@@ -21,6 +21,7 @@ import { formatDayLong, formatDuration, formatTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
+import { staffDoingAll } from "@/lib/service-set";
 import { cn } from "@/lib/utils";
 
 type SearchParams = {
@@ -97,6 +98,9 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
   const chosen = services.filter((s) => wantedIds.has(s.id)).slice(0, SERVICES_MAX);
   const picked = chosen.map((s) => s.id);
   const withStaff: number | "any" = positiveId(sp.with) ?? "any";
+  // Quiénes hacen todos los servicios marcados (las demás salen apagadas en «Con:»)
+  const doers = new Set(picked.length > 0 ? await staffDoingAll(picked) : []);
+  const notDoing = (staffId: number) => picked.length > 0 && !doers.has(staffId);
 
   // ---- Citas del mes y turnos (los mismos que el Día, la Semana y la web) ----
   const appointments = await listAppointments({
@@ -197,6 +201,7 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
       date: fit.date === today ? null : fit.date,
       new: `${fit.staffId}@${DateTime.fromJSDate(fit.at, { zone }).toFormat("HH:mm")}`,
       col: String(fit.staffId),
+      svc: picked.join(","),
     })}`;
   const severalLocations = options.locations.length > 1;
 
@@ -206,7 +211,9 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
   const searchText =
     picked.length === 0
       ? t("search.hint")
-      : searchDown
+      : withStaff !== "any" && notDoing(withStaff)
+        ? t("search.notDoing", { staff: staffName(withStaff) })
+        : searchDown
         ? t("search.koiboxDown")
         : firstFit
           ? t("search.first", {
@@ -273,34 +280,43 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
             const working = summary.kind === "free" || summary.kind === "full";
             return (
               <span key={row.staffId} className="flex flex-col gap-1">
-                <span className="flex items-center justify-between gap-2 text-xs">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <Dot color={summary.kind === "off" ? null : accountColor(row.koiboxAccount)} />
-                    <span className={cn("truncate", summary.kind === "off" && "text-muted-foreground")}>
-                      {single && working
-                        ? shifts.map((s) => `${time(s.start)}–${time(s.end)}`).join(" · ")
-                        : row.staffName}
+                {single && working ? (
+                  <>
+                    {/* Una profesional: su horario arriba, entero; debajo la barra del libre y cuánto queda */}
+                    <span className="flex items-start gap-1.5 text-xs">
+                      <Dot color={accountColor(row.koiboxAccount)} className="mt-1" />
+                      <span className="tabular-nums">{shifts.map((s) => `${time(s.start)}–${time(s.end)}`).join(" · ")}</span>
                     </span>
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 font-medium",
-                      summary.kind === "free"
-                        ? "text-success"
-                        : summary.kind === "absent"
-                          ? "text-warning"
-                          : "text-muted-foreground",
-                    )}
-                  >
-                    {summaryText(summary)}
-                  </span>
-                </span>
-                {single && working && (
-                  <span aria-hidden className="relative block h-2 overflow-hidden rounded-full bg-muted">
+                    <span className="flex items-center gap-2 text-xs">
+                      <span aria-hidden className="relative block h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="absolute inset-y-0 left-0 bg-success"
+                          style={{ width: `${Math.round((minutesOf(free) / Math.max(1, minutesOf(shifts))) * 100)}%` }}
+                        />
+                      </span>
+                      <span className={cn("shrink-0 font-medium", summary.kind === "free" ? "text-success" : "text-muted-foreground")}>
+                        {summaryText(summary)}
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Dot color={summary.kind === "off" ? null : accountColor(row.koiboxAccount)} />
+                      <span className={cn("truncate", summary.kind === "off" && "text-muted-foreground")}>{row.staffName}</span>
+                    </span>
                     <span
-                      className="absolute inset-y-0 left-0 bg-success"
-                      style={{ width: `${Math.round((minutesOf(free) / Math.max(1, minutesOf(shifts))) * 100)}%` }}
-                    />
+                      className={cn(
+                        "shrink-0 font-medium",
+                        summary.kind === "free"
+                          ? "text-success"
+                          : summary.kind === "absent"
+                            ? "text-warning"
+                            : "text-muted-foreground",
+                      )}
+                    >
+                      {summaryText(summary)}
+                    </span>
                   </span>
                 )}
               </span>
@@ -424,7 +440,11 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
                   href={monthHref(month, { with: String(r.staffId) })}
                   scroll={false}
                   aria-current={withStaff === r.staffId ? "true" : undefined}
-                  className={chip(withStaff === r.staffId)}
+                  title={notDoing(r.staffId) ? t("search.notDoing", { staff: r.staffName }) : undefined}
+                  className={cn(
+                    chip(withStaff === r.staffId),
+                    notDoing(r.staffId) && withStaff !== r.staffId && "border-dashed text-muted-foreground",
+                  )}
                 >
                   {r.koiboxAccount && <Dot color={accountColor(r.koiboxAccount)} />}
                   {r.staffName}

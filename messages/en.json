@@ -712,6 +712,7 @@
         "hint": "Pick one or more services to see which days they fit.",
         "first": "First slot: {day} at {time}, with {staff} ({duration})",
         "none": "It doesn't fit this month. Go to the next month with ›.",
+        "notDoing": "{staff} doesn't do these services together. Choose someone else or \"Anyone\".",
         "koiboxDown": "Koibox isn't responding: slots can't be searched right now.",
         "create": "Create there",
         "fits": "Fits",
