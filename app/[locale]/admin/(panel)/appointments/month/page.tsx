@@ -8,13 +8,16 @@ import { Dot, SegmentLinks } from "@/components/admin/panel-ui";
 import { PanelSkeleton } from "@/components/admin/panel-skeleton";
 import { Link } from "@/i18n/navigation";
 import type { Interval } from "@/lib/availability";
+import { KoiboxUnavailableError, getBookingAvailability } from "@/lib/availability-source";
 import { loadAgendaWeek, type AgendaWeekRow } from "@/lib/agenda-db";
 import { loadAgendaKoibox } from "@/lib/agenda-koibox";
-import { daySummary, subtractIntervals, type DaySummary } from "@/lib/agenda-layout";
+import { daySummary, minutesOf, subtractIntervals, type DaySummary } from "@/lib/agenda-layout";
 import { listAppointments, listFilterOptions } from "@/lib/appointment-list";
+import { SERVICES_MAX } from "@/lib/booking-catalog";
 import { addMonths, isMonthKey, monthGrid, monthOfDay } from "@/lib/calendar";
+import { listServicesForLocation } from "@/lib/catalog";
 import { chooseCollector } from "@/lib/collectors";
-import { formatDayLong } from "@/lib/format";
+import { formatDayLong, formatDuration, formatTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { requireStaff } from "@/lib/session";
@@ -23,6 +26,8 @@ import { cn } from "@/lib/utils";
 type SearchParams = {
   month?: string; // "2026-11"; sin él, el mes de hoy
   location?: string;
+  svc?: string; // «Buscar hueco»: servicios marcados, "30,31"
+  with?: string; // «Buscar hueco»: id de la profesional; sin él, cualquiera
 };
 
 type Props = {
@@ -48,8 +53,15 @@ export default async function AgendaMonthPage({ params, searchParams }: Props) {
   );
 }
 
-// El mes: para planificar y ver de un vistazo dónde queda tiempo libre.
-// Cada casilla resume el día de cada profesional con las mismas cuentas que la Semana.
+const chip = (on: boolean) =>
+  cn(
+    "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    on ? "border-foreground bg-primary font-medium text-primary-foreground" : "bg-card hover:bg-muted",
+  );
+
+// El mes: para planificar y buscar dónde cabe una cita.
+// Cada casilla resume el día de cada profesional con las mismas cuentas que la Semana;
+// «Buscar hueco» marca los días donde caben los servicios, con el mismo cálculo que la web.
 async function MonthContent({ locale, searchParams }: { locale: string; searchParams: Props["searchParams"] }) {
   const { role } = await requireStaff(locale, "appointments.view");
   const sp = await searchParams;
@@ -71,6 +83,21 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
   const first = DateTime.fromISO(`${month}-01`, { zone }).startOf("day");
   const range = { from: first.toISODate()!, to: first.endOf("month").toISODate()! };
 
+  // ---- «Buscar hueco»: en qué local, qué servicios y con quién ----
+  // Los servicios y las profesionales dependen del local: el filtrado o, si solo hay uno, ese
+  const searchLocation = locationId ?? (options.locations.length === 1 ? options.locations[0].id : undefined);
+  const services = searchLocation ? await listServicesForLocation(searchLocation, locale, config.defaultLocale) : [];
+  const wantedIds = new Set(
+    (sp.svc ?? "")
+      .split(",")
+      .map((v) => positiveId(v))
+      .filter((v): v is number => v !== undefined),
+  );
+  // En el orden de la carta, como en la reserva
+  const chosen = services.filter((s) => wantedIds.has(s.id)).slice(0, SERVICES_MAX);
+  const picked = chosen.map((s) => s.id);
+  const withStaff: number | "any" = positiveId(sp.with) ?? "any";
+
   // ---- Citas del mes y turnos (los mismos que el Día, la Semana y la web) ----
   const appointments = await listAppointments({
     statuses: AGENDA_STATUSES,
@@ -89,6 +116,31 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
     koibox: koiboxData,
   });
 
+  // ---- Dónde caben los servicios elegidos (mismo cálculo que la reserva web) ----
+  const fits = new Set<string>();
+  let firstFit: { date: string; at: Date; staffId: number } | null = null;
+  let searchDown = false;
+  const fromDay = range.from < today ? today : range.from;
+  if (searchLocation && picked.length > 0 && fromDay <= range.to) {
+    try {
+      const availability = await getBookingAvailability(config, searchLocation, picked, fromDay, range.to, now);
+      for (const date of [...availability.keys()].sort()) {
+        const a = availability.get(date)!;
+        const slots =
+          withStaff === "any"
+            ? a.any.map((s) => ({ at: s.startsAt, staffId: s.staffIds[0] }))
+            : (a.perStaff.find((p) => p.staffId === withStaff)?.slots ?? []).map((at) => ({ at, staffId: withStaff }));
+        if (slots.length === 0) continue;
+        fits.add(date);
+        firstFit ??= { date, ...slots[0] };
+      }
+    } catch (error) {
+      if (!(error instanceof KoiboxUnavailableError)) throw error;
+      console.error(error);
+      searchDown = true;
+    }
+  }
+
   // ---- Resumen de cada profesional cada día (como la casilla de la Semana) ----
   const localDate = (d: Date) => DateTime.fromJSDate(d, { zone }).toISODate()!;
   const busyByCell = new Map<string, Interval[]>();
@@ -96,13 +148,13 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
     const key = `${a.staffId}|${localDate(a.startsAt)}`;
     busyByCell.set(key, [...(busyByCell.get(key) ?? []), { start: a.startsAt, end: a.endsAt }]);
   }
-  const summaryOf = (row: AgendaWeekRow, date: string): DaySummary => {
+  const dayOf = (row: AgendaWeekRow, date: string) => {
     const day = row.days[agenda.dates.indexOf(date)];
-    if (!day) return { kind: "off" };
+    if (!day) return { summary: { kind: "off" } as DaySummary, free: [] as Interval[], shifts: [] as Interval[] };
     const ours = busyByCell.get(`${row.staffId}|${date}`) ?? [];
     // Lo que solo está en Koibox (creado allí) también ocupa
     const koiboxOnly = subtractIntervals(day.koiboxBusy, ours);
-    return daySummary(day, [...ours, ...koiboxOnly]).summary;
+    return { ...daySummary(day, [...ours, ...koiboxOnly]), shifts: day.shifts as Interval[] };
   };
   const summaryText = (s: DaySummary) =>
     s.kind === "off"
@@ -114,8 +166,9 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
           : t("freeSummary", { time: duration(s.minutes), many: s.minutes >= 120 ? "yes" : "no" });
   const accountColor = (account: string | null) =>
     account ? chooseCollector(config, { koiboxAccount: account }).collector.color : null;
+  const time = (d: Date) => formatTime(d, locale, zone);
 
-  // ---- Enlaces: se conserva el local ----
+  // ---- Enlaces: se conservan el local y, en el mes, la búsqueda ----
   const query = (values: Record<string, string | null>) => {
     const q = new URLSearchParams();
     for (const [key, value] of Object.entries(values)) if (value) q.set(key, value);
@@ -123,13 +176,46 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
     const qs = q.toString();
     return qs ? `?${qs}` : "";
   };
-  const monthHref = (m: string) => `/admin/appointments/month${query({ month: m === thisMonth ? null : m })}`;
+  const search = {
+    svc: picked.length > 0 ? picked.join(",") : null,
+    with: withStaff === "any" ? null : String(withStaff),
+  };
+  const monthHref = (m: string, changes: Partial<typeof search> = {}) =>
+    `/admin/appointments/month${query({ month: m === thisMonth ? null : m, ...search, ...changes })}`;
+  const toggleService = (id: number) => {
+    const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
+    return monthHref(month, { svc: next.length > 0 ? next.join(",") : null });
+  };
   const dayHref = (date: string) => `/admin/appointments${query({ date: date === today ? null : date })}`;
   const focusDay = month === thisMonth ? today : range.from; // el día al que llevan «Día» y «Semana»
   const weekHref = `/admin/appointments/week${query({ date: focusDay === today ? null : focusDay })}`;
   const canCreate = can(role, "appointments.manage");
   const newHref = `/admin/appointments${query({ date: focusDay === today ? null : focusDay, new: "1" })}`;
+  // «Crear ahí»: el Día con «Nueva cita» abierto en esa profesional y esa hora
+  const createHref = (fit: NonNullable<typeof firstFit>) =>
+    `/admin/appointments${query({
+      date: fit.date === today ? null : fit.date,
+      new: `${fit.staffId}@${DateTime.fromJSDate(fit.at, { zone }).toFormat("HH:mm")}`,
+      col: String(fit.staffId),
+    })}`;
   const severalLocations = options.locations.length > 1;
+
+  // ---- Lo que dice la búsqueda ----
+  const totalMin = chosen.reduce((sum, s) => sum + s.durationMin, 0);
+  const staffName = (id: number) => agenda.rows.find((r) => r.staffId === id)?.staffName ?? "";
+  const searchText =
+    picked.length === 0
+      ? t("search.hint")
+      : searchDown
+        ? t("search.koiboxDown")
+        : firstFit
+          ? t("search.first", {
+              day: formatDayLong(firstFit.at, locale, zone),
+              time: time(firstFit.at),
+              staff: staffName(firstFit.staffId),
+              duration: formatDuration(totalMin),
+            })
+          : t("search.none");
 
   // ---- Título y cabecera de los días de la semana (lunes primero) ----
   const monthTitle = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: zone }).format(
@@ -137,50 +223,89 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
   );
   const monday = DateTime.fromISO("2026-11-02"); // un lunes cualquiera
   const weekdays = Array.from({ length: 7 }, (_, i) => monday.plus({ days: i }).setLocale(locale).toFormat("ccc"));
+  // Con una profesional elegida en «Con:», solo su línea (con su horario y una barra del libre)
+  const single = withStaff !== "any";
+  const rowsShown = single ? agenda.rows.filter((r) => r.staffId === withStaff) : agenda.rows;
 
   const cell = (date: string) => {
     const past = date < today;
-    const lines = past ? [] : agenda.rows.map((row) => ({ row, s: summaryOf(row, date) }));
-    const nobody = !past && lines.every((l) => l.s.kind === "off");
+    const lines = past ? [] : rowsShown.map((row) => ({ row, ...dayOf(row, date) }));
+    const nobody = !past && lines.every((l) => l.summary.kind === "off");
+    const fit = fits.has(date);
+    const isFirst = firstFit?.date === date;
     const dayName = formatDayLong(DateTime.fromISO(date, { zone }).toJSDate(), locale, zone);
     return (
       <Link
         key={date}
         href={dayHref(date)}
-        aria-label={t("monthDayLabel", { day: dayName })}
+        aria-label={`${t("monthDayLabel", { day: dayName })}${fit ? `. ${t("search.fits")}` : ""}`}
         aria-current={date === today ? "date" : undefined}
         className={cn(
           "flex min-h-32 flex-col gap-1.5 border-b border-l p-2 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           past && "bg-muted/30 text-muted-foreground",
+          fit && (isFirst ? "ring-2 ring-success ring-inset" : "ring-1 ring-success/70 ring-inset"),
         )}
       >
-        <span
-          className={cn(
-            "text-sm font-semibold tabular-nums",
-            date === today && "inline-flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground",
+        <span className="flex items-center justify-between gap-2">
+          <span
+            className={cn(
+              "text-sm font-semibold tabular-nums",
+              date === today && "inline-flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground",
+            )}
+          >
+            {Number(date.slice(8))}
+          </span>
+          {fit && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                isFirst ? "bg-success text-card" : "bg-success/15 text-success",
+              )}
+            >
+              {isFirst ? t("search.firstBadge") : t("search.fits")}
+            </span>
           )}
-        >
-          {Number(date.slice(8))}
         </span>
         {nobody ? (
           <span className="text-xs text-muted-foreground">{t("nobodyDay")}</span>
         ) : (
-          lines.map(({ row, s }) => (
-            <span key={row.staffId} className="flex items-center justify-between gap-2 text-xs">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <Dot color={s.kind === "off" ? null : accountColor(row.koiboxAccount)} />
-                <span className={cn("truncate", s.kind === "off" && "text-muted-foreground")}>{row.staffName}</span>
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 font-medium",
-                  s.kind === "free" ? "text-success" : s.kind === "absent" ? "text-warning" : "text-muted-foreground",
+          lines.map(({ row, summary, free, shifts }) => {
+            const working = summary.kind === "free" || summary.kind === "full";
+            return (
+              <span key={row.staffId} className="flex flex-col gap-1">
+                <span className="flex items-center justify-between gap-2 text-xs">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Dot color={summary.kind === "off" ? null : accountColor(row.koiboxAccount)} />
+                    <span className={cn("truncate", summary.kind === "off" && "text-muted-foreground")}>
+                      {single && working
+                        ? shifts.map((s) => `${time(s.start)}–${time(s.end)}`).join(" · ")
+                        : row.staffName}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 font-medium",
+                      summary.kind === "free"
+                        ? "text-success"
+                        : summary.kind === "absent"
+                          ? "text-warning"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {summaryText(summary)}
+                  </span>
+                </span>
+                {single && working && (
+                  <span aria-hidden className="relative block h-2 overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="absolute inset-y-0 left-0 bg-success"
+                      style={{ width: `${Math.round((minutesOf(free) / Math.max(1, minutesOf(shifts))) * 100)}%` }}
+                    />
+                  </span>
                 )}
-              >
-                {summaryText(s)}
               </span>
-            </span>
-          ))
+            );
+          })
         )}
       </Link>
     );
@@ -248,6 +373,67 @@ async function MonthContent({ locale, searchParams }: { locale: string; searchPa
           {t("koiboxDown")}
         </p>
       )}
+
+      {/* ---- «Buscar hueco» ---- */}
+      <section aria-label={t("search.title")} className="space-y-3 rounded-xl border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold">{t("search.title")}</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm" aria-live="polite">
+              {searchLocation ? searchText : t("search.pickLocation")}
+            </span>
+            {firstFit && canCreate && (
+              <Link
+                href={createHref(firstFit)}
+                className={cn(navBase, "border-primary bg-primary px-4 text-sm text-primary-foreground hover:bg-primary/90")}
+              >
+                {t("search.create")}
+              </Link>
+            )}
+          </div>
+        </div>
+        {searchLocation && (
+          <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="me-1 text-sm text-muted-foreground">{t("search.services")}</span>
+              {services.map((s) => (
+                <Link
+                  key={s.id}
+                  href={toggleService(s.id)}
+                  scroll={false}
+                  aria-current={picked.includes(s.id) ? "true" : undefined}
+                  className={chip(picked.includes(s.id))}
+                >
+                  {s.name} · {formatDuration(s.durationMin)}
+                </Link>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="me-1 text-sm text-muted-foreground">{t("search.with")}</span>
+              <Link
+                href={monthHref(month, { with: null })}
+                scroll={false}
+                aria-current={!single ? "true" : undefined}
+                className={chip(!single)}
+              >
+                {t("search.anyone")}
+              </Link>
+              {agenda.rows.map((r) => (
+                <Link
+                  key={r.staffId}
+                  href={monthHref(month, { with: String(r.staffId) })}
+                  scroll={false}
+                  aria-current={withStaff === r.staffId ? "true" : undefined}
+                  className={chip(withStaff === r.staffId)}
+                >
+                  {r.koiboxAccount && <Dot color={accountColor(r.koiboxAccount)} />}
+                  {r.staffName}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
 
       {/* ---- El mes: lunes a domingo; en el móvil se desliza de lado ---- */}
       <div className="overflow-x-auto rounded-xl border bg-card">
