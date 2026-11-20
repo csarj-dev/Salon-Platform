@@ -121,10 +121,15 @@ Solo admite cobradores que existen en el config. Lo que guarda es la columna `st
 
 Cada cobrador puede tener su TPV virtual de Redsys (BBVA) para cobrar el depósito con tarjeta en la web:
 
-```ts
+`````md
+Con `deposit.mode: "card"` la clienta paga el depósito con tarjeta al reservar y la cita se confirma
+sola. Mientras paga, la hora se guarda `booking.deposit.cardHoldMinutes` (15 por defecto). Cada cobrador
+lleva su TPV virtual de Redsys (BBVA):
+
+````ts
 luz: {
   label: "The Room Micropigmentación",
-  deposit: { mode: "whatsapp" },
+  deposit: { mode: "card" },
   redsys: { merchantCode: "123456789", terminal: 1, keyEnv: "REDSYS_KEY_LUZ" },
 },
 ```
@@ -134,7 +139,11 @@ luz: {
 - Entorno: `REDSYS_ENVIRONMENT=live` usa estos TPV de verdad. Sin esa variable (o con `test`) todo se cobra
   en el comercio de pruebas público de Redsys, con tarjetas de prueba: así se desarrolla y se prueba sin
   datos del banco.
+````md
 - Redsys avisa del resultado a `/api/payments/redsys/notify` (la dirección va en cada pago, con `APP_URL`).
-  En local, para que el aviso llegue hace falta un túnel (cloudflared) y poner su dirección en `APP_URL`.
+  La clienta vuelve por `/api/payments/redsys/return`, que aplica también los datos firmados que trae y la
+  lleva a la página de su cita. En local la vuelta basta para confirmar; para probar el aviso de verdad
+  hace falta un túnel (cloudflared) y poner su dirección en `APP_URL`.
+````
 
 Los intentos de pago se guardan en la tabla `payment` (migración `0026_payments`): uno por número de pedido.

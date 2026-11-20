@@ -19,11 +19,19 @@ export function isDepositOverdue(
   );
 }
 
-// Cómo se paga el depósito, según lo que elija el salón:
-// - "instructions": la clienta ve las instrucciones (Bizum, transferencia...) y manda el comprobante
 // - "whatsapp": al reservar pasa a WhatsApp a pedir el enlace de cobro, y el salón lo valida al recibir el pago
-export const DEPOSIT_MODES = ["instructions", "whatsapp"] as const;
+// - "card": lo paga con tarjeta en la web (Redsys) al reservar, y la cita se confirma sola
+export const DEPOSIT_MODES = ["instructions", "whatsapp", "card"] as const;
 export type DepositMode = (typeof DEPOSIT_MODES)[number];
+
+// Cuánto se guarda el hueco esperando el depósito, en horas. Con tarjeta se paga en el momento,
+// así que el hueco se guarda poco (booking.deposit.cardHoldMinutes); si no, booking.deposit.holdHours.
+export function depositHoldHours(
+  mode: DepositMode,
+  deposit: { holdHours: number; cardHoldMinutes: number },
+): number {
+  return mode === "card" ? deposit.cardHoldMinutes / 60 : deposit.holdHours;
+}
 
 // ¿Hay que mandar a la clienta a WhatsApp a pedir el enlace de pago?
 // Solo si el salón usa ese modo y la cita está esperando el depósito.

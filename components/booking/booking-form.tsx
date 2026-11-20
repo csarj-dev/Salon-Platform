@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { submitBooking, type BookingFormState } from "@/app/[locale]/(site)/booking/actions";
+import { PayRedirect } from "@/components/booking/pay-redirect";
 import type { BookingHref } from "@/components/booking/step-ui";
 import { cn } from "@/lib/utils";
 import { DESKTOP_QUERY } from "@/lib/whatsapp-tab";
@@ -19,6 +20,9 @@ type Props = {
   opensWhatsApp?: boolean; // si al reservar se acabará en WhatsApp (depósito por WhatsApp)
   depositAmount?: string | null; // depósito ya formateado («15,00 €»); null = sin depósito ni casilla
   depositNotice?: string | null; // el aviso del depósito (va debajo del aviso de error, si lo hay)
+  // Depósito con tarjeta: el botón paga y lleva a la página de pago. `minutes`: lo que se guarda
+  // la hora mientras paga; `inSalon`: lo que queda por pagar en el salón (ya formateado)
+  card?: { minutes: number; inSalon: string | null } | null;
 };
 
 const inputClass =
@@ -49,7 +53,7 @@ function Field({
 
 export function BookingForm({
   locale, locationId, serviceIds, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
-  depositNotice = null,
+  depositNotice = null, card = null,
 }: Props) {
   const t = useTranslations("Booking");
   const router = useRouter();
@@ -110,123 +114,142 @@ export function BookingForm({
         }[state.error]
     : null;
   const slotProblem = state.error === "slot_taken" || state.error === "slot_unavailable";
+  // Con tarjeta: el botón dice lo que se paga y, ya con la cita guardada, se va a la página de pago
+  const payByCard = card !== null && depositAmount !== null;
+  const leaving = state.pay !== undefined;
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <input type="hidden" name="locale" value={locale} />
-      <input type="hidden" name="location" value={locationId} />
-      <input type="hidden" name="service" value={serviceIds.join(",")} />
-      <input type="hidden" name="staff" value={staff} />
-      <input type="hidden" name="at" value={at} />
-      {depositAmount && <input type="hidden" name="depositTermsShown" value="1" />}
+    <>
+      <form action={formAction} onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <input type="hidden" name="locale" value={locale} />
+        <input type="hidden" name="location" value={locationId} />
+        <input type="hidden" name="service" value={serviceIds.join(",")} />
+        <input type="hidden" name="staff" value={staff} />
+        <input type="hidden" name="at" value={at} />
+        {depositAmount && <input type="hidden" name="depositTermsShown" value="1" />}
 
-      {errorMessage && (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
-          <p>{errorMessage}</p>
-          {slotProblem && (
-            <Link href={backHref} className="mt-1 inline-block underline underline-offset-4">
-              {t("pickAnother")}
-            </Link>
-          )}
+        {errorMessage && (
+          <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <p>{errorMessage}</p>
+            {slotProblem && (
+              <Link href={backHref} className="mt-1 inline-block underline underline-offset-4">
+                {t("pickAnother")}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {depositNotice && <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{depositNotice}</p>}
+
+        {/* En el ordenador, nombre y teléfono uno al lado del otro */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Field id="name" label={t("name")} error={state.fields?.name ? t("errorName") : undefined}>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              required
+              defaultValue={state.values?.name}
+              aria-invalid={state.fields?.name ? true : undefined}
+              aria-describedby={state.fields?.name ? "name-error" : undefined}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field id="phone" label={t("phone")} error={state.fields?.phone ? t("errorPhone") : undefined}>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              defaultValue={state.values?.phone}
+              aria-invalid={state.fields?.phone ? true : undefined}
+              aria-describedby={state.fields?.phone ? "phone-error" : undefined}
+              className={inputClass}
+            />
+          </Field>
         </div>
-      )}
 
-      {depositNotice && <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{depositNotice}</p>}
-
-      {/* En el ordenador, nombre y teléfono uno al lado del otro */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Field id="name" label={t("name")} error={state.fields?.name ? t("errorName") : undefined}>
+        <Field id="email" label={t("email")} error={state.fields?.email ? t("errorEmail") : undefined}>
           <input
-            id="name"
-            name="name"
-            type="text"
-            autoComplete="name"
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
             required
-            defaultValue={state.values?.name}
-            aria-invalid={state.fields?.name ? true : undefined}
-            aria-describedby={state.fields?.name ? "name-error" : undefined}
+            defaultValue={state.values?.email}
+            aria-invalid={state.fields?.email ? true : undefined}
+            aria-describedby={state.fields?.email ? "email-error" : undefined}
             className={inputClass}
           />
         </Field>
 
-        <Field id="phone" label={t("phone")} error={state.fields?.phone ? t("errorPhone") : undefined}>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            required
-            defaultValue={state.values?.phone}
-            aria-invalid={state.fields?.phone ? true : undefined}
-            aria-describedby={state.fields?.phone ? "phone-error" : undefined}
-            className={inputClass}
-          />
-        </Field>
-      </div>
+        {depositAmount && (
+          <div className="space-y-1">
+            <label className="flex min-h-11 items-start gap-3 text-sm">
+              <input
+                id="depositTerms"
+                type="checkbox"
+                name="depositTerms"
+                required
+                aria-invalid={state.fields?.depositTerms ? true : undefined}
+                aria-describedby={state.fields?.depositTerms ? "depositTerms-error" : undefined}
+                className="mt-0.5 size-5 shrink-0 accent-primary aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive"
+              />
+              <span>
+                <strong className="font-medium">{t("depositTermsStrong", { amount: depositAmount })}</strong>{" "}
+                {t("depositTermsRest")}
+              </span>
+            </label>
+            {state.fields?.depositTerms && (
+              <p id="depositTerms-error" className="pl-8 text-sm text-destructive">
+                {t("errorDepositTerms")}
+              </p>
+            )}
+          </div>
+        )}
 
-      <Field id="email" label={t("email")} error={state.fields?.email ? t("errorEmail") : undefined}>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          defaultValue={state.values?.email}
-          aria-invalid={state.fields?.email ? true : undefined}
-          aria-describedby={state.fields?.email ? "email-error" : undefined}
-          className={inputClass}
-        />
-      </Field>
-
-      {depositAmount && (
         <div className="space-y-1">
           <label className="flex min-h-11 items-start gap-3 text-sm">
             <input
-              id="depositTerms"
+              id="consent"
               type="checkbox"
-              name="depositTerms"
+              name="consent"
               required
-              aria-invalid={state.fields?.depositTerms ? true : undefined}
-              aria-describedby={state.fields?.depositTerms ? "depositTerms-error" : undefined}
-              className="mt-0.5 size-5 shrink-0 accent-primary aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive"
+              aria-invalid={state.fields?.consent ? true : undefined}
+              aria-describedby={state.fields?.consent ? "consent-error" : undefined}
+              className="mt-0.5 size-5 shrink-0 accent-primary"
             />
-            <span>
-              <strong className="font-medium">{t("depositTermsStrong", { amount: depositAmount })}</strong>{" "}
-              {t("depositTermsRest")}
-            </span>
+            <span>{t("consent")}</span>
           </label>
-          {state.fields?.depositTerms && (
-            <p id="depositTerms-error" className="pl-8 text-sm text-destructive">
-              {t("errorDepositTerms")}
+          {state.fields?.consent && (
+            <p id="consent-error" className="text-sm text-destructive">
+              {t("errorConsent")}
             </p>
           )}
         </div>
-      )}
 
-      <div className="space-y-1">
-        <label className="flex min-h-11 items-start gap-3 text-sm">
-          <input
-            id="consent"
-            type="checkbox"
-            name="consent"
-            required
-            aria-invalid={state.fields?.consent ? true : undefined}
-            aria-describedby={state.fields?.consent ? "consent-error" : undefined}
-            className="mt-0.5 size-5 shrink-0 accent-primary"
-          />
-          <span>{t("consent")}</span>
-        </label>
-        {state.fields?.consent && (
-          <p id="consent-error" className="text-sm text-destructive">
-            {t("errorConsent")}
+        <Button type="submit" size="lg" disabled={pending || leaving} className={cn("h-11 w-full px-5")}>
+          {payByCard
+            ? pending || leaving
+              ? t("payRedirecting")
+              : t("payNow", { amount: depositAmount })
+            : pending
+              ? t("submitting")
+              : t("submit")}
+        </Button>
+        {payByCard && (
+          <p className="text-center text-sm text-muted-foreground">
+            {card.inSalon && `${t("payInSalon", { amount: card.inSalon })} `}
+            {t("cardNote", { minutes: card.minutes })}
           </p>
         )}
-      </div>
-
-      <Button type="submit" size="lg" disabled={pending} className={cn("h-11 w-full px-5")}>
-        {pending ? t("submitting") : t("submit")}
-      </Button>
-    </form>
+      </form>
+      {/* Fuera del formulario de datos: un formulario no puede ir dentro de otro */}
+      {state.pay && <PayRedirect form={state.pay} />}
+    </>
   );
 }

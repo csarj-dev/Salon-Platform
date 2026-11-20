@@ -11,8 +11,10 @@ import { parseFlowParams } from "@/lib/booking-flow";
 import { clientFormSchema } from "@/lib/booking-schema";
 import { createAppointment, toBookingOptions } from "@/lib/booking";
 import { pushNewWebBooking, writesToKoibox } from "@/lib/koibox-sync";
-import { collectorForAppointment } from "@/lib/collectors-db";
-import { paysThroughWhatsApp } from "@/lib/deposit";
+import { startCardPayment } from "@/lib/card-payment";
+import { collectorForAppointment, collectorForStaff } from "@/lib/collectors-db";
+import { depositHoldHours, paysThroughWhatsApp } from "@/lib/deposit";
+import type { PaymentForm } from "@/lib/redsys/gateway";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { buildWhatsAppLink } from "@/lib/whatsapp-link";
@@ -27,6 +29,8 @@ export type BookingFormState = {
   // Reserva hecha con la pestaña de WhatsApp ya abierta (ordenador): el formulario
   // carga el chat en esa pestaña y lleva esta a la confirmación
   done?: { publicToken: string; whatsappHref: string | null };
+  // Depósito con tarjeta: la cita ya está guardada y el formulario lleva a la página de pago
+  pay?: PaymentForm;
 };
 
 const text = (data: FormData, key: string) => {
@@ -86,12 +90,6 @@ export async function submitBooking(
   try {
     const config = await loadSalonConfig();
     const tb = await getTranslations({ locale, namespace: "Booking" });
-    const bookingOptions = {
-      ...toBookingOptions(config),
-      // El mismo texto que ve en la casilla, con el importe real: es el que se guarda con la cita
-      depositTermsText: (cents: number) =>
-        `${tb("depositTermsStrong", { amount: formatPrice(cents, locale, config.currency) })} ${tb("depositTermsRest")}`,
-    };
     const now = new Date();
     const startsAt = new Date(flow.at);
 
@@ -106,6 +104,18 @@ export async function submitBooking(
       return { error: "server", values };
     }
     if (staffId === null) return { error: "slot_unavailable", values };
+
+    // Quién cobra a esa profesional decide cómo se paga el depósito y cuánto se guarda el hueco:
+    // con tarjeta se paga ahora mismo, así que se guarda solo unos minutos
+    const collector = await collectorForStaff(staffId, config);
+    const byCard = collector.deposit.mode === "card";
+    const bookingOptions = {
+      ...toBookingOptions(config),
+      depositHoldHours: depositHoldHours(collector.deposit.mode, config.booking.deposit),
+      // El mismo texto que ve en la casilla, con el importe real: es el que se guarda con la cita
+      depositTermsText: (cents: number) =>
+        `${tb("depositTermsStrong", { amount: formatPrice(cents, locale, config.currency) })} ${tb("depositTermsRest")}`,
+    };
 
     // 4. Crear la cita (comprueba otra vez el hueco, y la base de datos impide solapes)
     const result = await createAppointment(
@@ -139,6 +149,20 @@ export async function submitBooking(
     }
 
     publicToken = result.publicToken;
+
+    // Depósito con tarjeta: el formulario lleva a la clienta a la página de pago. La cita queda
+    // pendiente hasta que Redsys confirme el pago (aviso o vuelta: /api/payments/redsys/*).
+    // Si no se puede abrir el pago, sigue como siempre hasta la página de su cita (abajo), que deja
+    // volver a intentarlo.
+    if (result.deposit && byCard) {
+      try {
+        const pay = await startCardPayment(result.appointmentId, publicToken, locale, config, tb("payDescription"));
+        if (pay.ok) return { pay: pay.form };
+        console.error(`[booking] no se pudo empezar el pago de la cita ${result.appointmentId}: ${pay.reason}`);
+      } catch (error) {
+        console.error(`[booking] no se pudo empezar el pago de la cita ${result.appointmentId}`, error);
+      }
+    }
     // Sin depósito, la cita ya está confirmada: se avisa por correo después de responder.
     // Con depósito, el correo sale cuando recepción valida el pago.
     if (result.status === "booked") {

@@ -109,6 +109,9 @@ const movedToCollectors = 'Se movió a payments.collectors: cada cobrador lleva 
 const depositSchema = z.object({
   // Horas que se guarda el hueco esperando el pago
   holdHours: z.number().positive().default(24),
+  // Con pago con tarjeta en la web (cobrador en modo "card"): minutos que se guarda el hueco
+  // mientras la clienta paga. Si no paga en ese tiempo, la hora se libera.
+  cardHoldMinutes: z.number().int().min(5).max(120).default(15),
   // Política de cancelación y devolución del depósito, por idioma
   policy: localizedText.optional(),
   // Antes estaban aquí: si un config viejo los trae, error claro en vez de ignorarlos sin avisar
@@ -128,8 +131,8 @@ const collectorSchema = z.object({
   color: hexColor.optional(),
   deposit: z
     .object({
-      // Igual que en booking.deposit: con instrucciones (Bizum, transferencia) o pidiendo
-      // por WhatsApp el enlace de cobro del TPV
+      // Con instrucciones (Bizum, transferencia), pidiendo por WhatsApp el enlace de cobro del TPV,
+      // o con tarjeta en la web ("card": Redsys, ver `redsys` abajo y docs/collectors.md)
       mode: z.enum(DEPOSIT_MODES).default("instructions"),
       // WhatsApp de esta titular para pedir el enlace. Sin esto, el del salón (contact.whatsapp)
       whatsapp: whatsapp.optional(),

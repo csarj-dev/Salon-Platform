@@ -15,9 +15,13 @@ import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { OpenWhatsAppOnce } from "@/components/booking/open-whatsapp-once";
 import { ClientCancel } from "@/components/booking/client-cancel";
+import { RetryPayment } from "@/components/booking/pay-redirect";
 import { clientChangeState } from "@/lib/client-changes";
 
-type Props = { params: Promise<{ locale: string; token: string }> };
+type Props = {
+  params: Promise<{ locale: string; token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -29,8 +33,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 // Paso 6: la cita ya está creada. Se llega con el enlace secreto de la cita.
-export async function ConfirmationContent({ params }: Props) {
-  const { locale, token } = await params;
+export async function ConfirmationContent({ params, searchParams }: Props) {
+  const [{ locale, token }, query] = await Promise.all([params, searchParams]);
   if (!hasLocale(routing.locales, locale)) notFound();
 
   const [config, t] = await Promise.all([
@@ -81,14 +85,39 @@ export async function ConfirmationContent({ params }: Props) {
     ? [t("stepAskLink"), t("stepPay"), t("stepConfirmed")]
     : [t("stepPayInstructions"), t("stepSendProof"), t("stepConfirmed")];
 
+  // Depósito con tarjeta (docs/collectors.md): la clienta paga en la página de Redsys y vuelve aquí
+  // con ?pay=ok (dice que pagó: se espera a que Redsys lo confirme) o ?pay=ko (no se completó)
+  const byCard = collector.deposit.mode === "card";
+  const cardPending = view.status === "pending_deposit" && byCard;
+  const payParam = query.pay;
+  const checking = cardPending && payParam === "ok";
+  const failed = cardPending && payParam === "ko";
+  const minutesLeft = view.depositDueAt
+    ? Math.max(1, Math.ceil((view.depositDueAt.getTime() - now.getTime()) / 60_000))
+    : 0;
+  const pendingTitle = !byCard
+    ? title
+    : checking
+      ? t("cardCheckingTitle")
+      : failed
+        ? t("cardFailedTitle")
+        : t("cardPendingTitle");
+  // Lo que queda por pagar en el salón, una vez pagado el depósito
+  const inSalon =
+    view.depositPaidAt && view.depositCents !== null && view.priceCents > view.depositCents
+      ? formatPrice(view.priceCents - view.depositCents, locale, config.currency)
+      : null;
+
   return (
     <div className="mx-auto max-w-xl px-6 py-8">
-      {/* Mientras espera el depósito, la página se actualiza sola para mostrar la confirmación */}
-      {view.status === "pending_deposit" && <AutoRefresh />}
+      {/* Mientras espera el depósito, la página se actualiza sola para mostrar la confirmación.
+          Con tarjeta, solo al volver de pagar, y a menudo: el aviso de Redsys llega en segundos */}
+      {view.status === "pending_deposit" && !byCard && <AutoRefresh />}
+      {checking && <AutoRefresh everyMs={3_000} stopAfterMs={2 * 60_000} />}
       {view.status === "pending_deposit" && viaWhatsApp && payLinkHref && (
         <OpenWhatsAppOnce href={payLinkHref} />
       )}
-      {(view.status === "booked" || view.status === "pending_deposit") && (
+      {(view.status === "booked" || (view.status === "pending_deposit" && !byCard)) && (
         <span
           aria-hidden="true"
           className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground"
@@ -96,12 +125,49 @@ export async function ConfirmationContent({ params }: Props) {
           ✓
         </span>
       )}
-      <h1 className="font-display text-3xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="font-display text-3xl font-semibold tracking-tight">
+        {view.status === "pending_deposit" ? pendingTitle : title}
+      </h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("reference", { id: view.id })}</p>
       {view.status === "booked" && view.rescheduledAt && (
         <p className="mt-1 text-sm text-muted-foreground">
           {t("rescheduledOn", { date: formatDateTime(view.rescheduledAt, locale, zone) })}
         </p>
+      )}
+
+      {cardPending && deposit && (
+        <section className="mt-6 space-y-3">
+          {checking ? (
+            <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{t("cardCheckingText")}</p>
+          ) : (
+            <>
+              {failed && (
+                <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                  {t("cardFailedAlert")}
+                </div>
+              )}
+              <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">
+                {t.rich("cardHold", {
+                  minutes: minutesLeft,
+                  b: (chunks) => <strong className="font-semibold">{chunks}</strong>,
+                })}
+              </p>
+              <RetryPayment
+                token={token}
+                locale={locale}
+                label={failed ? t("cardRetry", { amount: deposit }) : t("cardPay", { amount: deposit })}
+                pendingLabel={t("cardRetrying")}
+                errorLabel={t("cardRetryError")}
+              />
+              <Link
+                href="/booking"
+                className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-12 w-full px-5")}
+              >
+                {t("cardOtherTime")}
+              </Link>
+            </>
+          )}
+        </section>
       )}
 
       <dl className="mt-6 divide-y rounded-lg border px-4">
@@ -117,7 +183,8 @@ export async function ConfirmationContent({ params }: Props) {
         </Row>
         <Row label={t("with")}>{view.staffName}</Row>
         <Row label={t("price")}>{formatPrice(view.priceCents, locale, config.currency)}</Row>
-        {deposit && <Row label={t("depositRow")}>{deposit}</Row>}
+        {deposit && <Row label={view.depositPaidAt ? t("depositPaidRow") : t("depositRow")}>{deposit}</Row>}
+        {inSalon && <Row label={t("inSalonRow")}>{inSalon}</Row>}
       </dl>
 
       {view.depositTermsAcceptedAt && (
@@ -126,7 +193,7 @@ export async function ConfirmationContent({ params }: Props) {
         </p>
       )}
 
-      {view.status === "pending_deposit" && deposit && view.depositDueAt && (
+      {view.status === "pending_deposit" && !byCard && deposit && view.depositDueAt && (
         <section className="mt-6 space-y-3 rounded-lg border bg-muted/50 p-4">
           <h2 className="font-medium">{t("depositTitle", { amount: deposit })}</h2>
           <p className="text-sm">
@@ -202,7 +269,7 @@ export async function ConfirmationContent({ params }: Props) {
             {t("contact")}
           </WhatsAppButton>
         )}
-        {(view.status === "booked" || view.status === "pending_deposit") && (
+        {(view.status === "booked" || (view.status === "pending_deposit" && !byCard)) && (
           <a
             href={`/api/appointments/${token}/calendar?lang=${locale}`}
             download
