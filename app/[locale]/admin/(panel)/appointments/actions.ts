@@ -11,6 +11,7 @@ import { freeGapsFor } from "@/lib/agenda-gaps";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
 import { markDepositPaid } from "@/lib/deposit-db";
+import { refundPayment } from "@/lib/payments-db";
 import {
   pushNewWebBooking, retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox,
 } from "@/lib/koibox-sync";
@@ -102,6 +103,38 @@ export async function cancelAppointmentAction(
       await loadSalonConfig(),
     ),
   );
+  refresh(locale);
+  return { ok: true };
+}
+
+export type RefundActionResult =
+  | { ok: true }
+  | { ok: false; error: "invalid" | "notPaid" | "noKey" | "refundUnreachable" | "refundRejected" | "server"; detail?: string };
+
+// Dirección o administración devuelve entero un pago con tarjeta. Solo queda como devuelto si
+// Redsys lo confirma. La cita no se toca: si además hay que cancelarla, es otro botón.
+export async function refundPaymentAction(paymentId: number): Promise<RefundActionResult> {
+  const locale = await getLocale();
+  const { user } = await requireStaff(locale, "payments.refund");
+  if (!idSchema.safeParse(paymentId).success) return { ok: false, error: "invalid" };
+
+  try {
+    const result = await refundPayment(paymentId, await loadSalonConfig(), { refundedBy: user.id });
+    if (!result.ok) {
+      const error =
+        result.reason === "not_found" || result.reason === "not_paid"
+          ? "notPaid"
+          : result.reason === "no_key"
+            ? "noKey"
+            : result.reason === "unreachable"
+              ? "refundUnreachable"
+              : "refundRejected";
+      return { ok: false, error, detail: result.detail };
+    }
+  } catch (error) {
+    console.error("[appointments] refund", error);
+    return { ok: false, error: "server" };
+  }
   refresh(locale);
   return { ok: true };
 }

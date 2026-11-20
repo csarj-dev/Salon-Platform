@@ -6,6 +6,8 @@ export const PERMISSIONS = {
   "appointments.view": ["admin", "owner", "reception"],
   "appointments.manage": ["admin", "owner", "reception"],
   "deposits.manage": ["admin", "owner", "reception"],
+  // Devolver un pago con tarjeta (mueve dinero: solo administración y dirección)
+  "payments.refund": ["admin", "owner"],
   "reports.view": ["admin", "owner"],
   // Ajustes del salón desde el panel: cobros y enlaces con Koibox
   "settings.manage": ["admin", "owner"],

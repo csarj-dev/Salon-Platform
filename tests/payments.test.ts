@@ -6,7 +6,7 @@ import { db, pgClient } from "../db";
 import {
   appointment, client, location, locationService, payment, schedule, service, staff, staffService, timeOff,
 } from "../db/schema";
-import { applyRedsysNotification, startDepositPayment } from "../lib/payments-db";
+import { applyRedsysNotification, refundPayment, startDepositPayment } from "../lib/payments-db";
 import { REDSYS_TEST_MERCHANT } from "../lib/redsys/gateway";
 import { SIGNATURE_VERSION, decodeParameters, encodeParameters, sign } from "../lib/redsys/signature";
 import { salonConfigSchema } from "../lib/salon-config";
@@ -292,5 +292,95 @@ describe("applyRedsysNotification", () => {
     const appt = await pendingAppointment();
     const { orderCode } = await start(appt);
     expect(await apply(notice(orderCode), new Date("2026-11-19T10:20:00Z"))).toMatchObject({ outcome: "paid" });
+  });
+});
+
+
+describe("refundPayment", () => {
+  // Un pago ya cobrado (aviso bueno aplicado)
+  async function paidPayment() {
+    const appt = await pendingAppointment();
+    const { paymentId, orderCode } = await start(appt);
+    await apply(notice(orderCode));
+    return { appt, paymentId, orderCode };
+  }
+
+  // Respuesta de Redsys a la devolución, firmada con la clave de pruebas
+  function refundReply(order: string, response = "0900", key: string = REDSYS_TEST_MERCHANT.key) {
+    const params = encodeParameters({ Ds_Amount: "1500", Ds_Order: order, Ds_Response: response, Ds_TransactionType: "3" });
+    return { Ds_SignatureVersion: SIGNATURE_VERSION, Ds_MerchantParameters: params, Ds_Signature: sign(params, order, key) };
+  }
+  // fetch de mentira: guarda lo que se le pidió y contesta lo que se le diga
+  function fakeFetch(body: unknown) {
+    const calls: { url: string; body: unknown }[] = [];
+    const fn = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: JSON.parse(String(init?.body)) });
+      return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+    }) as unknown as typeof fetch;
+    return { fn, calls };
+  }
+  const refundAt = new Date("2026-11-19T12:00:00Z");
+
+  it("devuelve el pago si Redsys lo confirma, y la cita no cambia", async () => {
+    const { appt, paymentId, orderCode } = await paidPayment();
+    const { fn, calls } = fakeFetch(refundReply(orderCode));
+
+    expect(await refundPayment(paymentId, config, { now: refundAt, env: ENV, fetchFn: fn })).toEqual({
+      ok: true,
+      appointmentId: appt,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://sis-t.redsys.es:25443/sis/rest/trataPeticionREST");
+    expect(decodeParameters((calls[0].body as { Ds_MerchantParameters: string }).Ds_MerchantParameters)).toMatchObject({
+      DS_MERCHANT_ORDER: orderCode,
+      DS_MERCHANT_AMOUNT: "1500",
+      DS_MERCHANT_TRANSACTIONTYPE: "3",
+    });
+    expect(await paymentRow(paymentId)).toMatchObject({ status: "refunded", refundedAt: refundAt, refundedBy: null });
+    expect((await appointmentRow(appt)).status).toBe("booked");
+
+    // Una segunda vez ya no hay nada que devolver (ni se llama a Redsys)
+    expect(await refundPayment(paymentId, config, { env: ENV, fetchFn: fn })).toEqual({ ok: false, reason: "not_paid" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("si Redsys la rechaza o da error, el pago sigue cobrado", async () => {
+    const { paymentId, orderCode } = await paidPayment();
+    const rejected = fakeFetch(refundReply(orderCode, "0190"));
+    expect(await refundPayment(paymentId, config, { env: ENV, fetchFn: rejected.fn })).toEqual({
+      ok: false,
+      reason: "rejected",
+      detail: "190",
+    });
+    const sisError = fakeFetch({ errorCode: "SIS0057" });
+    expect(await refundPayment(paymentId, config, { env: ENV, fetchFn: sisError.fn })).toEqual({
+      ok: false,
+      reason: "error",
+      detail: "SIS0057",
+    });
+    const forged = fakeFetch(refundReply(orderCode, "0900", "Mk9m98IfEblmPfrpsawt7BmxObt98Jev"));
+    expect(await refundPayment(paymentId, config, { env: ENV, fetchFn: forged.fn })).toMatchObject({
+      ok: false,
+      reason: "bad_reply",
+    });
+    expect((await paymentRow(paymentId)).status).toBe("paid");
+  });
+
+  it("sin respuesta de Redsys no se marca nada", async () => {
+    const { paymentId } = await paidPayment();
+    const down = (async () => {
+      throw new Error("ECONNRESET");
+    }) as unknown as typeof fetch;
+    expect(await refundPayment(paymentId, config, { env: ENV, fetchFn: down })).toEqual({ ok: false, reason: "unreachable" });
+    expect((await paymentRow(paymentId)).status).toBe("paid");
+  });
+
+  it("solo se devuelve un pago cobrado", async () => {
+    const appt = await pendingAppointment();
+    const { paymentId } = await start(appt);
+    const { fn, calls } = fakeFetch({});
+    expect(await refundPayment(paymentId, config, { env: ENV, fetchFn: fn })).toEqual({ ok: false, reason: "not_paid" });
+    expect(await refundPayment(999_999, config, { env: ENV, fetchFn: fn })).toEqual({ ok: false, reason: "not_found" });
+    expect(calls).toHaveLength(0);
   });
 });

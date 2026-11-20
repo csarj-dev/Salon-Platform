@@ -293,6 +293,9 @@
       "validate": "Validar depósito",
       "validating": "Validando…",
       "confirmValidate": "¿Confirmas que has recibido el depósito de esta cita?",
+      "refund": "Devolver {amount}",
+      "refunding": "Devolviendo…",
+      "confirmRefund": "¿Devolver {amount} a la tarjeta de la clienta? La cita no cambia; si también hay que cancelarla, hazlo aparte.",
       "cancel": "Cancelar cita",
       "reasonLabel": "Motivo (opcional)",
       "reasonPlaceholder": "Ej.: la clienta no puede venir",
@@ -308,7 +311,11 @@
         "server": "No se pudo completar la acción. Inténtalo de nuevo.",
         "notResendable": "A esta cita no se le puede reenviar ningún correo.",
         "noEmail": "La clienta no tiene email.",
-        "sendFailed": "No se pudo enviar el correo. Revisa el motivo en la cita o inténtalo más tarde."
+        "sendFailed": "No se pudo enviar el correo. Revisa el motivo en la cita o inténtalo más tarde.",
+        "notPaid": "Este pago ya no está cobrado (puede que ya se devolviera). Recarga la página.",
+        "noKey": "Falta la clave del TPV de este cobrador en el servidor.",
+        "refundUnreachable": "No se pudo hablar con el banco. Inténtalo de nuevo en un momento.",
+        "refundRejected": "El banco no aceptó la devolución."
       }
     },
     "card": {
@@ -347,6 +354,7 @@
       "showDetail": "Ver el detalle de la cita #{id}",
       "hideDetail": "Ocultar el detalle de la cita #{id}",
       "allClientAppointments": "Ver todas sus citas →",
+      "payment": {"paid": "Pagado con tarjeta: {amount} · {date} · pedido {order}", "refunded": "Devuelto: {amount} · {date} · pedido {order}", "test": "pruebas", "failedAttempts": "{count, plural, one {# intento de pago fallido} other {# intentos de pago fallidos}}", "review": "Revisar: se cobró cuando la cita ya no lo esperaba (caducó o se pagó dos veces). Devuélvelo o habla con la clienta."},
       "koibox": {
         "synced": "En Koibox",
         "syncedCancelled": "Anulada también en Koibox",
@@ -973,6 +981,9 @@
         },
         "deposits": {
           "manage": { "label": "Validar depósitos", "hint": "Confirmar que se recibió el pago" }
+        },
+        "payments": {
+          "refund": { "label": "Devolver pagos", "hint": "Devolver a la tarjeta un pago con tarjeta" }
         },
         "reports": {
           "view": { "label": "Informes", "hint": "Cuando existan" }

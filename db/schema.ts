@@ -450,6 +450,8 @@ export const payment = pgTable(
     // Cuándo llegó el aviso de Redsys (pagado o denegado)
     notifiedAt: timestamp("notified_at", { withTimezone: true }),
     refundedAt: timestamp("refunded_at", { withTimezone: true }),
+    // Quién del equipo hizo la devolución (auditoría). null = un script, o se borró ese usuario.
+    refundedBy: text("refunded_by").references(() => user.id, { onDelete: "set null" }),
   },
   (t) => [
     index("payment_appointment_idx").on(t.appointmentId),

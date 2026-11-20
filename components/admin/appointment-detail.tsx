@@ -4,12 +4,14 @@ import type { EmailStatusInfo } from "@/lib/email/email-status";
 import type { KoiboxCardState } from "@/lib/koibox/card-state";
 import { KOIBOX_TONE } from "@/components/admin/appointment-marks";
 import { CancelButton } from "@/components/admin/cancel-button";
+import { RefundButton } from "@/components/admin/refund-button";
 import { textAction } from "@/components/admin/panel-ui";
 import { ResendEmailButton } from "@/components/admin/resend-email-button";
 import { RetryKoiboxButton } from "@/components/admin/retry-koibox-button";
 import { ValidateButton } from "@/components/admin/validate-button";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { koiboxWorkKey } from "@/lib/koibox/card-state";
+import { paymentsForAppointment } from "@/lib/payments-db";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
 import { Link } from "@/i18n/navigation";
@@ -58,6 +60,8 @@ type Props = {
   canCancel: boolean;
   canResend?: boolean;
   canRetryKoibox?: boolean;
+  /** Puede devolver pagos con tarjeta (permiso payments.refund) */
+  canRefund?: boolean;
   /**
    * "columns": clienta / depósito y correo / Koibox en columnas (desplegable de la tabla).
    * "stack": todo en una columna, sin títulos (tarjeta; y el panel lateral de la agenda).
@@ -83,12 +87,15 @@ export async function AppointmentDetail({
   canCancel,
   canResend = false,
   canRetryKoibox = false,
+  canRefund = false,
   layout = "stack",
 }: Props) {
-  const [t, tWa, tK] = await Promise.all([
+  const [t, tWa, tK, payments] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.card" }),
     getTranslations({ locale, namespace: "Admin.whatsapp" }),
     getTranslations({ locale, namespace: "Admin.card.koibox" }),
+    // Pagos con tarjeta: solo las citas con depósito pueden tenerlos
+    data.depositCents !== null ? paymentsForAppointment(data.id) : Promise.resolve([]),
   ]);
 
   const fmt = (d: Date) => formatDateTime(d, locale, zone);
@@ -132,6 +139,35 @@ export async function AppointmentDetail({
             {t("expiredOn", { date: fmt(data.depositDueAt) })}
           </span>
         )}
+      </p>,
+    );
+  }
+  // Pagos con tarjeta: los cobrados y devueltos, uno por línea; los intentos fallidos, contados
+  const money = (cents: number) => formatPrice(cents, locale, currency);
+  const charged = payments.filter((p) => p.status === "paid" || p.status === "refunded");
+  for (const p of charged) {
+    const test = p.environment === "test" ? ` · ${t("payment.test")}` : "";
+    lines.push(
+      <p key={`payment-${p.id}`}>
+        {p.status === "refunded" && p.refundedAt
+          ? t("payment.refunded", { amount: money(p.amountCents), date: fmt(p.refundedAt), order: p.orderCode })
+          : t("payment.paid", {
+              amount: money(p.amountCents),
+              date: p.notifiedAt ? fmt(p.notifiedAt) : "—",
+              order: p.orderCode,
+            })}
+        {test}
+      </p>,
+    );
+  }
+  const failedAttempts = payments.filter((p) => p.status === "failed").length;
+  if (failedAttempts > 0) lines.push(<p key="payment-failed">{t("payment.failedAttempts", { count: failedAttempts })}</p>);
+  // Cobrado cuando la cita ya no lo esperaba (caducó, o se pagó dos veces): hay que mirarlo
+  const paidNow = payments.filter((p) => p.status === "paid");
+  if (paidNow.length > 1 || (paidNow.length === 1 && data.status === "expired")) {
+    lines.push(
+      <p key="payment-review" className="font-medium text-danger">
+        {t("payment.review")}
       </p>,
     );
   }
@@ -193,6 +229,8 @@ export async function AppointmentDetail({
         {t("whatsapp")}
       </a>
       {showResend && <ResendEmailButton appointmentId={data.id} />}
+      {canRefund &&
+        paidNow.map((p) => <RefundButton key={p.id} paymentId={p.id} amount={money(p.amountCents)} />)}
       {showCancel && <CancelButton appointmentId={data.id} />}
     </div>
   );

@@ -3,7 +3,7 @@
 // del resultado a nuestra ruta (/api/payments/redsys/notify) y devuelve a la clienta a la web.
 // Aquí solo va lo que no toca la base de datos: entorno, credenciales, formulario y aviso.
 import { randomInt } from "node:crypto";
-import { SIGNATURE_VERSION, decodeParameters, encodeParameters, sign } from "./signature";
+import { SIGNATURE_VERSION, decodeParameters, encodeParameters, sign, signaturesMatch } from "./signature";
 
 // "test": el entorno de pruebas público de Redsys, con su comercio y su clave de pruebas
 //         (vale para todos los cobradores; no se mueve dinero de verdad).
@@ -182,4 +182,71 @@ export function readNotification(form: NotificationForm): RedsysNotification | n
 // Ds_Response de 0000 a 0099: pago autorizado
 export function isAuthorized(responseCode: number): boolean {
   return Number.isInteger(responseCode) && responseCode >= 0 && responseCode <= 99;
+}
+
+// ---- Devoluciones (API REST de Redsys, «trataPeticionREST») ----
+// Se piden de servidor a servidor con el mismo pedido del pago y tipo de operación 3.
+export const REDSYS_REST_URL: Record<RedsysEnvironment, string> = {
+  test: "https://sis-t.redsys.es:25443/sis/rest/trataPeticionREST",
+  live: "https://sis.redsys.es/sis/rest/trataPeticionREST",
+};
+
+// Ds_Response de una devolución aceptada
+export const REFUND_ACCEPTED = 900;
+
+export type RestRequest = { Ds_SignatureVersion: string; Ds_MerchantParameters: string; Ds_Signature: string };
+
+// Petición de devolución de un pago (importe entero) firmada con la clave del comercio
+export function buildRefundRequest(credentials: RedsysCredentials, order: string, amountCents: number): RestRequest {
+  if (!ORDER_CODE.test(order)) throw new Error(`Número de pedido no válido: ${order}`);
+  if (!Number.isInteger(amountCents) || amountCents <= 0) throw new Error(`Importe no válido: ${amountCents}`);
+  const merchantParameters = encodeParameters({
+    DS_MERCHANT_AMOUNT: String(amountCents),
+    DS_MERCHANT_ORDER: order,
+    DS_MERCHANT_MERCHANTCODE: credentials.merchantCode,
+    DS_MERCHANT_CURRENCY: "978",
+    DS_MERCHANT_TRANSACTIONTYPE: "3", // devolución
+    DS_MERCHANT_TERMINAL: String(credentials.terminal),
+  });
+  return {
+    Ds_SignatureVersion: SIGNATURE_VERSION,
+    Ds_MerchantParameters: merchantParameters,
+    Ds_Signature: sign(merchantParameters, order, credentials.key),
+  };
+}
+
+export type RefundReply =
+  | { ok: true; responseCode: number }
+  // rejected: Redsys contestó, pero no la aceptó (Ds_Response distinto de 0900)
+  | { ok: false; reason: "rejected"; responseCode: number }
+  // error: Redsys devolvió un código de error (p. ej. SIS0057: importe mayor que lo pagado)
+  | { ok: false; reason: "error"; code: string }
+  // bad_reply: la respuesta no se entiende o su firma no cuadra
+  | { ok: false; reason: "bad_reply" };
+
+// Lee la respuesta de una devolución y comprueba su firma con la clave del comercio
+export function readRefundReply(body: unknown, merchantKeyBase64: string): RefundReply {
+  if (typeof body !== "object" || body === null) return { ok: false, reason: "bad_reply" };
+  const reply = body as Record<string, unknown>;
+  if (typeof reply.errorCode === "string" && reply.errorCode) return { ok: false, reason: "error", code: reply.errorCode };
+
+  const params = reply.Ds_MerchantParameters;
+  const signature = reply.Ds_Signature;
+  if (reply.Ds_SignatureVersion !== SIGNATURE_VERSION || typeof params !== "string" || typeof signature !== "string") {
+    return { ok: false, reason: "bad_reply" };
+  }
+  let data: Record<string, string>;
+  try {
+    data = decodeParameters(params);
+  } catch {
+    return { ok: false, reason: "bad_reply" };
+  }
+  const byName = new Map(Object.entries(data).map(([k, v]) => [k.toLowerCase(), v.trim()]));
+  const order = byName.get("ds_order") ?? "";
+  const response = byName.get("ds_response") ?? "";
+  if (!order || !/^\d+$/.test(response)) return { ok: false, reason: "bad_reply" };
+  if (!signaturesMatch(signature, sign(params, order, merchantKeyBase64))) return { ok: false, reason: "bad_reply" };
+
+  const responseCode = Number(response);
+  return responseCode === REFUND_ACCEPTED ? { ok: true, responseCode } : { ok: false, reason: "rejected", responseCode };
 }

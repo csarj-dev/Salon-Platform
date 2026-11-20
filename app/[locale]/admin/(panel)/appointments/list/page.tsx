@@ -260,6 +260,7 @@ async function AppointmentsContent({
                     // Se puede gestionar si aún no ha pasado o si espera el depósito (la ficha decide qué botones)
                     actionable={row.status === "pending_deposit" || row.startsAt.getTime() > nowMs}
                     canValidate={can(role, "deposits.manage")}
+                    canRefund={can(role, "payments.refund")}
                     canCancel={can(role, "appointments.manage")}
                     canResend={can(role, "appointments.manage")}
                     canRetryKoibox={can(role, "appointments.manage")}

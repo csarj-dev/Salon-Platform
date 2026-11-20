@@ -1,6 +1,6 @@
 // Pagos con tarjeta por Redsys, con la base de datos: empezar un pago y aplicar el aviso de Redsys.
 // Lo que no toca la base (firma, formulario, entorno) está en lib/redsys/.
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { appointment, payment } from "../db/schema";
 import { appUrl } from "./app-url";
@@ -9,7 +9,8 @@ import { salonCollectors } from "./collectors";
 import { collectorForAppointment } from "./collectors-db";
 import { isDepositOverdue } from "./deposit";
 import {
-  buildPaymentForm, isAuthorized, newOrderCode, readNotification, redsysCredentials, redsysEnvironment,
+  REDSYS_REST_URL, buildPaymentForm, buildRefundRequest, isAuthorized, newOrderCode, readNotification,
+  readRefundReply, redsysCredentials, redsysEnvironment,
   type NotificationForm, type PaymentForm, type RedsysEnvironment,
 } from "./redsys/gateway";
 import { signaturesMatch, sign } from "./redsys/signature";
@@ -170,4 +171,107 @@ export async function applyRedsysNotification(
       .returning({ id: appointment.id });
     return { ok: true, outcome: confirmed.length > 0 ? "paid" : "paid_late", ...base } as const;
   });
+}
+
+
+// ---- Lo que ve el panel y las devoluciones ----
+
+export type PaymentSummary = {
+  id: number;
+  status: "created" | "paid" | "failed" | "refunded";
+  environment: string; // "test" | "live"
+  orderCode: string;
+  amountCents: number;
+  notifiedAt: Date | null;
+  refundedAt: Date | null;
+};
+
+// Pagos con tarjeta de una cita, del más antiguo al más nuevo
+export async function paymentsForAppointment(appointmentId: number): Promise<PaymentSummary[]> {
+  return db
+    .select({
+      id: payment.id,
+      status: payment.status,
+      environment: payment.environment,
+      orderCode: payment.orderCode,
+      amountCents: payment.amountCents,
+      notifiedAt: payment.notifiedAt,
+      refundedAt: payment.refundedAt,
+    })
+    .from(payment)
+    .where(eq(payment.appointmentId, appointmentId))
+    .orderBy(asc(payment.createdAt), asc(payment.id));
+}
+
+export type RefundResult =
+  | { ok: true; appointmentId: number }
+  | {
+      ok: false;
+      // not_found / not_paid: no hay un pago cobrado que devolver · no_key: falta la clave del TPV
+      // unreachable: no se pudo hablar con Redsys · rejected / error: Redsys no la aceptó
+      // bad_reply: la respuesta no se entiende o su firma no cuadra
+      reason: "not_found" | "not_paid" | "no_key" | "unreachable" | "rejected" | "error" | "bad_reply";
+      detail?: string; // código de Redsys (Ds_Response o SIS…), para el registro y el panel
+    };
+
+type RefundOptions = {
+  now?: Date;
+  env?: Env;
+  refundedBy?: string | null; // id del usuario del equipo que la pide (auditoría)
+  fetchFn?: typeof fetch; // para los tests
+};
+
+// Devuelve entero un pago cobrado con tarjeta. Solo se marca como devuelto si Redsys lo confirma
+// (Ds_Response 0900, con su firma comprobada). La cita no cambia: cancelarla es otra decisión.
+export async function refundPayment(
+  paymentId: number,
+  config: PaymentsConfig,
+  opts: RefundOptions = {},
+): Promise<RefundResult> {
+  const now = opts.now ?? new Date();
+  const env = opts.env ?? process.env;
+  const fetchFn = opts.fetchFn ?? fetch;
+
+  const [p] = await db.select().from(payment).where(eq(payment.id, paymentId));
+  if (!p) return { ok: false, reason: "not_found" };
+  if (p.status !== "paid") return { ok: false, reason: "not_paid" };
+
+  const key = keyForPayment(p, config, env);
+  if (!key) return { ok: false, reason: "no_key" };
+  const environment = p.environment as RedsysEnvironment;
+  const request = buildRefundRequest(
+    { environment, merchantCode: p.merchantCode, terminal: p.terminal, key },
+    p.orderCode,
+    p.amountCents,
+  );
+
+  let body: unknown;
+  try {
+    const response = await fetchFn(REDSYS_REST_URL[environment], {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(20_000),
+    });
+    body = await response.json();
+  } catch (error) {
+    console.error(`[redsys] devolución del pago ${paymentId}: sin respuesta`, error);
+    return { ok: false, reason: "unreachable" };
+  }
+
+  const reply = readRefundReply(body, key);
+  if (!reply.ok) {
+    const detail = reply.reason === "rejected" ? String(reply.responseCode) : reply.reason === "error" ? reply.code : undefined;
+    console.error(`[redsys] devolución del pago ${paymentId} no aceptada: ${reply.reason}${detail ? ` ${detail}` : ""}`);
+    return { ok: false, reason: reply.reason, detail };
+  }
+
+  // Solo una vez, aunque se pulse dos veces a la vez
+  const updated = await db
+    .update(payment)
+    .set({ status: "refunded", refundedAt: now, refundedBy: opts.refundedBy ?? null })
+    .where(and(eq(payment.id, paymentId), eq(payment.status, "paid")))
+    .returning({ id: payment.id });
+  if (updated.length === 0) return { ok: false, reason: "not_paid" };
+  return { ok: true, appointmentId: p.appointmentId };
 }
