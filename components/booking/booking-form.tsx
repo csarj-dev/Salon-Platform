@@ -23,6 +23,8 @@ type Props = {
   // Depósito con tarjeta: el botón paga y lleva a la página de pago. `minutes`: lo que se guarda
   // la hora mientras paga; `inSalon`: lo que queda por pagar en el salón (ya formateado)
   card?: { minutes: number; inSalon: string | null } | null;
+  // Con depósito guardado (booking.deposit.saved): antelación con la que se guarda al anular
+  savedHours?: number | null;
 };
 
 const inputClass =
@@ -53,7 +55,7 @@ function Field({
 
 export function BookingForm({
   locale, locationId, serviceIds, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
-  depositNotice = null, card = null,
+  depositNotice = null, card = null, savedHours = null,
 }: Props) {
   const t = useTranslations("Booking");
   const router = useRouter();
@@ -201,7 +203,7 @@ export function BookingForm({
               />
               <span>
                 <strong className="font-medium">{t("depositTermsStrong", { amount: depositAmount })}</strong>{" "}
-                {t("depositTermsRest")}
+                {savedHours !== null ? t("depositTermsRestSaved", { hours: savedHours }) : t("depositTermsRest")}
               </span>
             </label>
             {state.fields?.depositTerms && (

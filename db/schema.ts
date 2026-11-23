@@ -468,6 +468,41 @@ export const payment = pgTable(
   ],
 );
 
+// Depósitos guardados: lo que se le guarda a una clienta que anuló a tiempo con el depósito pagado.
+// Uno por categoría de la cita anulada (cejas y pestañas son dos). Vale para otra cita de la misma
+// categoría y del mismo cobrador (el dinero está en su TPV) hasta `expiresAt`.
+export const depositCredit = pgTable(
+  "deposit_credit",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    // La cita anulada de la que sale
+    sourceAppointmentId: integer("source_appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+    // Categoría de servicios para la que vale (null = un servicio sin categoría: vale para ese servicio)
+    categoryId: integer("category_id").references(() => serviceCategory.id, { onDelete: "set null" }),
+    serviceId: integer("service_id").references(() => service.id, { onDelete: "set null" }),
+    collector: text("collector").notNull(), // id de payments.collectors
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Cuándo y en qué cita se usó
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    usedAppointmentId: integer("used_appointment_id").references(() => appointment.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("deposit_credit_client_idx").on(t.clientId),
+    index("deposit_credit_source_idx").on(t.sourceAppointmentId),
+    check("deposit_credit_amount_positive", sql`${t.amountCents} > 0`),
+    check("deposit_credit_expires_after_created", sql`${t.expiresAt} > ${t.createdAt}`),
+    // Una cita de uso sin fecha de uso no tiene sentido (al revés sí: si se borra esa cita)
+    check("deposit_credit_used_has_time", sql`${t.usedAppointmentId} IS NULL OR ${t.usedAt} IS NOT NULL`),
+  ],
+);
+
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
 export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);

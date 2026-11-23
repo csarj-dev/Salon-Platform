@@ -95,6 +95,16 @@ describe("otros correos", () => {
     expect(mail.attachments).toBeUndefined();
   });
 
+  it("si se le guardó el depósito, se lo dice con el importe y hasta cuándo", () => {
+    const mail = build("cancellation", {
+      ...data,
+      savedDeposit: { cents: 1500, expiresAt: new Date("2027-05-02T10:30:00Z") },
+    });
+    expect(mail.text).toContain("Tu depósito de 15,00");
+    expect(mail.text).toContain("queda guardado");
+    expect(mail.text).not.toContain("escríbenos y lo vemos contigo");
+  });
+
   it("sin depósito, la cancelación no habla de depósitos", () => {
     const mail = build("cancellation", { ...data, depositCents: null });
     expect(mail.text).not.toContain("depósito");

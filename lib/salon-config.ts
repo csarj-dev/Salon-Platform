@@ -112,6 +112,12 @@ const depositSchema = z.object({
   // Con pago con tarjeta en la web (cobrador en modo "card"): minutos que se guarda el hueco
   // mientras la clienta paga. Si no paga en ese tiempo, la hora se libera.
   cardHoldMinutes: z.number().int().min(5).max(120).default(15),
+  // Depósito guardado: si la clienta anula con la antelación de anular (cancellationNoticeHours) y
+  // ya lo había pagado, no lo pierde: se le guarda `months` meses para otra cita de la misma
+  // categoría y del mismo cobrador (lib/deposit-credits.ts). Sin esto, el depósito se pierde siempre.
+  saved: z
+    .object({ months: z.number().int().min(1).max(24).default(6) })
+    .optional(),
   // Política de cancelación y devolución del depósito, por idioma
   policy: localizedText.optional(),
   // Antes estaban aquí: si un config viejo los trae, error claro en vez de ignorarlos sin avisar

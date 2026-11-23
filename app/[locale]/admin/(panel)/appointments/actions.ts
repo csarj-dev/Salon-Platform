@@ -68,9 +68,11 @@ export async function validateDepositAction(appointmentId: number): Promise<Staf
 }
 
 // El equipo cancela una cita (sin plazo mínimo). Queda quién, cuándo y el motivo opcional.
+// keepDeposit: guardarle el depósito pagado para otra cita (si el salón usa depósitos guardados).
 export async function cancelAppointmentAction(
   appointmentId: number,
   reason?: string,
+  keepDeposit = false,
 ): Promise<StaffActionResult> {
   const locale = await getLocale();
   const { user } = await requireStaff(locale, "appointments.manage");
@@ -86,7 +88,7 @@ export async function cancelAppointmentAction(
       toChangeOptions(config),
       "staff",
       new Date(),
-      { userId: user.id, reason: parsedReason.data },
+      { userId: user.id, reason: parsedReason.data, keepDeposit: keepDeposit === true },
     );
     if (!result.ok) {
       return { ok: false, error: result.reason === "not_found" ? "notFound" : "notChangeable" };

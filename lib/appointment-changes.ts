@@ -1,15 +1,20 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
-import { appointment, service } from "../db/schema";
+import { appointment, depositCredit, service } from "../db/schema";
 import { getAvailabilityForDay } from "./availability-db";
 import { isSlotConflict, type BookingOptions } from "./booking";
+import { depositCreditsToSave, toSavedDepositOptions, type SavedDepositOptions } from "./deposit-credits";
 import type { SalonConfig } from "./salon-config";
 
-export type ChangeOptions = { cancellationNoticeHours: number };
+export type ChangeOptions = {
+  cancellationNoticeHours: number;
+  // Depósito guardado al anular (booking.deposit.saved). Sin esto, el depósito se pierde siempre.
+  savedDeposit?: SavedDepositOptions;
+};
 
 export function toChangeOptions(c: SalonConfig): ChangeOptions {
-  return { cancellationNoticeHours: c.booking.cancellationNoticeHours };
+  return { cancellationNoticeHours: c.booking.cancellationNoticeHours, savedDeposit: toSavedDepositOptions(c) };
 }
 
 // "client": la clienta desde la web (sujeta al plazo)
@@ -17,7 +22,8 @@ export function toChangeOptions(c: SalonConfig): ChangeOptions {
 export type Actor = "client" | "staff";
 
 export type ChangeResult =
-  | { ok: true }
+  // savedDepositCents: al anular, lo que se le guardó (si se guardó algo)
+  | { ok: true; savedDepositCents?: number }
   | {
       ok: false;
       reason:
@@ -33,8 +39,9 @@ function withinNoticeWindow(startsAt: Date, now: Date, hours: number): boolean {
   return startsAt.getTime() - now.getTime() < hours * 3_600_000;
 }
 
-// Quién cancela y por qué (solo lo rellena el equipo desde el panel)
-export type CancelAudit = { userId?: string | null; reason?: string | null };
+// Quién cancela y por qué (solo lo rellena el equipo desde el panel).
+// keepDeposit: el equipo decide si se le guarda el depósito pagado (la clienta, siempre que anula a tiempo).
+export type CancelAudit = { userId?: string | null; reason?: string | null; keepDeposit?: boolean };
 
 export async function cancelAppointment(
   appointmentId: number,
@@ -59,25 +66,35 @@ export async function cancelAppointment(
     return { ok: false, reason: "too_late" };
   }
 
-  // La condición sobre el estado evita cancelar dos veces si hay dos peticiones a la vez
-  const updated = await db
-    .update(appointment)
-    .set({
-      status: "cancelled",
-      cancelledAt: now,
-      cancelledBy: audit.userId ?? null,
-      cancelReason: audit.reason?.trim() || null,
-    })
-    .where(
-      and(
-        eq(appointment.id, appointmentId),
-        inArray(appointment.status, ["booked", "pending_deposit"]),
-      ),
-    )
-    .returning({ id: appointment.id });
+  // Depósito pagado y anulada a tiempo: se le guarda (la clienta solo puede anular a tiempo;
+  // el equipo elige). Se calcula antes y se guarda en la misma transacción que la anulación.
+  const saved = opts.savedDeposit;
+  const keep = saved !== undefined && (actor === "client" || audit.keepDeposit === true);
+  const credits = keep ? await depositCreditsToSave(appointmentId, saved, now) : [];
 
-  if (updated.length === 0) return { ok: false, reason: "not_changeable" };
-  return { ok: true };
+  return db.transaction(async (tx) => {
+    // La condición sobre el estado evita cancelar dos veces si hay dos peticiones a la vez
+    const updated = await tx
+      .update(appointment)
+      .set({
+        status: "cancelled",
+        cancelledAt: now,
+        cancelledBy: audit.userId ?? null,
+        cancelReason: audit.reason?.trim() || null,
+      })
+      .where(
+        and(
+          eq(appointment.id, appointmentId),
+          inArray(appointment.status, ["booked", "pending_deposit"]),
+        ),
+      )
+      .returning({ id: appointment.id });
+
+    if (updated.length === 0) return { ok: false, reason: "not_changeable" } as const;
+    if (credits.length === 0) return { ok: true } as const;
+    await tx.insert(depositCredit).values(credits);
+    return { ok: true, savedDepositCents: credits.reduce((sum, c) => sum + c.amountCents, 0) } as const;
+  });
 }
 
 // Mueve la cita a otra hora, con la misma profesional, servicio y local

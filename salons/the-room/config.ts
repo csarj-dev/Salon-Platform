@@ -29,6 +29,8 @@ const config = {
       holdHours: 24,
       // Con tarjeta en la web: minutos que se guarda la hora mientras la clienta paga
       cardHoldMinutes: 15,
+      // Depósito guardado si anula con 24 h o más (provisional hasta que lo confirmen las dueñas)
+      saved: { months: 6 },
       policy: {
         es: "…", // la que ya tienes, sin cambios
         en: "…",

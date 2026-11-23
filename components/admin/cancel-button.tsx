@@ -6,7 +6,14 @@ import { cancelAppointmentAction } from "@/app/[locale]/admin/(panel)/appointmen
 import { Button } from "@/components/ui/button";
 import { textAction } from "@/components/admin/panel-ui";
 
-export function CancelButton({ appointmentId }: { appointmentId: number }) {
+type Props = {
+  appointmentId: number;
+  // Depósito pagado que se puede guardar para otra cita: importe ya formateado y si la casilla
+  // sale marcada (sí cuando se anula con la antelación de anular). null = no se ofrece.
+  keepDeposit?: { amount: string; defaultChecked: boolean } | null;
+};
+
+export function CancelButton({ appointmentId, keepDeposit = null }: Props) {
   const t = useTranslations("Admin.actions");
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -14,10 +21,12 @@ export function CancelButton({ appointmentId }: { appointmentId: number }) {
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const reason = String(new FormData(event.currentTarget).get("reason") ?? "");
+    const form = new FormData(event.currentTarget);
+    const reason = String(form.get("reason") ?? "");
+    const keep = keepDeposit !== null && form.get("keepDeposit") === "on";
     setError(null);
     startTransition(async () => {
-      const result = await cancelAppointmentAction(appointmentId, reason);
+      const result = await cancelAppointmentAction(appointmentId, reason, keep);
       if (!result.ok) setError(t(`errors.${result.error}`));
     });
   }
@@ -43,6 +52,17 @@ export function CancelButton({ appointmentId }: { appointmentId: number }) {
         placeholder={t("reasonPlaceholder")}
         className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
+      {keepDeposit && (
+        <label className="flex min-h-11 items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            name="keepDeposit"
+            defaultChecked={keepDeposit.defaultChecked}
+            className="mt-0.5 size-5 shrink-0 accent-primary"
+          />
+          <span>{t("keepDeposit", { amount: keepDeposit.amount })}</span>
+        </label>
+      )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

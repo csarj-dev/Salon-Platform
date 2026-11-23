@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import {
   appointment,
+  depositCredit,
   emailLog,
   location,
   service,
@@ -69,6 +70,19 @@ export async function loadEmailData(
   // Con varios servicios, todos (en el idioma del correo); si no, el principal, como antes
   const names = (await serviceNamesFor([row.id], { locale, defaultLocale: config.defaultLocale })).get(row.id);
 
+  // Depósito guardado al anularla (puede haber uno por categoría: se suman; vale hasta el primero que caduque)
+  const saved = await db
+    .select({ cents: depositCredit.amountCents, expiresAt: depositCredit.expiresAt })
+    .from(depositCredit)
+    .where(eq(depositCredit.sourceAppointmentId, row.id));
+  const savedDeposit =
+    saved.length > 0
+      ? {
+          cents: saved.reduce((sum, s) => sum + s.cents, 0),
+          expiresAt: new Date(Math.min(...saved.map((s) => s.expiresAt.getTime()))),
+        }
+      : null;
+
   return {
     appointmentId: row.id,
     publicToken: row.publicToken,
@@ -86,6 +100,7 @@ export async function loadEmailData(
     staffName: row.staffName,
     priceCents: row.priceCents,
     depositCents: row.depositCents,
+    savedDeposit,
   };
 }
 

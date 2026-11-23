@@ -114,7 +114,11 @@ export async function submitBooking(
       depositHoldHours: depositHoldHours(collector.deposit.mode, config.booking.deposit),
       // El mismo texto que ve en la casilla, con el importe real: es el que se guarda con la cita
       depositTermsText: (cents: number) =>
-        `${tb("depositTermsStrong", { amount: formatPrice(cents, locale, config.currency) })} ${tb("depositTermsRest")}`,
+        `${tb("depositTermsStrong", { amount: formatPrice(cents, locale, config.currency) })} ${
+          config.booking.deposit.saved
+            ? tb("depositTermsRestSaved", { hours: config.booking.cancellationNoticeHours })
+            : tb("depositTermsRest")
+        }`,
     };
 
     // 4. Crear la cita (comprueba otra vez el hueco, y la base de datos impide solapes)

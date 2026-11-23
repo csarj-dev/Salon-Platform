@@ -17,6 +17,7 @@ import { OpenWhatsAppOnce } from "@/components/booking/open-whatsapp-once";
 import { ClientCancel } from "@/components/booking/client-cancel";
 import { RetryPayment } from "@/components/booking/pay-redirect";
 import { clientChangeState } from "@/lib/client-changes";
+import { depositsSavedFrom } from "@/lib/deposit-credits";
 
 type Props = {
   params: Promise<{ locale: string; token: string }>;
@@ -102,6 +103,12 @@ export async function ConfirmationContent({ params, searchParams }: Props) {
       : failed
         ? t("cardFailedTitle")
         : t("cardPendingTitle");
+  // Depósito guardado (booking.deposit.saved): al anular a tiempo con el depósito pagado se le guarda.
+  // Antes de anular se le avisa; una vez anulada, se le dice cuánto y hasta cuándo.
+  const keepsDeposit =
+    config.booking.deposit.saved !== undefined && view.depositPaidAt !== null && deposit !== null;
+  const keepNote = keepsDeposit ? t("keepDepositNote", { amount: deposit }) : null;
+  const savedDeposits = view.status === "cancelled" && keepsDeposit ? await depositsSavedFrom(view.id) : [];
   // Lo que queda por pagar en el salón, una vez pagado el depósito
   const inSalon =
     view.depositPaidAt && view.depositCents !== null && view.priceCents > view.depositCents
@@ -248,6 +255,14 @@ export async function ConfirmationContent({ params, searchParams }: Props) {
       {view.status === "cancelled" && (
         <p className="mt-6 text-sm text-muted-foreground">{t("cancelledHelp")}</p>
       )}
+      {savedDeposits.map((s) => (
+        <p key={s.id} className="mt-3 rounded-lg bg-success/10 p-3 text-sm leading-relaxed">
+          {t("depositSaved", {
+            amount: formatPrice(s.amountCents, locale, config.currency),
+            date: formatDateTime(s.expiresAt, locale, zone),
+          })}
+        </p>
+      ))}
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
         {view.status === "booked" && changes.reschedule === "allowed" && (
@@ -255,7 +270,9 @@ export async function ConfirmationContent({ params, searchParams }: Props) {
             {t("change")}
           </Link>
         )}
-        {view.status === "booked" && changes.cancel === "allowed" && <ClientCancel token={token} kind="booked" />}
+        {view.status === "booked" && changes.cancel === "allowed" && (
+          <ClientCancel token={token} kind="booked" keepNote={keepNote} />
+        )}
         {view.status === "pending_deposit" && changes.cancel === "allowed" && (
           <ClientCancel token={token} kind="pending" />
         )}
