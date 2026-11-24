@@ -1,12 +1,12 @@
 // Depósitos guardados (booking.deposit.saved): qué se guarda al anular una cita con el depósito
-// pagado, y lo que se enseña de ellos. Usarlos al reservar llega en Pag4b.
-import { asc, eq } from "drizzle-orm";
+// pagado, cuáles valen para una reserva nueva, y lo que se enseña de ellos.
+import { and, asc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
 import { appointment, appointmentService, depositCredit, payment, service } from "../db/schema";
 import { resolveCollector } from "./collectors";
 import { collectorForAppointment } from "./collectors-db";
-import { depositParts } from "./deposit";
+import { depositParts, type DepositPart } from "./deposit";
 import type { SalonConfig } from "./salon-config";
 
 type CollectorsConfig = Parameters<typeof resolveCollector>[0];
@@ -130,4 +130,84 @@ export async function depositPaidAt(appointmentId: number): Promise<Date | null>
     .from(appointment)
     .where(eq(appointment.id, appointmentId));
   return row?.paidAt ?? null;
+}
+
+
+// ---- Usarlos al reservar ----
+
+// Los depósitos guardados de la clienta que pagan entero el depósito de una reserva nueva:
+// uno por cada parte (categoría, o servicio sin categoría), del mismo cobrador, sin usar ni
+// caducados, de al menos lo que pide esa parte y salidos de citas con ese correo. Se coge el que
+// antes caduca. null si alguna parte se queda sin cubrir (entonces la clienta paga el depósito).
+export async function matchSavedDeposits(
+  clientId: number,
+  parts: DepositPart[],
+  collector: string,
+  email: string,
+  now: Date,
+): Promise<{ creditIds: number[]; cents: number } | null> {
+  if (parts.length === 0) return null;
+  const rows = await db
+    .select({
+      id: depositCredit.id,
+      amountCents: depositCredit.amountCents,
+      categoryId: depositCredit.categoryId,
+      serviceId: depositCredit.serviceId,
+    })
+    .from(depositCredit)
+    .innerJoin(appointment, eq(appointment.id, depositCredit.sourceAppointmentId))
+    .where(
+      and(
+        eq(depositCredit.clientId, clientId),
+        eq(depositCredit.collector, collector),
+        isNull(depositCredit.usedAt),
+        gt(depositCredit.expiresAt, now),
+        sql`lower(${appointment.clientEmail}) = ${email.trim().toLowerCase()}`,
+      ),
+    )
+    .orderBy(asc(depositCredit.expiresAt), asc(depositCredit.id));
+
+  const picked: number[] = [];
+  let cents = 0;
+  for (const part of parts) {
+    const credit = rows.find(
+      (r) =>
+        !picked.includes(r.id) &&
+        r.amountCents >= part.cents &&
+        (part.categoryId !== null ? r.categoryId === part.categoryId : r.serviceId === part.serviceId),
+    );
+    if (!credit) return null;
+    picked.push(credit.id);
+    cents += credit.amountCents;
+  }
+  return { creditIds: picked, cents };
+}
+
+// Las partes del depósito de unos servicios (los que pide la reserva, en su orden)
+export async function depositPartsFor(serviceIds: number[]): Promise<DepositPart[]> {
+  if (serviceIds.length === 0) return [];
+  const rows = await db
+    .select({ id: service.id, categoryId: service.categoryId, depositCents: service.depositCents })
+    .from(service)
+    .where(inArray(service.id, serviceIds));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return depositParts(serviceIds.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [row] : [];
+  }));
+}
+
+export type UsedDeposit = { id: number; amountCents: number; sourceAppointmentId: number };
+
+// Los depósitos guardados con los que se pagó esta cita
+export async function depositsUsedBy(appointmentId: number): Promise<UsedDeposit[]> {
+  return db
+    .select({
+      id: depositCredit.id,
+      amountCents: depositCredit.amountCents,
+      sourceAppointmentId: depositCredit.sourceAppointmentId,
+    })
+    .from(depositCredit)
+    .where(eq(depositCredit.usedAppointmentId, appointmentId))
+    .orderBy(asc(depositCredit.id));
 }

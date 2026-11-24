@@ -104,6 +104,7 @@
     "errorTaken": "That slot was just taken. Please choose another.",
     "errorUnavailable": "That slot is no longer available. Please choose another.",
     "errorServer": "We couldn't complete the booking. Try again or message us on WhatsApp.",
+    "errorSavedDeposit": "Your saved deposit no longer applies to this booking (it may have been used or expired). Choose another way to pay.",
     "errorName": "Enter your name.",
     "errorPhone": "Enter a valid phone number (9 to 15 digits).",
     "errorEmail": "That email isn't valid.",
@@ -344,7 +345,7 @@
       "hideDetail": "Hide the details of appointment #{id}",
       "allClientAppointments": "See all her appointments →",
       "payment": {"paid": "Paid by card: {amount} · {date} · order {order}", "refunded": "Refunded: {amount} · {date} · order {order}", "test": "test", "failedAttempts": "{count, plural, one {# failed payment attempt} other {# failed payment attempts}}", "review": "Check: charged when the appointment was no longer waiting for it (expired or paid twice). Refund it or talk to the client."},
-      "savedDeposit": {"kept": "Saved deposit: {amount} · valid until {date}", "used": "Saved deposit: {amount} · used on appointment #{id}", "expired": "Saved deposit: {amount} · expired on {date}"},
+      "savedDeposit": {"paidWith": "Paid with a saved deposit: {amount} · from appointment #{id}", "kept": "Saved deposit: {amount} · valid until {date}", "used": "Saved deposit: {amount} · used on appointment #{id}", "expired": "Saved deposit: {amount} · expired on {date}"},
       "koibox": {
         "synced": "In Koibox",
         "syncedCancelled": "Also cancelled in Koibox",
@@ -1010,6 +1011,7 @@
     }
   },
   "Email": {
+    "depositCode": {"subject": "Your code: {code} · {salon}", "preheader": "Your code is {code}", "greeting": "Hello,", "intro": "Here is your code to use your saved {amount} deposit at {salon}:", "codeLabel": "Code", "expires": "It expires in 10 minutes.", "ignore": "If you didn't ask for it, ignore this email: nobody can use your deposit without the code."},
     "common": {
       "greeting": "Hello {name},",
       "service": "Service",

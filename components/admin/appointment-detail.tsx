@@ -12,7 +12,7 @@ import { ValidateButton } from "@/components/admin/validate-button";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { koiboxWorkKey } from "@/lib/koibox/card-state";
 import { paymentsForAppointment } from "@/lib/payments-db";
-import { depositPaidAt, depositsSavedFrom } from "@/lib/deposit-credits";
+import { depositPaidAt, depositsSavedFrom, depositsUsedBy } from "@/lib/deposit-credits";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
@@ -94,7 +94,7 @@ export async function AppointmentDetail({
 }: Props) {
   // Pagos con tarjeta y depósitos guardados: solo las citas con depósito pueden tenerlos
   const withDeposit = data.depositCents !== null;
-  const [t, tWa, tK, payments, saved, paidAt, config] = await Promise.all([
+  const [t, tWa, tK, payments, saved, paidAt, config, usedSaved] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.card" }),
     getTranslations({ locale, namespace: "Admin.whatsapp" }),
     getTranslations({ locale, namespace: "Admin.card.koibox" }),
@@ -102,6 +102,7 @@ export async function AppointmentDetail({
     withDeposit ? depositsSavedFrom(data.id) : Promise.resolve([]),
     withDeposit ? depositPaidAt(data.id) : Promise.resolve(null),
     loadSalonConfig(),
+    withDeposit ? depositsUsedBy(data.id) : Promise.resolve([]),
   ]);
 
   const fmt = (d: Date) => formatDateTime(d, locale, zone);
@@ -177,7 +178,15 @@ export async function AppointmentDetail({
       </p>,
     );
   }
-    // Depósitos que se le guardaron al anular esta cita
+  // Depósitos guardados con los que se pagó esta cita
+  for (const u of usedSaved) {
+    lines.push(
+      <p key={`paid-saved-${u.id}`}>
+        {t("savedDeposit.paidWith", { amount: money(u.amountCents), id: u.sourceAppointmentId })}
+      </p>,
+    );
+  }
+  // Depósitos que se le guardaron al anular esta cita
   for (const s of saved) {
     lines.push(
       <p key={`saved-${s.id}`}>

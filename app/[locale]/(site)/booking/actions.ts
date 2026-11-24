@@ -8,12 +8,17 @@ import { routing } from "@/i18n/routing";
 import { getConfirmation } from "@/lib/appointment-view";
 import { KoiboxUnavailableError, confirmBookingSlot } from "@/lib/availability-source";
 import { parseFlowParams } from "@/lib/booking-flow";
-import { clientFormSchema } from "@/lib/booking-schema";
+import { clientFormSchema, phoneSchema } from "@/lib/booking-schema";
 import { createAppointment, toBookingOptions } from "@/lib/booking";
 import { pushNewWebBooking, writesToKoibox } from "@/lib/koibox-sync";
 import { startCardPayment } from "@/lib/card-payment";
 import { collectorForAppointment, collectorForStaff } from "@/lib/collectors-db";
 import { depositHoldHours, paysThroughWhatsApp } from "@/lib/deposit";
+import {
+  checkDepositProof, requestDepositCode, verifyDepositCode, type SavedDepositUse,
+} from "@/lib/deposit-codes";
+import { depositPartsFor, matchSavedDeposits } from "@/lib/deposit-credits";
+import { sendDepositCodeEmail } from "@/lib/email/deposit-code-email";
 import type { PaymentForm } from "@/lib/redsys/gateway";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { loadSalonConfig } from "@/lib/salon-config";
@@ -21,7 +26,8 @@ import { buildWhatsAppLink } from "@/lib/whatsapp-link";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
 
 export type BookingFormState = {
-  error?: "invalid" | "slot_taken" | "slot_unavailable" | "server";
+  // saved_deposit: el depósito guardado ya no vale para esta reserva (se usó, caducó o cambió la profesional)
+  error?: "invalid" | "slot_taken" | "slot_unavailable" | "saved_deposit" | "server";
   // Campos con error, para marcarlos
   fields?: Partial<Record<"name" | "phone" | "email" | "depositTerms" | "consent", true>>;
   // Lo que escribió la clienta, para no obligarla a repetirlo
@@ -109,6 +115,20 @@ export async function submitBooking(
     // con tarjeta se paga ahora mismo, así que se guarda solo unos minutos
     const collector = await collectorForStaff(staffId, config);
     const byCard = collector.deposit.mode === "card";
+
+    // Con «Tengo un depósito guardado»: la prueba del código comprobado y los depósitos que pagan
+    // esta reserva con la profesional que al final la hace (de ella depende quién cobra)
+    let savedDeposit: SavedDepositUse | undefined;
+    const proof = text(formData, "savedDepositProof");
+    if (proof) {
+      const check = await checkDepositProof(proof, client.data.phone, now);
+      const match = check.ok
+        ? await matchSavedDeposits(check.clientId, await depositPartsFor(flow.services), collector.id, check.email, now)
+        : null;
+      if (!check.ok || !match) return { error: "saved_deposit", values };
+      savedDeposit = { creditIds: match.creditIds, codeId: check.codeId };
+    }
+
     const bookingOptions = {
       ...toBookingOptions(config),
       depositHoldHours: depositHoldHours(collector.deposit.mode, config.booking.deposit),
@@ -119,6 +139,7 @@ export async function submitBooking(
             ? tb("depositTermsRestSaved", { hours: config.booking.cancellationNoticeHours })
             : tb("depositTermsRest")
         }`,
+      savedDeposit,
     };
 
     // 4. Crear la cita (comprueba otra vez el hueco, y la base de datos impide solapes)
@@ -141,6 +162,7 @@ export async function submitBooking(
     if (!result.ok) {
       if (result.reason === "deposit_terms") return { error: "invalid", fields: { depositTerms: true }, values };
       if (result.reason === "slot_taken") return { error: "slot_taken", values };
+      if (result.reason === "saved_deposit_gone") return { error: "saved_deposit", values };
       if (result.reason === "invalid_input") return { error: "invalid", values };
       return { error: "slot_unavailable", values };
     }
@@ -216,4 +238,84 @@ export async function submitBooking(
   // Nunca se llega aquí (redirect no devuelve), pero TypeScript no lo sabe
   // porque `redirect` sale de createNavigation y no está declarada como `never` de forma explícita
   return {};
+}
+
+
+// ---- «Tengo un depósito guardado»: pedir y comprobar el código (lib/deposit-codes.ts) ----
+
+export type DepositCodeRequestResult =
+  | { ok: true; requestId: string; maskedEmail: string; amount: string; expiresAt: string }
+  | { ok: false; reason: "invalid" | "none" | "server" }
+  | { ok: false; reason: "locked"; until: string };
+
+// Manda el código si hay depósitos guardados que pagan esta reserva. A quien no los tiene se le
+// contesta lo mismo con cualquier teléfono o correo («none»).
+export async function requestDepositCodeAction(input: {
+  locale: string;
+  phone: string;
+  email: string;
+  serviceIds: number[];
+  staffId: number; // la profesional que se espera que haga la cita
+}): Promise<DepositCodeRequestResult> {
+  if (!hasLocale(routing.locales, input.locale)) return { ok: false, reason: "invalid" };
+  const phone = phoneSchema.safeParse(input.phone);
+  const email = clientFormSchema.shape.email.safeParse(input.email);
+  const ids = Array.isArray(input.serviceIds) ? input.serviceIds.filter((n) => Number.isInteger(n) && n > 0) : [];
+  if (!phone.success || !email.success || ids.length === 0 || !Number.isInteger(input.staffId)) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  try {
+    const config = await loadSalonConfig();
+    if (!config.booking.deposit.saved) return { ok: false, reason: "none" };
+    const now = new Date();
+    const result = await requestDepositCode(
+      { phone: phone.data, email: email.data, serviceIds: ids, staffId: input.staffId },
+      config,
+      now,
+    );
+    if (!result.ok) {
+      return result.reason === "locked"
+        ? { ok: false, reason: "locked", until: result.until.toISOString() }
+        : { ok: false, reason: "none" };
+    }
+    const sent = await sendDepositCodeEmail(
+      { to: email.data, code: result.code, cents: result.cents, locale: input.locale },
+      config,
+    );
+    if (!sent) return { ok: false, reason: "server" };
+    return {
+      ok: true,
+      requestId: result.requestId,
+      maskedEmail: result.maskedEmail,
+      amount: formatPrice(result.cents, input.locale, config.currency),
+      expiresAt: result.expiresAt.toISOString(),
+    };
+  } catch (error) {
+    console.error("[booking] pedir código del depósito guardado", error);
+    return { ok: false, reason: "server" };
+  }
+}
+
+export type DepositCodeVerifyResult =
+  | { ok: true; proof: string }
+  | { ok: false; reason: "wrong"; attemptsLeft: number }
+  | { ok: false; reason: "locked"; until: string }
+  // invalid: lo escrito no es un código de 6 cifras (no gasta intento)
+  | { ok: false; reason: "invalid" | "expired" | "server" };
+
+export async function verifyDepositCodeAction(requestId: string, code: string): Promise<DepositCodeVerifyResult> {
+  if (typeof requestId !== "string" || typeof code !== "string" || !/^\s*\d[\d\s]{4,10}\d\s*$/.test(code)) {
+    return { ok: false, reason: "invalid" };
+  }
+  try {
+    const result = await verifyDepositCode(requestId, code);
+    if (result.ok) return result;
+    if (result.reason === "locked") return { ok: false, reason: "locked", until: result.until.toISOString() };
+    if (result.reason === "wrong") return result;
+    return { ok: false, reason: "expired" };
+  } catch (error) {
+    console.error("[booking] comprobar código del depósito guardado", error);
+    return { ok: false, reason: "server" };
+  }
 }

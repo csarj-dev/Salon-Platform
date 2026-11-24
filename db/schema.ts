@@ -503,6 +503,36 @@ export const depositCredit = pgTable(
   ],
 );
 
+// Códigos para usar un depósito guardado al reservar: se mandan al correo de la cita de la que salió
+// el depósito. Solo se guarda el resumen (hash) del código. `publicId` es lo que ve el navegador.
+// Tras verificarlo, `proofHash` es la prueba que lleva el formulario de reserva (vale una vez).
+export const depositCode = pgTable(
+  "deposit_code",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    publicId: uuid("public_id").notNull().defaultRandom().unique(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    email: text("email").notNull(), // adonde se mandó (en minúsculas)
+    codeHash: text("code_hash").notNull(),
+    salt: text("salt").notNull(),
+    attempts: smallint("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Tras 5 intentos fallidos, hasta cuándo no se puede pedir ni comprobar otro código
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    proofHash: text("proof_hash").unique(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("deposit_code_client_idx").on(t.clientId, t.createdAt),
+    check("deposit_code_attempts_valid", sql`${t.attempts} >= 0`),
+    check("deposit_code_proof_after_verified", sql`${t.proofHash} IS NULL OR ${t.verifiedAt} IS NOT NULL`),
+  ],
+);
+
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
 export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);

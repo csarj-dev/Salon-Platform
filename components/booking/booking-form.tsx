@@ -112,6 +112,7 @@ export function BookingForm({
           invalid: t("errorInvalid"),
           slot_taken: t("errorTaken"),
           slot_unavailable: t("errorUnavailable"),
+          saved_deposit: t("errorSavedDeposit"),
           server: t("errorServer"),
         }[state.error]
     : null;
