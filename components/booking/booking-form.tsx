@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { submitBooking, type BookingFormState } from "@/app/[locale]/(site)/booking/actions";
 import { PayRedirect } from "@/components/booking/pay-redirect";
+import { SavedDeposit, type SavedDepositInfo } from "@/components/booking/saved-deposit";
 import type { BookingHref } from "@/components/booking/step-ui";
 import { cn } from "@/lib/utils";
 import { DESKTOP_QUERY } from "@/lib/whatsapp-tab";
@@ -25,10 +26,13 @@ type Props = {
   card?: { minutes: number; inSalon: string | null } | null;
   // Con depósito guardado (booking.deposit.saved): antelación con la que se guarda al anular
   savedHours?: number | null;
+  // Depósito con tarjeta y depósitos guardados: «¿Cómo quieres pagar?» con «Tengo un depósito
+  // guardado» (diseños P1–P3b). `total`: lo que cuestan los servicios; `free`: «0,00 €»
+  saved?: (SavedDepositInfo & { total: string; free: string }) | null;
 };
 
 const inputClass =
-  "h-12 w-full rounded-lg border bg-card px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
+  "h-12 w-full rounded-lg border bg-card px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted read-only:text-muted-foreground aria-invalid:border-destructive";
 
 function Field({
   id, label, error, children,
@@ -55,7 +59,7 @@ function Field({
 
 export function BookingForm({
   locale, locationId, serviceIds, staff, at, backHref, opensWhatsApp = false, depositAmount = null,
-  depositNotice = null, card = null, savedHours = null,
+  depositNotice = null, card = null, savedHours = null, saved = null,
 }: Props) {
   const t = useTranslations("Booking");
   const router = useRouter();
@@ -66,9 +70,39 @@ export function BookingForm({
   const [, startTransition] = useTransition();
   // Pestaña abierta en el clic para WhatsApp (solo ordenador); se rellena cuando responde el servidor
   const tabRef = useRef<Window | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // «¿Cómo quieres pagar?»: solo el depósito, o con un depósito guardado. Pedido el código,
+  // teléfono y correo quedan fijos (el código vale para esos). `applied`: la prueba del código bueno.
+  const [method, setMethod] = useState<"deposit" | "saved">("deposit");
+  const [codeSent, setCodeSent] = useState(false);
+  const [applied, setApplied] = useState<{ proof: string; amount: string } | null>(null);
+  const [savedKey, setSavedKey] = useState(0); // al cambiarlo, el bloque del código empieza de cero
+  function resetSaved() {
+    setMethod("deposit");
+    setCodeSent(false);
+    setApplied(null);
+    setSavedKey((k) => k + 1);
+  }
+  // Si al reservar el depósito guardado ya no vale, se vuelve a «Solo el depósito»
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state.error === "saved_deposit") resetSaved();
+  }
+  function readContact() {
+    const form = formRef.current;
+    const value = (name: string) => {
+      const el = form?.elements.namedItem(name);
+      return el instanceof HTMLInputElement ? el.value : "";
+    };
+    return { phone: value("phone"), email: value("email") };
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Con «Tengo un depósito guardado» no se reserva hasta comprobar el código
+    if (method === "saved" && !applied) return;
     const formData = new FormData(event.currentTarget);
     tabRef.current?.close(); // por si quedó una de un intento anterior
     tabRef.current = null;
@@ -120,16 +154,19 @@ export function BookingForm({
   // Con tarjeta: el botón dice lo que se paga y, ya con la cita guardada, se va a la página de pago
   const payByCard = card !== null && depositAmount !== null;
   const leaving = state.pay !== undefined;
+  const withSaved = saved !== null && payByCard;
+  const waitingCode = withSaved && method === "saved" && !applied;
 
   return (
     <>
-      <form action={formAction} onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-4" noValidate>
         <input type="hidden" name="locale" value={locale} />
         <input type="hidden" name="location" value={locationId} />
         <input type="hidden" name="service" value={serviceIds.join(",")} />
         <input type="hidden" name="staff" value={staff} />
         <input type="hidden" name="at" value={at} />
         {depositAmount && <input type="hidden" name="depositTermsShown" value="1" />}
+        {applied && <input type="hidden" name="savedDepositProof" value={applied.proof} />}
 
         {errorMessage && (
           <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
@@ -142,7 +179,8 @@ export function BookingForm({
           </div>
         )}
 
-        {depositNotice && <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{depositNotice}</p>}
+        {/* Con el depósito guardado aplicado ya no se paga nada ahora: el aviso del pago sobra */}
+        {depositNotice && !applied && <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{depositNotice}</p>}
 
         {/* En el ordenador, nombre y teléfono uno al lado del otro */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -169,6 +207,7 @@ export function BookingForm({
               autoComplete="tel"
               required
               defaultValue={state.values?.phone}
+              readOnly={codeSent}
               aria-invalid={state.fields?.phone ? true : undefined}
               aria-describedby={state.fields?.phone ? "phone-error" : undefined}
               className={inputClass}
@@ -184,11 +223,111 @@ export function BookingForm({
             autoComplete="email"
             required
             defaultValue={state.values?.email}
+            readOnly={codeSent}
             aria-invalid={state.fields?.email ? true : undefined}
             aria-describedby={state.fields?.email ? "email-error" : undefined}
             className={inputClass}
           />
         </Field>
+
+        {withSaved && depositAmount && card && saved && (applied ? (
+          // P3: depósito guardado aplicado
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 rounded-lg bg-success/10 p-3.5">
+              <span
+                aria-hidden="true"
+                className="flex size-7 shrink-0 items-center justify-center rounded-full bg-success text-sm font-semibold text-white"
+              >
+                ✓
+              </span>
+              <p className="text-sm leading-relaxed">
+                <span className="block font-semibold text-success">{t("saved.appliedTitle")}</span>
+                {t("saved.appliedText", { amount: applied.amount })}
+              </p>
+            </div>
+            <dl className="rounded-lg border bg-card px-4 py-1 text-sm">
+              <div className="flex justify-between gap-3 border-b py-2.5">
+                <dt className="text-muted-foreground">{t("saved.rowServices")}</dt>
+                <dd className="font-medium">{saved.total}</dd>
+              </div>
+              <div className="flex justify-between gap-3 border-b py-2.5 text-success">
+                <dt>{t("saved.rowSaved")}</dt>
+                <dd>− {depositAmount}</dd>
+              </div>
+              <div className={cn("flex justify-between gap-3 py-2.5 font-semibold", card.inSalon && "border-b")}>
+                <dt>{t("saved.rowNow")}</dt>
+                <dd>{saved.free}</dd>
+              </div>
+              {card.inSalon && (
+                <div className="flex justify-between gap-3 py-2.5">
+                  <dt className="text-muted-foreground">{t("saved.rowInSalon")}</dt>
+                  <dd>{card.inSalon}</dd>
+                </div>
+              )}
+            </dl>
+            <button type="button" onClick={resetSaved} className="text-sm underline underline-offset-4">
+              {t("saved.useOther")}
+            </button>
+          </div>
+        ) : (
+          // P1/P2: cómo pagar
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium">{t("saved.methodTitle")}</legend>
+            <label
+              className={cn(
+                "flex min-h-11 items-start gap-3 rounded-lg border bg-card p-3.5",
+                method === "deposit" && "border-2 border-foreground",
+              )}
+            >
+              <input
+                type="radio"
+                name="payMethod"
+                value="deposit"
+                checked={method === "deposit"}
+                onChange={resetSaved}
+                className="mt-0.5 size-5 shrink-0 accent-primary"
+              />
+              <span>
+                <span className="block font-medium">{t("saved.onlyDeposit", { amount: depositAmount })}</span>
+                {card.inSalon && (
+                  <span className="text-sm text-muted-foreground">{t("payInSalon", { amount: card.inSalon })}</span>
+                )}
+              </span>
+            </label>
+            <div className={cn("rounded-lg border bg-card p-3.5", method === "saved" && "border-2 border-foreground")}>
+              <label className="flex min-h-11 items-start gap-3">
+                <input
+                  type="radio"
+                  name="payMethod"
+                  value="saved"
+                  checked={method === "saved"}
+                  onChange={() => setMethod("saved")}
+                  className="mt-0.5 size-5 shrink-0 accent-primary"
+                />
+                <span>
+                  <span className="block font-medium">{t("saved.haveSaved")}</span>
+                  <span className="text-sm text-muted-foreground">{t("saved.haveSavedHint")}</span>
+                </span>
+              </label>
+              {method === "saved" && (
+                <div className="mt-3 sm:pl-8">
+                  <SavedDeposit
+                    key={savedKey}
+                    locale={locale}
+                    serviceIds={serviceIds}
+                    staffId={saved.staffId}
+                    zone={saved.zone}
+                    depositAmount={depositAmount}
+                    readContact={readContact}
+                    onSent={() => setCodeSent(true)}
+                    onVerified={(proof, amount) => setApplied({ proof, amount })}
+                    onPayDeposit={resetSaved}
+                  />
+                </div>
+              )}
+            </div>
+          </fieldset>
+        ))}
 
         {depositAmount && (
           <div className="space-y-1">
@@ -235,16 +374,29 @@ export function BookingForm({
           )}
         </div>
 
-        <Button type="submit" size="lg" disabled={pending || leaving} className={cn("h-11 w-full px-5")}>
-          {payByCard
-            ? pending || leaving
-              ? t("payRedirecting")
-              : t("payNow", { amount: depositAmount })
-            : pending
-              ? t("submitting")
-              : t("submit")}
-        </Button>
-        {payByCard && (
+        {/* Mientras espera el código, no hay botón de reservar: lo da «Comprobar» o «Pagar el depósito» */}
+        {!waitingCode && (
+          <Button type="submit" size="lg" disabled={pending || leaving} className={cn("h-11 w-full px-5")}>
+            {applied
+              ? pending
+                ? t("submitting")
+                : t("saved.confirm")
+              : payByCard
+                ? pending || leaving
+                  ? t("payRedirecting")
+                  : t("payNow", { amount: depositAmount })
+                : pending
+                  ? t("submitting")
+                  : t("submit")}
+          </Button>
+        )}
+        {applied && (
+          <p className="text-center text-sm text-muted-foreground">
+            {t("saved.nothingToday")}
+            {card?.inSalon && ` ${t("payInSalon", { amount: card.inSalon })}`}
+          </p>
+        )}
+        {payByCard && !applied && !waitingCode && (
           <p className="text-center text-sm text-muted-foreground">
             {card.inSalon && `${t("payInSalon", { amount: card.inSalon })} `}
             {t("cardNote", { minutes: card.minutes })}

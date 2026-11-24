@@ -171,6 +171,16 @@ export async function DateTimeStep({
               }
               card={byCard ? { minutes: config.booking.deposit.cardHoldMinutes, inSalon } : null}
               savedHours={config.booking.deposit.saved ? config.booking.cancellationNoticeHours : null}
+              saved={
+                byCard && config.booking.deposit.saved
+                  ? {
+                      staffId: expectedStaff,
+                      zone,
+                      total: formatPrice(totalCents, locale, config.currency),
+                      free: formatPrice(0, locale, config.currency),
+                    }
+                  : null
+              }
               locale={locale}
               locationId={location.id}
               serviceIds={ids}
