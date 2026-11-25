@@ -109,6 +109,15 @@ const movedToCollectors = 'Se movió a payments.collectors: cada cobrador lleva 
 const depositSchema = z.object({
   // Horas que se guarda el hueco esperando el pago
   holdHours: z.number().positive().default(24),
+  // Con pago con tarjeta en la web (cobrador en modo "card"): minutos que se guarda el hueco
+  // mientras la clienta paga. Si no paga en ese tiempo, la hora se libera.
+  cardHoldMinutes: z.number().int().min(5).max(120).default(15),
+  // Depósito guardado: si la clienta anula con la antelación de anular (cancellationNoticeHours) y
+  // ya lo había pagado, no lo pierde: se le guarda `months` meses para otra cita de la misma
+  // categoría y del mismo cobrador (lib/deposit-credits.ts). Sin esto, el depósito se pierde siempre.
+  saved: z
+    .object({ months: z.number().int().min(1).max(24).default(6) })
+    .optional(),
   // Política de cancelación y devolución del depósito, por idioma
   policy: localizedText.optional(),
   // Antes estaban aquí: si un config viejo los trae, error claro en vez de ignorarlos sin avisar
@@ -128,8 +137,8 @@ const collectorSchema = z.object({
   color: hexColor.optional(),
   deposit: z
     .object({
-      // Igual que en booking.deposit: con instrucciones (Bizum, transferencia) o pidiendo
-      // por WhatsApp el enlace de cobro del TPV
+      // Con instrucciones (Bizum, transferencia), pidiendo por WhatsApp el enlace de cobro del TPV,
+      // o con tarjeta en la web ("card": Redsys, ver `redsys` abajo y docs/collectors.md)
       mode: z.enum(DEPOSIT_MODES).default("instructions"),
       // WhatsApp de esta titular para pedir el enlace. Sin esto, el del salón (contact.whatsapp)
       whatsapp: whatsapp.optional(),
@@ -137,6 +146,16 @@ const collectorSchema = z.object({
       instructions: localizedText.optional(),
     })
     .prefault({}),
+  // TPV de Redsys (BBVA) de esta titular, para cobrar con tarjeta en la web. Solo se usa en el
+  // entorno real (REDSYS_ENVIRONMENT=live); en pruebas se cobra en el comercio de pruebas de Redsys.
+  // La clave no va aquí: `keyEnv` dice en qué variable de entorno está (en Vercel).
+  redsys: z
+    .object({
+      merchantCode: z.string().regex(/^\d{9}$/, "Número de comercio (FUC) de 9 cifras"),
+      terminal: z.number().int().min(1).max(999).default(1),
+      keyEnv: z.string().regex(/^REDSYS_KEY_[A-Z0-9_]+$/, "Nombre de variable tipo REDSYS_KEY_LUZ"),
+    })
+    .optional(),
 });
 
 const paymentsSchema = z.object({

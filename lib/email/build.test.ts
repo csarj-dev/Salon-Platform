@@ -95,6 +95,16 @@ describe("otros correos", () => {
     expect(mail.attachments).toBeUndefined();
   });
 
+  it("si se le guardó el depósito, se lo dice con el importe y hasta cuándo", () => {
+    const mail = build("cancellation", {
+      ...data,
+      savedDeposit: { cents: 1500, expiresAt: new Date("2027-05-02T10:30:00Z") },
+    });
+    expect(mail.text).toContain("Tu depósito de 15,00");
+    expect(mail.text).toContain("queda guardado");
+    expect(mail.text).not.toContain("escríbenos y lo vemos contigo");
+  });
+
   it("sin depósito, la cancelación no habla de depósitos", () => {
     const mail = build("cancellation", { ...data, depositCents: null });
     expect(mail.text).not.toContain("depósito");
@@ -107,6 +117,27 @@ describe("otros correos", () => {
     expect(mail.text).toContain("Monday, November 2");
     expect(mail.text).toContain("24 hours");
     expect(mail.text).toContain("https://salon.example.com/en/booking/confirmed/");
+  });
+});
+
+describe("depósito guardado al cobrar el servicio entero", () => {
+  const withSaved = { ...data, savedDeposit: { cents: 1500, expiresAt: new Date("2027-05-02T10:30:00Z") } };
+
+  it("dice el importe, hasta cuándo vale y cómo usarlo", () => {
+    const mail = build("deposit_saved", withSaved);
+    expect(mail.subject).toBe("Te hemos guardado tu depósito · The Room");
+    expect(mail.text).toContain("15,00");
+    expect(mail.text).toContain("2 de mayo");
+    expect(mail.text).toContain("Tengo un depósito guardado");
+    expect(mail.text).toContain("https://salon.example.com/es/services");
+  });
+
+  it("en inglés", () => {
+    expect(build("deposit_saved", { ...withSaved, locale: "en" }, en).subject).toBe("We've saved your deposit · The Room");
+  });
+
+  it("sin depósito guardado no se manda", () => {
+    expect(() => build("deposit_saved")).toThrow();
   });
 });
 

@@ -19,11 +19,19 @@ export function isDepositOverdue(
   );
 }
 
-// Cómo se paga el depósito, según lo que elija el salón:
-// - "instructions": la clienta ve las instrucciones (Bizum, transferencia...) y manda el comprobante
 // - "whatsapp": al reservar pasa a WhatsApp a pedir el enlace de cobro, y el salón lo valida al recibir el pago
-export const DEPOSIT_MODES = ["instructions", "whatsapp"] as const;
+// - "card": lo paga con tarjeta en la web (Redsys) al reservar, y la cita se confirma sola
+export const DEPOSIT_MODES = ["instructions", "whatsapp", "card"] as const;
 export type DepositMode = (typeof DEPOSIT_MODES)[number];
+
+// Cuánto se guarda el hueco esperando el depósito, en horas. Con tarjeta se paga en el momento,
+// así que el hueco se guarda poco (booking.deposit.cardHoldMinutes); si no, booking.deposit.holdHours.
+export function depositHoldHours(
+  mode: DepositMode,
+  deposit: { holdHours: number; cardHoldMinutes: number },
+): number {
+  return mode === "card" ? deposit.cardHoldMinutes / 60 : deposit.holdHours;
+}
 
 // ¿Hay que mandar a la clienta a WhatsApp a pedir el enlace de pago?
 // Solo si el salón usa ese modo y la cita está esperando el depósito.
@@ -36,16 +44,31 @@ export function paysThroughWhatsApp(mode: DepositMode, status: string): boolean 
 // Dentro de una categoría se toma el mayor (normalmente todos sus servicios piden lo mismo).
 // Un servicio sin categoría cuenta como una categoría propia. null = no hace falta depósito.
 export function depositForServices(
-  services: { categoryId: number | null; depositCents: number | null }[],
+  services: { id?: number; categoryId: number | null; depositCents: number | null }[],
 ): number | null {
-  const byGroup = new Map<string, number>();
+  const parts = depositParts(services);
+  if (parts.length === 0) return null;
+  return parts.reduce((sum, p) => sum + p.cents, 0);
+}
+
+// Las partes de ese depósito: una por categoría (o por servicio sin categoría), en el orden en que
+// salen. Es lo que se guarda por separado si la clienta anula a tiempo (lib/deposit-credits.ts).
+// `serviceId` solo en las partes sin categoría (ese servicio es su "categoría").
+export type DepositPart = { categoryId: number | null; serviceId: number | null; cents: number };
+
+export function depositParts(
+  services: { id?: number; categoryId: number | null; depositCents: number | null }[],
+): DepositPart[] {
+  const byGroup = new Map<string, DepositPart>();
   services.forEach((s, i) => {
     if (s.depositCents === null) return;
     const key = s.categoryId === null ? `service:${i}` : `category:${s.categoryId}`;
-    byGroup.set(key, Math.max(byGroup.get(key) ?? 0, s.depositCents));
+    const prev = byGroup.get(key);
+    byGroup.set(key, {
+      categoryId: s.categoryId,
+      serviceId: s.categoryId === null ? (s.id ?? null) : null,
+      cents: Math.max(prev?.cents ?? 0, s.depositCents),
+    });
   });
-  if (byGroup.size === 0) return null;
-  let total = 0;
-  for (const cents of byGroup.values()) total += cents;
-  return total;
+  return [...byGroup.values()];
 }

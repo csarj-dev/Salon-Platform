@@ -687,6 +687,7 @@ async function AgendaContent({ locale, searchParams }: { locale: string; searchP
                   now={nowMs}
                   actionable={selected.status === "pending_deposit" || selected.startsAt.getTime() > nowMs}
                   canValidate={can(role, "deposits.manage")}
+                  canRefund={can(role, "payments.refund")}
                   canCancel={can(role, "appointments.manage")}
                   canResend={can(role, "appointments.manage")}
                   canRetryKoibox={can(role, "appointments.manage")}

@@ -24,6 +24,7 @@ export type ConfirmationView = {
   priceCents: number;
   depositCents: number | null;
   depositDueAt: Date | null;
+  depositPaidAt: Date | null; // cuándo se pagó (o validó) el depósito
   depositTermsAcceptedAt: Date | null; // cuándo marcó la casilla del depósito
   rescheduledAt: Date | null; // última vez que se cambió de hora
 };
@@ -53,6 +54,7 @@ export async function getConfirmation(
       priceCents: appointment.priceAppliedCents,
       depositCents: appointment.depositCents,
       depositDueAt: appointment.depositDueAt,
+      depositPaidAt: appointment.depositPaidAt,
       depositTermsAcceptedAt: appointment.depositTermsAcceptedAt,
       rescheduledAt: appointment.rescheduledAt,
     })
@@ -91,6 +93,7 @@ export async function getConfirmation(
     priceCents: row.priceCents,
     depositCents: row.depositCents,
     depositDueAt: row.depositDueAt,
+    depositPaidAt: row.depositPaidAt,
     depositTermsAcceptedAt: row.depositTermsAcceptedAt,
     rescheduledAt: row.rescheduledAt,
   };

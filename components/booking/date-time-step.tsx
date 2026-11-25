@@ -146,6 +146,11 @@ export async function DateTimeStep({
       // quién cobra a esa profesional (docs/collectors.md)
       const collector = await collectorForStaff(expectedStaff, config);
       const depositAmount = depositCents ? formatPrice(depositCents, locale, config.currency) : null;
+      // Con tarjeta se paga el depósito al reservar; el resto, en el salón
+      const byCard = depositCents !== null && collector.deposit.mode === "card";
+      const totalCents = services.reduce((sum, s) => sum + s.priceCents, 0);
+      const inSalon =
+        byCard && depositCents !== null && totalCents > depositCents ? formatPrice(totalCents - depositCents, locale, config.currency) : null;
       const withWhen: PickedSummary = { ...summary, when: { label: formatDateTime(at, locale, zone), changeHref } };
       return (
         <BookingShell
@@ -159,7 +164,21 @@ export async function DateTimeStep({
             <BookingForm
               depositNotice={
                 depositAmount
-                  ? t("depositNotice", { amount: depositAmount, hours: config.booking.deposit.holdHours })
+                  ? byCard
+                    ? t("depositNoticeCard", { amount: depositAmount })
+                    : t("depositNotice", { amount: depositAmount, hours: config.booking.deposit.holdHours })
+                  : null
+              }
+              card={byCard ? { minutes: config.booking.deposit.cardHoldMinutes, inSalon } : null}
+              savedHours={config.booking.deposit.saved ? config.booking.cancellationNoticeHours : null}
+              saved={
+                byCard && config.booking.deposit.saved
+                  ? {
+                      staffId: expectedStaff,
+                      zone,
+                      total: formatPrice(totalCents, locale, config.currency),
+                      free: formatPrice(0, locale, config.currency),
+                    }
                   : null
               }
               locale={locale}

@@ -24,7 +24,12 @@ async function main() {
   if (args.kind === "list") {
     console.log("Cobradores del config:");
     for (const c of byId.values()) {
-      const how = c.deposit.mode === "whatsapp" ? `enlace por WhatsApp (+${c.deposit.whatsapp})` : "con instrucciones";
+      const how =
+        c.deposit.mode === "whatsapp"
+          ? `enlace por WhatsApp (+${c.deposit.whatsapp})`
+          : c.deposit.mode === "card"
+            ? `con tarjeta en la web${c.redsys ? ` (TPV ${c.redsys.merchantCode})` : " (sin TPV real aún)"}`
+            : "con instrucciones";
       console.log(`  ${c.id}${c.id === defaultId ? " (por defecto)" : ""}  ${c.label}  · ${how}`);
     }
     console.log("\nProfesionales:");

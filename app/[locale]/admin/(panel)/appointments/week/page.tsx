@@ -451,6 +451,7 @@ async function WeekContent({ locale, searchParams }: { locale: string; searchPar
               now={nowMs}
               actionable={open.status === "pending_deposit" || open.startsAt.getTime() > nowMs}
               canValidate={can(role, "deposits.manage")}
+              canRefund={can(role, "payments.refund")}
               canCancel={can(role, "appointments.manage")}
               canResend={can(role, "appointments.manage")}
               canRetryKoibox={can(role, "appointments.manage")}

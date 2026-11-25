@@ -10,7 +10,9 @@ import { appointment } from "@/db/schema";
 import { freeGapsFor } from "@/lib/agenda-gaps";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
+import { keepDepositAtTill, toSavedDepositOptions } from "@/lib/deposit-credits";
 import { markDepositPaid } from "@/lib/deposit-db";
+import { refundPayment } from "@/lib/payments-db";
 import {
   pushNewWebBooking, retryKoiboxSync, syncKoiboxChange, syncPendingKoibox, writesToKoibox,
 } from "@/lib/koibox-sync";
@@ -67,9 +69,11 @@ export async function validateDepositAction(appointmentId: number): Promise<Staf
 }
 
 // El equipo cancela una cita (sin plazo mínimo). Queda quién, cuándo y el motivo opcional.
+// keepDeposit: guardarle el depósito pagado para otra cita (si el salón usa depósitos guardados).
 export async function cancelAppointmentAction(
   appointmentId: number,
   reason?: string,
+  keepDeposit = false,
 ): Promise<StaffActionResult> {
   const locale = await getLocale();
   const { user } = await requireStaff(locale, "appointments.manage");
@@ -85,7 +89,7 @@ export async function cancelAppointmentAction(
       toChangeOptions(config),
       "staff",
       new Date(),
-      { userId: user.id, reason: parsedReason.data },
+      { userId: user.id, reason: parsedReason.data, keepDeposit: keepDeposit === true },
     );
     if (!result.ok) {
       return { ok: false, error: result.reason === "not_found" ? "notFound" : "notChangeable" };
@@ -102,6 +106,79 @@ export async function cancelAppointmentAction(
       await loadSalonConfig(),
     ),
   );
+  refresh(locale);
+  return { ok: true };
+}
+
+export type RefundActionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: "invalid" | "notPaid" | "noKey" | "refundUnreachable" | "refundRejected" | "depositSaved" | "server";
+      detail?: string;
+    };
+
+// Dirección o administración devuelve entero un pago con tarjeta. Solo queda como devuelto si
+// Redsys lo confirma. La cita no se toca: si además hay que cancelarla, es otro botón.
+export async function refundPaymentAction(paymentId: number): Promise<RefundActionResult> {
+  const locale = await getLocale();
+  const { user } = await requireStaff(locale, "payments.refund");
+  if (!idSchema.safeParse(paymentId).success) return { ok: false, error: "invalid" };
+
+  try {
+    const result = await refundPayment(paymentId, await loadSalonConfig(), { refundedBy: user.id });
+    if (!result.ok) {
+      const error =
+        result.reason === "not_found" || result.reason === "not_paid"
+          ? "notPaid"
+          : result.reason === "deposit_saved"
+            ? "depositSaved"
+          : result.reason === "no_key"
+            ? "noKey"
+            : result.reason === "unreachable"
+              ? "refundUnreachable"
+              : "refundRejected";
+      return { ok: false, error, detail: result.detail };
+    }
+  } catch (error) {
+    console.error("[appointments] refund", error);
+    return { ok: false, error: "server" };
+  }
+  refresh(locale);
+  return { ok: true };
+}
+
+export type KeepDepositResult =
+  | { ok: true }
+  | { ok: false; error: "invalid" | "notFound" | "notStarted" | "notEligible" | "alreadySaved" | "server" };
+
+// La clienta paga en caja el servicio entero: se le guarda el depósito que ya pagó y se le avisa
+// por correo. La cita no cambia (el cobro en sí se hace en Koibox).
+export async function keepDepositAtTillAction(appointmentId: number): Promise<KeepDepositResult> {
+  const locale = await getLocale();
+  const { user } = await requireStaff(locale, "deposits.manage");
+  if (!idSchema.safeParse(appointmentId).success) return { ok: false, error: "invalid" };
+
+  try {
+    const config = await loadSalonConfig();
+    const result = await keepDepositAtTill(appointmentId, toSavedDepositOptions(config), user.id);
+    if (!result.ok) {
+      const error = (
+        {
+          disabled: "notEligible",
+          not_found: "notFound",
+          not_started: "notStarted",
+          not_eligible: "notEligible",
+          already_saved: "alreadySaved",
+        } as const
+      )[result.reason];
+      return { ok: false, error };
+    }
+  } catch (error) {
+    console.error("[appointments] keep deposit at till", error);
+    return { ok: false, error: "server" };
+  }
+  after(() => sendAppointmentEmail(appointmentId, "deposit_saved"));
   refresh(locale);
   return { ok: true };
 }

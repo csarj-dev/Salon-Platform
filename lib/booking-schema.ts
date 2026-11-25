@@ -2,7 +2,7 @@ import { z } from "zod";
 import { SERVICES_MAX } from "./booking-catalog";
 
 // Quita espacios y guiones, y exige entre 9 y 15 dígitos con "+" opcional
-const phone = z
+export const phoneSchema = z
   .string()
   .trim()
   .transform((v) => v.replace(/[\s-]/g, ""))
@@ -14,6 +14,8 @@ const optionalEmail = z
   .transform((v) => (v ? v : undefined));
 
 const requiredEmail = z.string().trim().email("Email no válido");
+
+const phone = phoneSchema;
 
 const clientBase = z.object({
   name: z.string().trim().min(2).max(100),

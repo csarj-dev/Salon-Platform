@@ -89,14 +89,23 @@
     "consent": "I agree to my details being stored to manage my appointment.",
     "depositTermsStrong": "I understand that the {amount} deposit is non-refundable",
     "depositTermsRest": "if I cancel or don't show up.",
+    "depositTermsRestSaved": "if I cancel less than {hours} h before or don't show up. If I cancel earlier, it's kept for my next appointment.",
     "submit": "Book appointment",
     "submitting": "Booking…",
+    "depositNoticeCard": "Your appointment requires a {amount} deposit. You pay it now by card and your appointment is confirmed straight away.",
+    "payNow": "Pay {amount}",
+    "payRedirecting": "Opening the payment…",
+    "payInSalon": "You pay the rest ({amount}) at the salon.",
+    "cardNote": "Secure card payment. You have {minutes} min to pay; after that, the slot is released.",
+    "payDescription": "Your appointment deposit",
     "depositNotice": "Your appointment requires a {amount} deposit. When you book, we hold your slot for {hours, plural, one {# hour} other {# hours}} so you can pay it; until then the appointment stays pending.",
     "depositBadge": "Deposit {amount}",
     "errorInvalid": "Please check the highlighted fields.",
     "errorTaken": "That slot was just taken. Please choose another.",
     "errorUnavailable": "That slot is no longer available. Please choose another.",
     "errorServer": "We couldn't complete the booking. Try again or message us on WhatsApp.",
+    "errorSavedDeposit": "Your saved deposit no longer applies to this booking (it may have been used or expired). Choose another way to pay.",
+    "saved": {"methodTitle": "How would you like to pay?", "onlyDeposit": "Just the deposit · {amount}", "haveSaved": "I have a saved deposit", "haveSavedHint": "We'll email you a code to use it.", "sendCode": "Send me the code", "sending": "Sending…", "needContact": "Enter your phone and email above: the code goes to the email you used for the appointment the deposit came from.", "sent": "We've sent a 6-digit code to {email}.", "codeLabel": "6-digit code", "expires": "Expires at {time}", "resend": "Resend code", "check": "Check", "checking": "Checking…", "wrong": "{left, plural, one {Wrong code. # attempt left.} other {Wrong code. # attempts left.}}", "invalidCode": "Enter the 6 digits of the code.", "expired": "This code no longer works. Ask for another with “Resend code”.", "serverCheck": "We couldn't check the code. Please try again.", "lockedAttempts": "You've tried 5 times. For security, wait 10 minutes to ask for another code (until {time}). Meanwhile, you can pay the deposit so you don't lose the slot.", "lockedWait": "For security, wait until {time} to ask for another code. Meanwhile, you can pay the deposit so you don't lose the slot.", "none": "There's no saved deposit for these services. Choose another way to pay.", "server": "We couldn't send the code. Please try again in a moment.", "payDepositInstead": "Pay the deposit ({amount})", "appliedTitle": "Code accepted", "appliedText": "We're using your saved {amount} deposit for this appointment. You pay nothing today.", "rowServices": "Services", "rowSaved": "Saved deposit", "rowNow": "To pay now", "rowInSalon": "At the salon", "useOther": "Pay another way", "confirm": "Confirm", "nothingToday": "You pay nothing today."},
     "errorName": "Enter your name.",
     "errorPhone": "Enter a valid phone number (9 to 15 digits).",
     "errorEmail": "That email isn't valid.",
@@ -170,6 +179,21 @@
     "bookAgain": "Book again",
     "home": "Back to home",
     "depositRow": "Deposit",
+    "depositPaidRow": "Deposit paid",
+    "inSalonRow": "At the salon",
+    "cardCheckingTitle": "Confirming your payment…",
+    "cardCheckingText": "It usually takes a few seconds and this page updates by itself. If your appointment isn't confirmed within a couple of minutes, message us on WhatsApp.",
+    "cardPendingTitle": "Deposit still to pay",
+    "cardFailedTitle": "The payment didn't go through",
+    "cardFailedAlert": "The bank didn't accept the payment (or you cancelled it). You haven't been charged.",
+    "cardHold": "We're still holding your slot for <b>{minutes, plural, one {# more minute} other {# more minutes}}</b>. After that it's released and you'll have to pick it again.",
+    "cardPay": "Pay {amount}",
+    "cardRetry": "Try again · {amount}",
+    "cardRetrying": "Opening the payment…",
+    "cardRetryError": "We couldn't open the payment. Try again or message us on WhatsApp.",
+    "cardOtherTime": "Pick another time",
+    "keepDepositNote": "You're cancelling in time: your {amount} deposit is kept for your next appointment for the same services.",
+    "depositSaved": "Your {amount} deposit is kept for your next appointment for the same services, until {date}.",
     "addToCalendar": "Add to calendar",
     "calendarTitle": "{service} · {salon}",
     "calendarDescription": "With {staff}. Reference #{id}.",
@@ -274,11 +298,18 @@
       "validate": "Validate deposit",
       "validating": "Validating…",
       "confirmValidate": "Confirm that you have received the deposit for this appointment?",
+      "refund": "Refund {amount}",
+      "refunding": "Refunding…",
+      "confirmRefund": "Refund {amount} to the client's card? The appointment doesn't change; if it also needs cancelling, do that separately.",
+      "keepDeposit": "Keep her deposit ({amount}) for her next appointment",
       "cancel": "Cancel appointment",
       "reasonLabel": "Reason (optional)",
       "reasonPlaceholder": "E.g. the client cannot make it",
       "confirmCancel": "Confirm cancellation",
       "cancelling": "Cancelling…",
+      "keepAtTill": "Save the deposit",
+      "keepingAtTill": "Saving…",
+      "confirmKeepAtTill": "Is the client paying the full price at the till? Her {amount} deposit will be saved for her next appointment for the same services, until {date}, and she'll get an email.",
       "back": "Back",
       "errors": {
         "invalid": "Invalid data.",
@@ -289,7 +320,15 @@
         "server": "The action could not be completed. Try again.",
         "notResendable": "No email can be resent for this appointment.",
         "noEmail": "The client has no email.",
-        "sendFailed": "The email could not be sent. Check the reason on the appointment or try again later."
+        "sendFailed": "The email could not be sent. Check the reason on the appointment or try again later.",
+        "notPaid": "This payment is no longer charged (it may already have been refunded). Reload the page.",
+        "noKey": "The server is missing this collector's TPV key.",
+        "refundUnreachable": "We couldn't reach the bank. Try again in a moment.",
+        "refundRejected": "The bank didn't accept the refund.",
+        "alreadySaved": "This appointment's deposit is already saved. Reload the page.",
+        "notEligible": "This appointment has no paid deposit that can be saved.",
+        "notStarted": "The appointment hasn't started yet.",
+        "depositSaved": "It can't be refunded: this appointment's deposit was saved for another appointment."
       }
     },
     "card": {
@@ -313,6 +352,8 @@
       "showDetail": "Show the details of appointment #{id}",
       "hideDetail": "Hide the details of appointment #{id}",
       "allClientAppointments": "See all her appointments →",
+      "payment": {"paid": "Paid by card: {amount} · {date} · order {order}", "refunded": "Refunded: {amount} · {date} · order {order}", "test": "test", "failedAttempts": "{count, plural, one {# failed payment attempt} other {# failed payment attempts}}", "review": "Check: charged when the appointment was no longer waiting for it (expired or paid twice). Refund it or talk to the client."},
+      "savedDeposit": {"keptAtTill": "Saved when paid in full: {amount} · valid until {date}", "paidWith": "Paid with a saved deposit: {amount} · from appointment #{id}", "kept": "Saved deposit: {amount} · valid until {date}", "used": "Saved deposit: {amount} · used on appointment #{id}", "expired": "Saved deposit: {amount} · expired on {date}"},
       "koibox": {
         "synced": "In Koibox",
         "syncedCancelled": "Also cancelled in Koibox",
@@ -360,7 +401,8 @@
           "confirmation": "Confirmation",
           "cancellation": "Cancellation",
           "reminder": "Reminder",
-          "rescheduled": "Change confirmation"
+          "rescheduled": "Change confirmation",
+          "deposit_saved": "Saved deposit"
         }
       }
     },
@@ -372,7 +414,8 @@
       "howLabel": "How the client pays",
       "mode": {
         "whatsapp": "Asks for the payment link on WhatsApp",
-        "instructions": "With the payment instructions (Bizum, bank transfer…)"
+        "instructions": "With the payment instructions (Bizum, bank transfer…)",
+        "card": "By card on the website (Redsys)"
       },
       "numberLabel": "Which number",
       "ownNumber": "+{number}",
@@ -655,7 +698,8 @@
     "whatsapp": {
       "contactPending": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
       "contactExpired": "Hello {name}, this is {salon}. Your booking #{id} ({service}, {when}) has expired because we did not receive the deposit in time. Would you like us to find another time?",
-      "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when})."
+      "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
+      "contactSavedDeposit": "Hi {name}, this is {salon}. Your {amount} deposit from appointment #{id} is saved for your next appointment for the same services, until {date}. To use it, choose “I have a saved deposit” when booking online and we'll email you a code."
     },
     "agenda": {
       "previous": "Previous day",
@@ -954,6 +998,9 @@
         "deposits": {
           "manage": { "label": "Validate deposits", "hint": "Confirm the payment was received" }
         },
+        "payments": {
+          "refund": { "label": "Refund payments", "hint": "Refund a card payment back to the card" }
+        },
         "reports": {
           "view": { "label": "Reports", "hint": "When they exist" }
         },
@@ -974,6 +1021,8 @@
     }
   },
   "Email": {
+    "depositCode": {"subject": "Your code: {code} · {salon}", "preheader": "Your code is {code}", "greeting": "Hello,", "intro": "Here is your code to use your saved {amount} deposit at {salon}:", "codeLabel": "Code", "expires": "It expires in 10 minutes.", "ignore": "If you didn't ask for it, ignore this email: nobody can use your deposit without the code."},
+    "depositSaved": {"subject": "We've saved your deposit · {salon}", "preheader": "{amount} for your next appointment, until {date}.", "intro": "Since you paid the full price of your appointment on {when} ({service}), your {amount} deposit is saved for your next appointment for the same services, until {date}.", "howTo": "To use it, choose “I have a saved deposit” when booking online: we'll email you a code.", "button": "Book an appointment"},
     "common": {
       "greeting": "Hello {name},",
       "service": "Service",
@@ -1004,6 +1053,7 @@
       "preheader": "Appointment cancelled: {service}, {when}.",
       "intro": "We have cancelled your appointment on {when} ({service}).",
       "deposit": "If you had already paid a deposit, please get in touch and we will sort it out with you.",
+      "depositSaved": "Your {amount} deposit is kept for your next appointment for the same services, until {date}.",
       "rebook": "If you like, you can book another time whenever suits you.",
       "rebookButton": "Book again"
     },

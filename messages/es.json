@@ -89,14 +89,23 @@
     "consent": "Acepto que guarden mis datos para gestionar mi cita.",
     "depositTermsStrong": "Entiendo que el depósito de {amount} no se devuelve",
     "depositTermsRest": "si anulo la cita o no vengo.",
+    "depositTermsRestSaved": "si anulo con menos de {hours} h o no vengo. Si anulo antes, se me guarda para mi próxima cita.",
     "submit": "Reservar cita",
     "submitting": "Reservando…",
+    "depositNoticeCard": "Tu cita requiere un depósito de {amount}. Lo pagas ahora con tarjeta y la cita queda confirmada al momento.",
+    "payNow": "Pagar {amount}",
+    "payRedirecting": "Abriendo el pago…",
+    "payInSalon": "El resto ({amount}) lo pagas en el salón.",
+    "cardNote": "Pago seguro con tarjeta. Tienes {minutes} min para pagar; si no, la hora se libera.",
+    "payDescription": "Depósito de tu cita",
     "depositNotice": "Tu cita requiere un depósito de {amount}. Al reservar te guardamos el hueco {hours, plural, one {# hora} other {# horas}} para que lo pagues; hasta entonces la cita queda pendiente.",
     "depositBadge": "Depósito {amount}",
     "errorInvalid": "Revisa los datos marcados.",
     "errorTaken": "Ese hueco acaba de ocuparse. Elige otro.",
     "errorUnavailable": "Ese hueco ya no está disponible. Elige otro.",
     "errorServer": "No hemos podido reservar. Inténtalo de nuevo o escríbenos por WhatsApp.",
+    "errorSavedDeposit": "Tu depósito guardado ya no vale para esta reserva (puede que ya se usara o caducara). Elige otra forma de pagar.",
+    "saved": {"methodTitle": "¿Cómo quieres pagar?", "onlyDeposit": "Solo el depósito · {amount}", "haveSaved": "Tengo un depósito guardado", "haveSavedHint": "Te mandamos un código a tu correo para usarlo.", "sendCode": "Enviarme el código", "sending": "Enviando…", "needContact": "Escribe arriba tu teléfono y tu correo: el código va al correo con el que reservaste la cita del depósito.", "sent": "Te hemos mandado un código de 6 cifras a {email}.", "codeLabel": "Código de 6 cifras", "expires": "Caduca a las {time}", "resend": "Reenviar código", "check": "Comprobar", "checking": "Comprobando…", "wrong": "{left, plural, one {Código incorrecto. Te queda # intento.} other {Código incorrecto. Te quedan # intentos.}}", "invalidCode": "Escribe las 6 cifras del código.", "expired": "Este código ya no vale. Pide otro con «Reenviar código».", "serverCheck": "No hemos podido comprobar el código. Inténtalo de nuevo.", "lockedAttempts": "Has probado 5 veces. Por seguridad, espera 10 minutos para pedir otro código (a las {time}). Mientras, puedes pagar el depósito para no perder la hora.", "lockedWait": "Por seguridad, espera hasta las {time} para pedir otro código. Mientras, puedes pagar el depósito para no perder la hora.", "none": "No hay un depósito guardado para estos servicios. Elige otra forma de pagar.", "server": "No hemos podido mandar el código. Inténtalo de nuevo en un momento.", "payDepositInstead": "Pagar el depósito ({amount})", "appliedTitle": "Código correcto", "appliedText": "Usamos tu depósito guardado de {amount} para esta cita. Hoy no pagas nada.", "rowServices": "Servicios", "rowSaved": "Depósito guardado", "rowNow": "A pagar ahora", "rowInSalon": "En el salón", "useOther": "Pagar de otra forma", "confirm": "Confirmar", "nothingToday": "Hoy no pagas nada."},
     "errorName": "Escribe tu nombre.",
     "errorPhone": "Escribe un teléfono válido (entre 9 y 15 cifras).",
     "errorEmail": "Ese email no es válido.",
@@ -170,6 +179,21 @@
     "bookAgain": "Reservar de nuevo",
     "home": "Volver al inicio",
     "depositRow": "Depósito",
+    "depositPaidRow": "Depósito pagado",
+    "inSalonRow": "En el salón",
+    "cardCheckingTitle": "Estamos confirmando tu pago…",
+    "cardCheckingText": "Suele tardar unos segundos y esta página se actualiza sola. Si en un par de minutos no ves la cita confirmada, escríbenos por WhatsApp.",
+    "cardPendingTitle": "Falta pagar el depósito",
+    "cardFailedTitle": "No se ha completado el pago",
+    "cardFailedAlert": "El banco no ha aceptado el pago (o lo has cancelado). No se te ha cobrado nada.",
+    "cardHold": "Te seguimos guardando la hora <b>{minutes, plural, one {# minuto más} other {# minutos más}}</b>. Si no, se libera y tendrás que elegirla de nuevo.",
+    "cardPay": "Pagar {amount}",
+    "cardRetry": "Probar otra vez · {amount}",
+    "cardRetrying": "Abriendo el pago…",
+    "cardRetryError": "No hemos podido abrir el pago. Inténtalo de nuevo o escríbenos por WhatsApp.",
+    "cardOtherTime": "Elegir otra hora",
+    "keepDepositNote": "Anulas con tiempo: tu depósito de {amount} queda guardado para tu próxima cita de los mismos servicios.",
+    "depositSaved": "Tu depósito de {amount} queda guardado para tu próxima cita de los mismos servicios, hasta el {date}.",
     "addToCalendar": "Añadir al calendario",
     "calendarTitle": "{service} · {salon}",
     "calendarDescription": "Con {staff}. Referencia #{id}.",
@@ -274,11 +298,18 @@
       "validate": "Validar depósito",
       "validating": "Validando…",
       "confirmValidate": "¿Confirmas que has recibido el depósito de esta cita?",
+      "refund": "Devolver {amount}",
+      "refunding": "Devolviendo…",
+      "confirmRefund": "¿Devolver {amount} a la tarjeta de la clienta? La cita no cambia; si también hay que cancelarla, hazlo aparte.",
+      "keepDeposit": "Guardarle el depósito ({amount}) para su próxima cita",
       "cancel": "Cancelar cita",
       "reasonLabel": "Motivo (opcional)",
       "reasonPlaceholder": "Ej.: la clienta no puede venir",
       "confirmCancel": "Confirmar cancelación",
       "cancelling": "Cancelando…",
+      "keepAtTill": "Guardar el depósito",
+      "keepingAtTill": "Guardando…",
+      "confirmKeepAtTill": "¿La clienta paga en caja el servicio entero? Su depósito de {amount} se le guarda para su próxima cita de los mismos servicios, hasta el {date}, y se le avisa por correo.",
       "back": "Volver",
       "errors": {
         "invalid": "Datos no válidos.",
@@ -289,7 +320,15 @@
         "server": "No se pudo completar la acción. Inténtalo de nuevo.",
         "notResendable": "A esta cita no se le puede reenviar ningún correo.",
         "noEmail": "La clienta no tiene email.",
-        "sendFailed": "No se pudo enviar el correo. Revisa el motivo en la cita o inténtalo más tarde."
+        "sendFailed": "No se pudo enviar el correo. Revisa el motivo en la cita o inténtalo más tarde.",
+        "notPaid": "Este pago ya no está cobrado (puede que ya se devolviera). Recarga la página.",
+        "noKey": "Falta la clave del TPV de este cobrador en el servidor.",
+        "refundUnreachable": "No se pudo hablar con el banco. Inténtalo de nuevo en un momento.",
+        "refundRejected": "El banco no aceptó la devolución.",
+        "alreadySaved": "This appointment's deposit is already saved. Reload the page.",
+        "notEligible": "This appointment has no paid deposit that can be saved.",
+        "notStarted": "The appointment hasn't started yet.",
+        "depositSaved": "It can't be refunded: this appointment's deposit was saved for another appointment."
       }
     },
     "card": {
@@ -319,7 +358,8 @@
           "confirmation": "Confirmación",
           "cancellation": "Cancelación",
           "reminder": "Recordatorio",
-          "rescheduled": "Confirmación del cambio"
+          "rescheduled": "Confirmación del cambio",
+          "deposit_saved": "Depósito guardado"
         }
       },
       "client": "Clienta",
@@ -328,6 +368,8 @@
       "showDetail": "Ver el detalle de la cita #{id}",
       "hideDetail": "Ocultar el detalle de la cita #{id}",
       "allClientAppointments": "Ver todas sus citas →",
+      "payment": {"paid": "Pagado con tarjeta: {amount} · {date} · pedido {order}", "refunded": "Devuelto: {amount} · {date} · pedido {order}", "test": "pruebas", "failedAttempts": "{count, plural, one {# intento de pago fallido} other {# intentos de pago fallidos}}", "review": "Revisar: se cobró cuando la cita ya no lo esperaba (caducó o se pagó dos veces). Devuélvelo o habla con la clienta."},
+      "savedDeposit": {"keptAtTill": "Guardado al cobrar el servicio entero: {amount} · vale hasta el {date}", "paidWith": "Pagado con un depósito guardado: {amount} · de la cita #{id}", "kept": "Depósito guardado: {amount} · vale hasta el {date}", "used": "Depósito guardado: {amount} · usado en la cita #{id}", "expired": "Depósito guardado: {amount} · caducó el {date}"},
       "koibox": {
         "synced": "En Koibox",
         "syncedCancelled": "Anulada también en Koibox",
@@ -372,7 +414,8 @@
       "howLabel": "Cómo paga la clienta",
       "mode": {
         "whatsapp": "Pide el enlace de pago por WhatsApp",
-        "instructions": "Con las instrucciones de pago (Bizum, transferencia…)"
+        "instructions": "Con las instrucciones de pago (Bizum, transferencia…)",
+        "card": "Con tarjeta en la web (Redsys)"
       },
       "numberLabel": "A qué número",
       "ownNumber": "+{number}",
@@ -655,7 +698,8 @@
     "whatsapp": {
       "contactPending": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when}).",
       "contactExpired": "Hola {name}, te escribimos de {salon}. Tu reserva #{id} ({service}, {when}) ha caducado porque no recibimos el depósito a tiempo. ¿Quieres que busquemos otra hora?",
-      "contactGeneric": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when})."
+      "contactGeneric": "Hola {name}, te escribimos de {salon} sobre tu cita #{id} ({service}, {when}).",
+      "contactSavedDeposit": "Hola {name}, te escribimos de {salon}. Tu depósito de {amount} de la cita #{id} queda guardado para tu próxima cita de los mismos servicios, hasta el {date}. Para usarlo, al reservar en la web elige «Tengo un depósito guardado» y te mandamos un código a tu correo."
     },
     "agenda": {
       "previous": "Día anterior",
@@ -954,6 +998,9 @@
         "deposits": {
           "manage": { "label": "Validar depósitos", "hint": "Confirmar que se recibió el pago" }
         },
+        "payments": {
+          "refund": { "label": "Devolver pagos", "hint": "Devolver a la tarjeta un pago con tarjeta" }
+        },
         "reports": {
           "view": { "label": "Informes", "hint": "Cuando existan" }
         },
@@ -974,6 +1021,8 @@
     }
   },
   "Email": {
+    "depositCode": {"subject": "Tu código: {code} · {salon}", "preheader": "Tu código es {code}", "greeting": "Hola,", "intro": "Este es tu código para usar tu depósito guardado de {amount} en {salon}:", "codeLabel": "Código", "expires": "Caduca en 10 minutos.", "ignore": "Si no lo has pedido tú, ignora este correo: sin el código nadie puede usar tu depósito."},
+    "depositSaved": {"subject": "Te hemos guardado tu depósito · {salon}", "preheader": "{amount} para tu próxima cita, hasta el {date}.", "intro": "Como has pagado entero el servicio de tu cita del {when} ({service}), tu depósito de {amount} queda guardado para tu próxima cita de los mismos servicios, hasta el {date}.", "howTo": "Para usarlo, al reservar en la web elige «Tengo un depósito guardado»: te mandaremos un código a este correo.", "button": "Reservar cita"},
     "common": {
       "greeting": "Hola {name},",
       "service": "Servicio",
@@ -1004,6 +1053,7 @@
       "preheader": "Cita cancelada: {service}, {when}.",
       "intro": "Hemos cancelado tu cita del {when} ({service}).",
       "deposit": "Si ya habías pagado un depósito, escríbenos y lo vemos contigo.",
+      "depositSaved": "Tu depósito de {amount} queda guardado para tu próxima cita de los mismos servicios, hasta el {date}.",
       "rebook": "Si quieres, puedes reservar otra hora cuando te venga bien.",
       "rebookButton": "Reservar de nuevo"
     },

@@ -4,12 +4,17 @@ import type { EmailStatusInfo } from "@/lib/email/email-status";
 import type { KoiboxCardState } from "@/lib/koibox/card-state";
 import { KOIBOX_TONE } from "@/components/admin/appointment-marks";
 import { CancelButton } from "@/components/admin/cancel-button";
+import { KeepDepositButton } from "@/components/admin/keep-deposit-button";
+import { RefundButton } from "@/components/admin/refund-button";
 import { textAction } from "@/components/admin/panel-ui";
 import { ResendEmailButton } from "@/components/admin/resend-email-button";
 import { RetryKoiboxButton } from "@/components/admin/retry-koibox-button";
 import { ValidateButton } from "@/components/admin/validate-button";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { koiboxWorkKey } from "@/lib/koibox/card-state";
+import { paymentsForAppointment } from "@/lib/payments-db";
+import { depositPaidAt, depositsSavedFrom, depositsUsedBy, savedDepositExpiry } from "@/lib/deposit-credits";
+import { loadSalonConfig } from "@/lib/salon-config";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
 import { Link } from "@/i18n/navigation";
@@ -58,6 +63,8 @@ type Props = {
   canCancel: boolean;
   canResend?: boolean;
   canRetryKoibox?: boolean;
+  /** Puede devolver pagos con tarjeta (permiso payments.refund) */
+  canRefund?: boolean;
   /**
    * "columns": clienta / depósito y correo / Koibox en columnas (desplegable de la tabla).
    * "stack": todo en una columna, sin títulos (tarjeta; y el panel lateral de la agenda).
@@ -83,21 +90,38 @@ export async function AppointmentDetail({
   canCancel,
   canResend = false,
   canRetryKoibox = false,
+  canRefund = false,
   layout = "stack",
 }: Props) {
-  const [t, tWa, tK] = await Promise.all([
+  // Pagos con tarjeta y depósitos guardados: solo las citas con depósito pueden tenerlos
+  const withDeposit = data.depositCents !== null;
+  const [t, tWa, tK, payments, saved, paidAt, config, usedSaved] = await Promise.all([
     getTranslations({ locale, namespace: "Admin.card" }),
     getTranslations({ locale, namespace: "Admin.whatsapp" }),
     getTranslations({ locale, namespace: "Admin.card.koibox" }),
+    withDeposit ? paymentsForAppointment(data.id) : Promise.resolve([]),
+    withDeposit ? depositsSavedFrom(data.id) : Promise.resolve([]),
+    withDeposit ? depositPaidAt(data.id) : Promise.resolve(null),
+    loadSalonConfig(),
+    withDeposit ? depositsUsedBy(data.id) : Promise.resolve([]),
   ]);
 
   const fmt = (d: Date) => formatDateTime(d, locale, zone);
   const waKey =
     data.status === "expired" ? "contactExpired" : data.status === "pending_deposit" ? "contactPending" : "contactGeneric";
-  const whatsappHref = buildWhatsAppLink(
-    toWhatsAppNumber(data.clientPhone, phoneCountryCode),
-    tWa(waKey, { name: data.clientName, salon: salonName, id: data.id, service: data.serviceName, when: fmt(data.startsAt) }),
-  );
+  // Con un depósito guardado de esta cita sin usar, el WhatsApp le cuenta eso (como el correo)
+  const savedLive = saved.filter((s) => s.usedAt === null && s.expiresAt.getTime() > now);
+  const whatsappText =
+    savedLive.length > 0
+      ? tWa("contactSavedDeposit", {
+          name: data.clientName,
+          salon: salonName,
+          id: data.id,
+          amount: formatPrice(savedLive.reduce((sum, s) => sum + s.amountCents, 0), locale, currency),
+          date: fmt(new Date(Math.min(...savedLive.map((s) => s.expiresAt.getTime())))),
+        })
+      : tWa(waKey, { name: data.clientName, salon: salonName, id: data.id, service: data.serviceName, when: fmt(data.startsAt) });
+  const whatsappHref = buildWhatsAppLink(toWhatsAppNumber(data.clientPhone, phoneCountryCode), whatsappText);
 
   const dueSoon =
     data.status === "pending_deposit" && data.depositDueAt !== null && data.depositDueAt.getTime() - now < URGENT_MS;
@@ -111,6 +135,20 @@ export async function AppointmentDetail({
     data.hasEmail === true &&
     (data.status === "cancelled" || (data.status === "booked" && data.startsAt.getTime() > now));
   const showNoEmail = data.hasEmail === false && (data.status === "booked" || data.status === "cancelled");
+
+  // «Guardar el depósito» al cobrar en caja el servicio entero: cita ya empezada, depósito pagado,
+  // sin devolver y sin nada guardado todavía
+  const savedConfig = config.booking.deposit.saved;
+  const showKeepAtTill =
+    actionable &&
+    canValidate &&
+    savedConfig !== undefined &&
+    (data.status === "booked" || data.status === "completed") &&
+    data.depositCents !== null &&
+    paidAt !== null &&
+    saved.length === 0 &&
+    !payments.some((p) => p.status === "refunded") &&
+    data.startsAt.getTime() <= now;
 
   // Líneas de detalle: depósito, quién validó, cambios, cancelación, correo
   const lines: ReactNode[] = [];
@@ -132,6 +170,57 @@ export async function AppointmentDetail({
             {t("expiredOn", { date: fmt(data.depositDueAt) })}
           </span>
         )}
+      </p>,
+    );
+  }
+  // Pagos con tarjeta: los cobrados y devueltos, uno por línea; los intentos fallidos, contados
+  const money = (cents: number) => formatPrice(cents, locale, currency);
+  const charged = payments.filter((p) => p.status === "paid" || p.status === "refunded");
+  for (const p of charged) {
+    const test = p.environment === "test" ? ` · ${t("payment.test")}` : "";
+    lines.push(
+      <p key={`payment-${p.id}`}>
+        {p.status === "refunded" && p.refundedAt
+          ? t("payment.refunded", { amount: money(p.amountCents), date: fmt(p.refundedAt), order: p.orderCode })
+          : t("payment.paid", {
+              amount: money(p.amountCents),
+              date: p.notifiedAt ? fmt(p.notifiedAt) : "—",
+              order: p.orderCode,
+            })}
+        {test}
+      </p>,
+    );
+  }
+  const failedAttempts = payments.filter((p) => p.status === "failed").length;
+  if (failedAttempts > 0) lines.push(<p key="payment-failed">{t("payment.failedAttempts", { count: failedAttempts })}</p>);
+  // Cobrado cuando la cita ya no lo esperaba (caducó, o se pagó dos veces): hay que mirarlo
+  const paidNow = payments.filter((p) => p.status === "paid");
+  if (paidNow.length > 1 || (paidNow.length === 1 && data.status === "expired")) {
+    lines.push(
+      <p key="payment-review" className="font-medium text-danger">
+        {t("payment.review")}
+      </p>,
+    );
+  }
+  // Depósitos guardados con los que se pagó esta cita
+  for (const u of usedSaved) {
+    lines.push(
+      <p key={`paid-saved-${u.id}`}>
+        {t("savedDeposit.paidWith", { amount: money(u.amountCents), id: u.sourceAppointmentId })}
+      </p>,
+    );
+  }
+  // Depósitos que se le guardaron al anular esta cita
+  for (const s of saved) {
+    lines.push(
+      <p key={`saved-${s.id}`}>
+        {s.usedAt && s.usedAppointmentId !== null
+          ? t("savedDeposit.used", { amount: money(s.amountCents), id: s.usedAppointmentId })
+          : s.expiresAt.getTime() <= now
+            ? t("savedDeposit.expired", { amount: money(s.amountCents), date: fmt(s.expiresAt) })
+            : s.origin === "paid_in_full"
+              ? t("savedDeposit.keptAtTill", { amount: money(s.amountCents), date: fmt(s.expiresAt) })
+              : t("savedDeposit.kept", { amount: money(s.amountCents), date: fmt(s.expiresAt) })}
       </p>,
     );
   }
@@ -193,7 +282,32 @@ export async function AppointmentDetail({
         {t("whatsapp")}
       </a>
       {showResend && <ResendEmailButton appointmentId={data.id} />}
-      {showCancel && <CancelButton appointmentId={data.id} />}
+      {/* Con el depósito guardado para otra cita, el pago ya no se devuelve */}
+      {canRefund &&
+        saved.length === 0 &&
+        paidNow.map((p) => <RefundButton key={p.id} paymentId={p.id} amount={money(p.amountCents)} />)}
+      {showKeepAtTill && savedConfig && data.depositCents !== null && (
+        <KeepDepositButton
+          appointmentId={data.id}
+          amount={money(data.depositCents)}
+          until={fmt(savedDepositExpiry(new Date(now), savedConfig.months, zone))}
+        />
+      )}
+      {showCancel && (
+        <CancelButton
+          appointmentId={data.id}
+          keepDeposit={
+            config.booking.deposit.saved && data.status === "booked" && paidAt && data.depositCents !== null
+              ? {
+                  amount: money(data.depositCents),
+                  // Marcada si se anula con la misma antelación que se le pide a la clienta
+                  defaultChecked:
+                    data.startsAt.getTime() - now >= config.booking.cancellationNoticeHours * 3_600_000,
+                }
+              : null
+          }
+        />
+      )}
     </div>
   );
 

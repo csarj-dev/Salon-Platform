@@ -27,6 +27,10 @@ const config = {
     // Cómo se pagan va en payments (abajo). La política es de ejemplo hasta que el salón confirme la suya.
     deposit: {
       holdHours: 24,
+      // Con tarjeta en la web: minutos que se guarda la hora mientras la clienta paga
+      cardHoldMinutes: 15,
+      // Depósito guardado si anula con 24 h o más (provisional hasta que lo confirmen las dueñas)
+      saved: { months: 6 },
       policy: {
         es: "…", // la que ya tienes, sin cambios
         en: "…",
@@ -34,14 +38,16 @@ const config = {
     },
   },
   // Quién cobra los depósitos: una titular por cuenta de Koibox (cada una con su NIF y su TPV).
-  // Guía: docs/collectors.md. La clienta siempre pide el enlace a recepción (contact.whatsapp, sin
-  // deposit.whatsapp propio): recepción ve en el panel quién cobra y lo genera desde ese TPV.
+  // Guía: docs/collectors.md. La clienta paga el depósito con tarjeta al reservar ("card"): cada
+  // titular cobra en su TPV de BBVA (Redsys). Mientras no esté REDSYS_ENVIRONMENT=live, todo se cobra
+  // en el comercio de pruebas de Redsys. Para salir en real, cada una necesita su `redsys`
+  // (número de comercio, terminal y la variable con su clave): ver Lanzamiento · paso a paso.
   payments: {
     defaultCollector: "salon",
     collectors: {
-      salon: { label: "The Room Studio", color: "#8a9a7b", deposit: { mode: "whatsapp" } },
-      amanda: { label: "Amanda", color: "#c9a27e", deposit: { mode: "whatsapp" } },
-      luz: { label: "The Room Micropigmentación", color: "#7a5c46", deposit: { mode: "whatsapp" } },
+      salon: { label: "The Room Studio", color: "#8a9a7b", deposit: { mode: "card" } },
+      amanda: { label: "Amanda", color: "#c9a27e", deposit: { mode: "card" } },
+      luz: { label: "The Room Micropigmentación", color: "#7a5c46", deposit: { mode: "card" } },
     },
   },
   // Una cuenta de Koibox por titular: cada cita se guarda en la de quien hace el servicio.

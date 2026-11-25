@@ -1,87 +1,53 @@
-import { describe, it, expect } from "vitest";
-import { depositDueAt, depositForServices, isDepositOverdue, paysThroughWhatsApp } from "./deposit";
+import { describe, expect, it } from "vitest";
+import { depositForServices, depositHoldHours, depositParts } from "./deposit";
+import { salonConfigSchema } from "./salon-config";
 
-const NOW = new Date("2026-11-02T10:00:00Z");
+describe("depositHoldHours", () => {
+  const deposit = { holdHours: 24, cardHoldMinutes: 15 };
 
-describe("depositDueAt", () => {
-  it("guarda el hueco las horas indicadas", () => {
-    const startsAt = new Date("2026-11-20T10:00:00Z");
-    expect(depositDueAt(NOW, startsAt, 24)).toEqual(new Date("2026-11-03T10:00:00Z"));
+  it("con tarjeta se guarda la hora unos minutos; si no, las horas de siempre", () => {
+    expect(depositHoldHours("card", deposit)).toBe(0.25);
+    expect(depositHoldHours("whatsapp", deposit)).toBe(24);
+    expect(depositHoldHours("instructions", deposit)).toBe(24);
   });
 
-  it("admite horas con decimales", () => {
-    const startsAt = new Date("2026-11-20T10:00:00Z");
-    expect(depositDueAt(NOW, startsAt, 1.5)).toEqual(new Date("2026-11-02T11:30:00Z"));
+  it("el config admite el modo tarjeta y trae 15 minutos por defecto", () => {
+    const c = salonConfigSchema.parse({
+      name: "Salón de prueba",
+      timezone: "Atlantic/Canary",
+      locales: ["es"],
+      defaultLocale: "es",
+      booking: {},
+      payments: { collectors: { yo: { label: "Yo", deposit: { mode: "card" } } } },
+    });
+    expect(c.booking.deposit.cardHoldMinutes).toBe(15);
+    expect(c.payments.collectors.yo.deposit.mode).toBe("card");
   });
 
-  it("nunca pasa del inicio de la cita", () => {
-    const startsAt = new Date("2026-11-02T14:00:00Z"); // en 4 horas
-    expect(depositDueAt(NOW, startsAt, 24)).toEqual(startsAt);
-  });
-});
-
-describe("isDepositOverdue", () => {
-  const pending = (due: string | null) => ({
-    status: "pending_deposit",
-    depositDueAt: due ? new Date(due) : null,
-  });
-
-  it("vence justo en el instante del plazo", () => {
-    expect(isDepositOverdue(pending("2026-11-02T10:00:00Z"), NOW)).toBe(true);
-    expect(isDepositOverdue(pending("2026-11-02T09:59:59Z"), NOW)).toBe(true);
-  });
-
-  it("antes del plazo no vence", () => {
-    expect(isDepositOverdue(pending("2026-11-02T10:00:01Z"), NOW)).toBe(false);
-  });
-
-  it("solo las pendientes pueden vencer", () => {
-    const booked = { status: "booked", depositDueAt: new Date("2026-11-01T00:00:00Z") };
-    expect(isDepositOverdue(booked, NOW)).toBe(false);
-  });
-
-  it("sin plazo no vence", () => {
-    expect(isDepositOverdue(pending(null), NOW)).toBe(false);
+  it("los minutos con tarjeta van de 5 a 120", () => {
+    const base = { name: "S", timezone: "Atlantic/Canary", locales: ["es"], defaultLocale: "es" };
+    expect(() => salonConfigSchema.parse({ ...base, booking: { deposit: { cardHoldMinutes: 2 } } })).toThrow();
+    expect(() => salonConfigSchema.parse({ ...base, booking: { deposit: { cardHoldMinutes: 121 } } })).toThrow();
   });
 });
 
-describe("paysThroughWhatsApp", () => {
-  it("solo manda a WhatsApp con ese modo y una cita pendiente de depósito", () => {
-    expect(paysThroughWhatsApp("whatsapp", "pending_deposit")).toBe(true);
-    expect(paysThroughWhatsApp("whatsapp", "booked")).toBe(false);
-    expect(paysThroughWhatsApp("instructions", "pending_deposit")).toBe(false);
-    expect(paysThroughWhatsApp("instructions", "booked")).toBe(false);
-  });
-});
 
-describe("depositForServices", () => {
-  const cejas = (cents: number | null) => ({ categoryId: 1, depositCents: cents });
-  const pestanas = (cents: number | null) => ({ categoryId: 2, depositCents: cents });
-
-  it("un servicio: su depósito", () => {
-    expect(depositForServices([cejas(1500)])).toBe(1500);
-  });
-
-  it("varios de la misma categoría: uno solo", () => {
-    expect(depositForServices([cejas(1500), cejas(1500)])).toBe(1500);
-  });
-
-  it("de categorías distintas: se suman", () => {
-    expect(depositForServices([cejas(1500), pestanas(2000)])).toBe(3500);
-  });
-
-  it("en la misma categoría con importes distintos, el mayor", () => {
-    expect(depositForServices([cejas(1000), cejas(1500)])).toBe(1500);
-  });
-
-  it("los que no piden depósito no cuentan", () => {
-    expect(depositForServices([cejas(1500), pestanas(null)])).toBe(1500);
-    expect(depositForServices([cejas(null), pestanas(null)])).toBeNull();
-    expect(depositForServices([])).toBeNull();
-  });
-
-  it("un servicio sin categoría cuenta aparte", () => {
-    const loose = { categoryId: null, depositCents: 1000 };
-    expect(depositForServices([loose, loose])).toBe(2000);
+describe("depositParts", () => {
+  it("una parte por categoría (el mayor dentro de cada una) y una por servicio sin categoría", () => {
+    const services = [
+      { id: 1, categoryId: 10, depositCents: 1500 },
+      { id: 2, categoryId: 10, depositCents: 1000 },
+      { id: 3, categoryId: 20, depositCents: 2000 },
+      { id: 4, categoryId: null, depositCents: 500 },
+      { id: 5, categoryId: 30, depositCents: null },
+    ];
+    expect(depositParts(services)).toEqual([
+      { categoryId: 10, serviceId: null, cents: 1500 },
+      { categoryId: 20, serviceId: null, cents: 2000 },
+      { categoryId: null, serviceId: 4, cents: 500 },
+    ]);
+    expect(depositForServices(services)).toBe(4000);
+    expect(depositParts([{ categoryId: 1, depositCents: null }])).toEqual([]);
+    expect(depositForServices([{ categoryId: 1, depositCents: null }])).toBeNull();
   });
 });

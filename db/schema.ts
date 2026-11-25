@@ -422,8 +422,128 @@ export const appointmentService = pgTable(
   ],
 );
 
+// Pagos con tarjeta (Redsys). Cada intento de pago es una fila con su número de pedido: si la clienta
+// vuelve a intentarlo, es otra fila. "created": la clienta fue a la página de pago y aún no hay
+// respuesta · "paid" / "failed": lo que avisó Redsys · "refunded": devuelto desde el panel.
+export const paymentStatus = pgEnum("payment_status", ["created", "paid", "failed", "refunded"]);
+
+export const payment = pgTable(
+  "payment",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    appointmentId: integer("appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    // Quién cobra (id de payments.collectors) y con qué TPV, tal como era al empezar el pago
+    collector: text("collector").notNull(),
+    environment: text("environment").notNull(), // "test" (pruebas de Redsys) o "live"
+    merchantCode: text("merchant_code").notNull(),
+    terminal: smallint("terminal").notNull(),
+    // Número de pedido de Redsys (Ds_Merchant_Order): único, 4 cifras y 8 letras o cifras
+    orderCode: text("order_code").notNull().unique(),
+    amountCents: integer("amount_cents").notNull(),
+    status: paymentStatus("status").notNull().default("created"),
+    // Lo que respondió Redsys: Ds_Response (0–99 = pagado) y el código de autorización del banco
+    responseCode: integer("response_code"),
+    authCode: text("auth_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Cuándo llegó el aviso de Redsys (pagado o denegado)
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+    // Quién del equipo hizo la devolución (auditoría). null = un script, o se borró ese usuario.
+    refundedBy: text("refunded_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("payment_appointment_idx").on(t.appointmentId),
+    check("payment_amount_positive", sql`${t.amountCents} > 0`),
+    check("payment_environment_valid", sql`${t.environment} IN ('test', 'live')`),
+    check("payment_order_code_format", sql`${t.orderCode} ~ '^[0-9]{4}[0-9A-Za-z]{8}$'`),
+    check("payment_terminal_valid", sql`${t.terminal} BETWEEN 1 AND 999`),
+    // Un pago con respuesta de Redsys sabe cuándo llegó
+    check(
+      "payment_notified_has_time",
+      sql`${t.status} = 'created' OR ${t.notifiedAt} IS NOT NULL`,
+    ),
+    check("payment_refunded_has_time", sql`${t.status} <> 'refunded' OR ${t.refundedAt} IS NOT NULL`),
+  ],
+);
+
+// Depósitos guardados: lo que se le guarda a una clienta que anuló a tiempo con el depósito pagado.
+// Uno por categoría de la cita anulada (cejas y pestañas son dos). Vale para otra cita de la misma
+// categoría y del mismo cobrador (el dinero está en su TPV) hasta `expiresAt`.
+export const depositCredit = pgTable(
+  "deposit_credit",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    // La cita de la que sale (anulada a tiempo, o cobrada entera en caja)
+    sourceAppointmentId: integer("source_appointment_id")
+      .notNull()
+      .references(() => appointment.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+    // Categoría de servicios para la que vale (null = un servicio sin categoría: vale para ese servicio)
+    categoryId: integer("category_id").references(() => serviceCategory.id, { onDelete: "set null" }),
+    serviceId: integer("service_id").references(() => service.id, { onDelete: "set null" }),
+    collector: text("collector").notNull(), // id de payments.collectors
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Cuándo y en qué cita se usó
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    usedAppointmentId: integer("used_appointment_id").references(() => appointment.id, { onDelete: "set null" }),
+    // Por qué se guardó: "cancelled" (anulada a tiempo) o "paid_in_full" (pagó el servicio entero en caja)
+    origin: text("origin").notNull().default("cancelled"),
+    // Quién del equipo lo guardó. null = la clienta al anular, un script, o se borró ese usuario.
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("deposit_credit_client_idx").on(t.clientId),
+    check("deposit_credit_origin_valid", sql`${t.origin} IN ('cancelled', 'paid_in_full')`),
+    index("deposit_credit_source_idx").on(t.sourceAppointmentId),
+    check("deposit_credit_amount_positive", sql`${t.amountCents} > 0`),
+    check("deposit_credit_expires_after_created", sql`${t.expiresAt} > ${t.createdAt}`),
+    // Una cita de uso sin fecha de uso no tiene sentido (al revés sí: si se borra esa cita)
+    check("deposit_credit_used_has_time", sql`${t.usedAppointmentId} IS NULL OR ${t.usedAt} IS NOT NULL`),
+  ],
+);
+
+// Códigos para usar un depósito guardado al reservar: se mandan al correo de la cita de la que salió
+// el depósito. Solo se guarda el resumen (hash) del código. `publicId` es lo que ve el navegador.
+// Tras verificarlo, `proofHash` es la prueba que lleva el formulario de reserva (vale una vez).
+export const depositCode = pgTable(
+  "deposit_code",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    publicId: uuid("public_id").notNull().defaultRandom().unique(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    email: text("email").notNull(), // adonde se mandó (en minúsculas)
+    codeHash: text("code_hash").notNull(),
+    salt: text("salt").notNull(),
+    attempts: smallint("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Tras 5 intentos fallidos, hasta cuándo no se puede pedir ni comprobar otro código
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    proofHash: text("proof_hash").unique(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("deposit_code_client_idx").on(t.clientId, t.createdAt),
+    check("deposit_code_attempts_valid", sql`${t.attempts} >= 0`),
+    check("deposit_code_proof_after_verified", sql`${t.proofHash} IS NULL OR ${t.verifiedAt} IS NOT NULL`),
+  ],
+);
+
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
-export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
+export const emailKind = pgEnum("email_kind", [
+  "confirmation", "cancellation", "reminder", "rescheduled",
+  // Se le guardó el depósito al cobrarle el servicio entero en caja
+  "deposit_saved",
+]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);
 
 export const emailLog = pgTable(

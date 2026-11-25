@@ -45,6 +45,7 @@ describe("salonCollectors", () => {
         label: "Salón de prueba",
         color: null,
         deposit: { mode: "instructions", whatsapp: "34600000000", instructions: null },
+        redsys: null,
       },
     ]);
     expect(hasSeveralCollectors(c)).toBe(false);

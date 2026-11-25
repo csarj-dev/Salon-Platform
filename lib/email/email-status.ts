@@ -3,7 +3,7 @@ import { db } from "../../db";
 import { emailLog } from "../../db/schema";
 
 export type EmailStatusInfo = {
-  kind: "confirmation" | "cancellation" | "reminder" | "rescheduled";
+  kind: "confirmation" | "cancellation" | "reminder" | "rescheduled" | "deposit_saved";
   status: "pending" | "sent" | "failed";
   error: string | null;
   at: Date;

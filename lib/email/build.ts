@@ -9,7 +9,8 @@ import { renderEmail, type EmailRow } from "./render";
 // Mensajes de la carpeta messages/ (se cargan por idioma, igual que hace la web)
 export type Messages = Record<string, unknown>;
 
-export type EmailKind = "confirmation" | "cancellation" | "reminder" | "rescheduled";
+// deposit_saved: se le guardó el depósito al cobrarle el servicio entero en caja
+export type EmailKind = "confirmation" | "cancellation" | "reminder" | "rescheduled" | "deposit_saved";
 
 export type EmailData = {
   appointmentId: number;
@@ -27,6 +28,8 @@ export type EmailData = {
   staffName: string;
   priceCents: number;
   depositCents: number | null;
+  // Al anular: lo que se le guardó del depósito y hasta cuándo (null = nada)
+  savedDeposit?: { cents: number; expiresAt: Date } | null;
 };
 
 // El idioma guardado en la cita si el salón lo ofrece; si no, el del salón
@@ -102,7 +105,16 @@ export function buildAppointmentEmail(
 
   if (kind === "cancellation") {
     const intro = [t("cancellation.intro", { when, service: data.serviceName })];
-    if (data.depositCents !== null) intro.push(t("cancellation.deposit"));
+    if (data.savedDeposit) {
+      intro.push(
+        t("cancellation.depositSaved", {
+          amount: formatPrice(data.savedDeposit.cents, data.locale, config.currency),
+          date: formatDateTime(data.savedDeposit.expiresAt, data.locale, config.timezone),
+        }),
+      );
+    } else if (data.depositCents !== null) {
+      intro.push(t("cancellation.deposit"));
+    }
     const { html, text } = renderEmail({
       ...layoutBase,
       preheader: t("cancellation.preheader", { when, service: data.serviceName }),
@@ -112,6 +124,22 @@ export function buildAppointmentEmail(
       button: { label: t("cancellation.rebookButton"), url: `${base}/${data.locale}/services` },
     });
     return { subject: t("cancellation.subject", { salon }), html, text };
+  }
+
+  if (kind === "deposit_saved") {
+    // Sin depósito guardado no hay nada que contar: se corta y queda como fallido en email_log
+    if (!data.savedDeposit) throw new Error("La cita no tiene depósito guardado");
+    const amount = formatPrice(data.savedDeposit.cents, data.locale, config.currency);
+    const date = formatDateTime(data.savedDeposit.expiresAt, data.locale, config.timezone);
+    const { html, text } = renderEmail({
+      ...layoutBase,
+      preheader: t("depositSaved.preheader", { amount, date }),
+      intro: [t("depositSaved.intro", { when, service: data.serviceName, amount, date })],
+      rows: [],
+      outro: [t("depositSaved.howTo")],
+      button: { label: t("depositSaved.button"), url: `${base}/${data.locale}/services` },
+    });
+    return { subject: t("depositSaved.subject", { salon }), html, text };
   }
 
   const intro = [t(`${kind}.intro`)];

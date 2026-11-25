@@ -1,7 +1,13 @@
 "use server";
 
 import { after } from "next/server";
+import { hasLocale } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { routing } from "@/i18n/routing";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
+import { startCardPayment } from "@/lib/card-payment";
+import { collectorForAppointment } from "@/lib/collectors-db";
+import type { PaymentForm } from "@/lib/redsys/gateway";
 import { moveAppointment, type MoveResult } from "@/lib/move-appointment";
 import { findAppointmentIdByToken } from "@/lib/appointment-view";
 import { sendAppointmentEmail } from "@/lib/email/appointment-email";
@@ -78,4 +84,33 @@ export async function rescheduleByClientAction(token: string, at: string): Promi
   // Koibox ya está hecho dentro de moveAppointment; el correo, después de responder
   after(() => sendAppointmentEmail(id, "rescheduled"));
   return { ok: true };
+}
+
+
+export type RetryPaymentResult =
+  | { ok: true; form: PaymentForm }
+  | { ok: false; error: "notFound" | "notPending" | "server" };
+
+// La clienta vuelve a intentar pagar el depósito con tarjeta desde su enlace (después de un pago
+// que no salió, o si cerró la página de pago). Cada intento es un pedido nuevo de Redsys.
+export async function retryCardPaymentAction(token: string, locale: string): Promise<RetryPaymentResult> {
+  if (!hasLocale(routing.locales, locale)) return { ok: false, error: "server" };
+  const id = await findAppointmentIdByToken(token);
+  if (id === null) return { ok: false, error: "notFound" };
+
+  try {
+    const config = await loadSalonConfig();
+    const collector = await collectorForAppointment(id, config);
+    if (collector.deposit.mode !== "card") return { ok: false, error: "notPending" };
+    const tb = await getTranslations({ locale, namespace: "Booking" });
+    const result = await startCardPayment(id, token.toLowerCase(), locale, config, tb("payDescription"));
+    if (result.ok) return { ok: true, form: result.form };
+    if (result.reason === "not_found") return { ok: false, error: "notFound" };
+    if (result.reason === "not_pending" || result.reason === "expired") return { ok: false, error: "notPending" };
+    console.error(`[booking] no se pudo volver a abrir el pago de la cita ${id}: ${result.reason}`);
+    return { ok: false, error: "server" };
+  } catch (error) {
+    console.error("[booking] volver a pagar", error);
+    return { ok: false, error: "server" };
+  }
 }

@@ -6,6 +6,7 @@
 // Un salón sin payments.collectors tiene un solo cobrador: el salón, con instrucciones (que no
 // lleva: la clienta ve "el salón te escribirá") y el WhatsApp del salón.
 import type { DepositMode } from "./deposit";
+import type { RedsysTpv } from "./redsys/gateway";
 import type { SalonConfig } from "./salon-config";
 
 export type Collector = {
@@ -17,6 +18,8 @@ export type Collector = {
     whatsapp: string | null; // número al que pedir el enlace de pago (el suyo o el del salón)
     instructions: Record<string, string> | null; // cómo pagarle, por idioma
   };
+  // Su TPV de Redsys para el pago con tarjeta (payments.collectors.<id>.redsys). null = no tiene.
+  redsys: RedsysTpv | null;
 };
 
 // Id del cobrador único de un salón que no tiene payments.collectors
@@ -32,6 +35,7 @@ export function salonCollectors(config: CollectorsConfig): { defaultId: string; 
       label: config.name,
       color: null,
       deposit: { mode: "instructions", whatsapp: config.contact.whatsapp ?? null, instructions: null },
+      redsys: null,
     };
     return { defaultId: single.id, byId: new Map([[single.id, single]]) };
   }
@@ -48,6 +52,7 @@ export function salonCollectors(config: CollectorsConfig): { defaultId: string; 
           whatsapp: c.deposit.whatsapp ?? config.contact.whatsapp ?? null,
           instructions: c.deposit.instructions ?? null,
         },
+        redsys: c.redsys ?? null,
       },
     ]),
   );
