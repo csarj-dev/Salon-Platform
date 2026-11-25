@@ -10,6 +10,7 @@ import { appointment } from "@/db/schema";
 import { freeGapsFor } from "@/lib/agenda-gaps";
 import { resendKind } from "@/lib/email/resend-kind";
 import { cancelAppointment, toChangeOptions } from "@/lib/appointment-changes";
+import { keepDepositAtTill, toSavedDepositOptions } from "@/lib/deposit-credits";
 import { markDepositPaid } from "@/lib/deposit-db";
 import { refundPayment } from "@/lib/payments-db";
 import {
@@ -111,7 +112,11 @@ export async function cancelAppointmentAction(
 
 export type RefundActionResult =
   | { ok: true }
-  | { ok: false; error: "invalid" | "notPaid" | "noKey" | "refundUnreachable" | "refundRejected" | "server"; detail?: string };
+  | {
+      ok: false;
+      error: "invalid" | "notPaid" | "noKey" | "refundUnreachable" | "refundRejected" | "depositSaved" | "server";
+      detail?: string;
+    };
 
 // Dirección o administración devuelve entero un pago con tarjeta. Solo queda como devuelto si
 // Redsys lo confirma. La cita no se toca: si además hay que cancelarla, es otro botón.
@@ -126,6 +131,8 @@ export async function refundPaymentAction(paymentId: number): Promise<RefundActi
       const error =
         result.reason === "not_found" || result.reason === "not_paid"
           ? "notPaid"
+          : result.reason === "deposit_saved"
+            ? "depositSaved"
           : result.reason === "no_key"
             ? "noKey"
             : result.reason === "unreachable"
@@ -137,6 +144,41 @@ export async function refundPaymentAction(paymentId: number): Promise<RefundActi
     console.error("[appointments] refund", error);
     return { ok: false, error: "server" };
   }
+  refresh(locale);
+  return { ok: true };
+}
+
+export type KeepDepositResult =
+  | { ok: true }
+  | { ok: false; error: "invalid" | "notFound" | "notStarted" | "notEligible" | "alreadySaved" | "server" };
+
+// La clienta paga en caja el servicio entero: se le guarda el depósito que ya pagó y se le avisa
+// por correo. La cita no cambia (el cobro en sí se hace en Koibox).
+export async function keepDepositAtTillAction(appointmentId: number): Promise<KeepDepositResult> {
+  const locale = await getLocale();
+  const { user } = await requireStaff(locale, "deposits.manage");
+  if (!idSchema.safeParse(appointmentId).success) return { ok: false, error: "invalid" };
+
+  try {
+    const config = await loadSalonConfig();
+    const result = await keepDepositAtTill(appointmentId, toSavedDepositOptions(config), user.id);
+    if (!result.ok) {
+      const error = (
+        {
+          disabled: "notEligible",
+          not_found: "notFound",
+          not_started: "notStarted",
+          not_eligible: "notEligible",
+          already_saved: "alreadySaved",
+        } as const
+      )[result.reason];
+      return { ok: false, error };
+    }
+  } catch (error) {
+    console.error("[appointments] keep deposit at till", error);
+    return { ok: false, error: "server" };
+  }
+  after(() => sendAppointmentEmail(appointmentId, "deposit_saved"));
   refresh(locale);
   return { ok: true };
 }

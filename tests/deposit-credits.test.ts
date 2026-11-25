@@ -8,7 +8,10 @@ import {
   serviceCategory, staff, staffService, timeOff,
 } from "../db/schema";
 import { cancelAppointment, toChangeOptions } from "../lib/appointment-changes";
-import { depositsSavedFrom, savedDepositExpiry } from "../lib/deposit-credits";
+import {
+  depositsSavedFrom, keepDepositAtTill, savedDepositExpiry, toSavedDepositOptions,
+} from "../lib/deposit-credits";
+import { refundPayment } from "../lib/payments-db";
 import { salonConfigSchema } from "../lib/salon-config";
 
 const base = {
@@ -208,5 +211,54 @@ describe("depósito guardado al anular", () => {
       reason: "not_changeable",
     });
     expect(await credits(appt)).toHaveLength(1);
+  });
+});
+
+
+describe("depósito guardado al cobrar en caja el servicio entero", () => {
+  const AFTER = new Date("2026-12-31T10:00:00Z"); // las citas de prueba ya han empezado
+  const keep = (appt: number, c = config, now = AFTER) => keepDepositAtTill(appt, toSavedDepositOptions(c), null, now);
+
+  it("guarda el depósito pagado 6 meses, como cobrado entero; la cita no cambia", async () => {
+    const appt = await bookedAppointment([ids.lam], 1500);
+    expect(await keep(appt)).toEqual({ ok: true, cents: 1500, expiresAt: savedDepositExpiry(AFTER, 6, "Atlantic/Canary") });
+    const [c] = await credits(appt);
+    expect(c).toMatchObject({ origin: "paid_in_full", amountCents: 1500, categoryId: ids.cejas, collector: "salon", usedAt: null });
+    const [row] = await db.select({ status: appointment.status }).from(appointment).where(eq(appointment.id, appt));
+    expect(row.status).toBe("booked");
+    expect((await depositsSavedFrom(appt))[0].origin).toBe("paid_in_full");
+  });
+
+  it("una sola vez: ni otra vez el botón ni anular después guardan otro", async () => {
+    const appt = await bookedAppointment([ids.lam, ids.lift], 3500);
+    expect((await keep(appt)).ok).toBe(true);
+    expect(await keep(appt)).toEqual({ ok: false, reason: "already_saved" });
+    await cancelAppointment(appt, toChangeOptions(config), "staff", AFTER, { keepDeposit: true });
+    expect(await credits(appt)).toHaveLength(2); // cejas y pestañas, de la primera vez
+  });
+
+  it("nada si la cita no ha empezado, si no está pagada o si el salón no guarda depósitos", async () => {
+    const appt = await bookedAppointment([ids.lam], 1500);
+    expect(await keep(appt, config, NOW)).toEqual({ ok: false, reason: "not_started" });
+    const unpaid = await bookedAppointment([ids.lam], 1500, { paid: false });
+    expect(await keep(unpaid)).toEqual({ ok: false, reason: "not_eligible" });
+    expect(await keep(appt, noSaving)).toEqual({ ok: false, reason: "disabled" });
+    expect(await credits(appt)).toHaveLength(0);
+  });
+
+  it("con el depósito guardado, su pago con tarjeta ya no se devuelve", async () => {
+    const appt = await bookedAppointment([ids.lam], 1500);
+    const [p] = await db
+      .insert(payment)
+      .values({
+        appointmentId: appt, collector: "salon", environment: "test", merchantCode: "999008881", terminal: 1,
+        orderCode: "1234Credit02", amountCents: 1500, status: "paid", notifiedAt: NOW,
+      })
+      .returning({ id: payment.id });
+    expect((await keep(appt)).ok).toBe(true);
+    const noBank = (async () => {
+      throw new Error("no debería llamar al banco");
+    }) as unknown as typeof fetch;
+    expect(await refundPayment(p.id, config, { fetchFn: noBank })).toEqual({ ok: false, reason: "deposit_saved" });
   });
 });

@@ -307,6 +307,9 @@
       "reasonPlaceholder": "E.g. the client cannot make it",
       "confirmCancel": "Confirm cancellation",
       "cancelling": "Cancelling…",
+      "keepAtTill": "Save the deposit",
+      "keepingAtTill": "Saving…",
+      "confirmKeepAtTill": "Is the client paying the full price at the till? Her {amount} deposit will be saved for her next appointment for the same services, until {date}, and she'll get an email.",
       "back": "Back",
       "errors": {
         "invalid": "Invalid data.",
@@ -321,7 +324,11 @@
         "notPaid": "This payment is no longer charged (it may already have been refunded). Reload the page.",
         "noKey": "The server is missing this collector's TPV key.",
         "refundUnreachable": "We couldn't reach the bank. Try again in a moment.",
-        "refundRejected": "The bank didn't accept the refund."
+        "refundRejected": "The bank didn't accept the refund.",
+        "alreadySaved": "This appointment's deposit is already saved. Reload the page.",
+        "notEligible": "This appointment has no paid deposit that can be saved.",
+        "notStarted": "The appointment hasn't started yet.",
+        "depositSaved": "It can't be refunded: this appointment's deposit was saved for another appointment."
       }
     },
     "card": {
@@ -346,7 +353,7 @@
       "hideDetail": "Hide the details of appointment #{id}",
       "allClientAppointments": "See all her appointments →",
       "payment": {"paid": "Paid by card: {amount} · {date} · order {order}", "refunded": "Refunded: {amount} · {date} · order {order}", "test": "test", "failedAttempts": "{count, plural, one {# failed payment attempt} other {# failed payment attempts}}", "review": "Check: charged when the appointment was no longer waiting for it (expired or paid twice). Refund it or talk to the client."},
-      "savedDeposit": {"paidWith": "Paid with a saved deposit: {amount} · from appointment #{id}", "kept": "Saved deposit: {amount} · valid until {date}", "used": "Saved deposit: {amount} · used on appointment #{id}", "expired": "Saved deposit: {amount} · expired on {date}"},
+      "savedDeposit": {"keptAtTill": "Saved when paid in full: {amount} · valid until {date}", "paidWith": "Paid with a saved deposit: {amount} · from appointment #{id}", "kept": "Saved deposit: {amount} · valid until {date}", "used": "Saved deposit: {amount} · used on appointment #{id}", "expired": "Saved deposit: {amount} · expired on {date}"},
       "koibox": {
         "synced": "In Koibox",
         "syncedCancelled": "Also cancelled in Koibox",
@@ -394,7 +401,8 @@
           "confirmation": "Confirmation",
           "cancellation": "Cancellation",
           "reminder": "Reminder",
-          "rescheduled": "Change confirmation"
+          "rescheduled": "Change confirmation",
+          "deposit_saved": "Saved deposit"
         }
       }
     },
@@ -690,7 +698,8 @@
     "whatsapp": {
       "contactPending": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
       "contactExpired": "Hello {name}, this is {salon}. Your booking #{id} ({service}, {when}) has expired because we did not receive the deposit in time. Would you like us to find another time?",
-      "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when})."
+      "contactGeneric": "Hello {name}, this is {salon} about your appointment #{id} ({service}, {when}).",
+      "contactSavedDeposit": "Hi {name}, this is {salon}. Your {amount} deposit from appointment #{id} is saved for your next appointment for the same services, until {date}. To use it, choose “I have a saved deposit” when booking online and we'll email you a code."
     },
     "agenda": {
       "previous": "Previous day",
@@ -1013,6 +1022,7 @@
   },
   "Email": {
     "depositCode": {"subject": "Your code: {code} · {salon}", "preheader": "Your code is {code}", "greeting": "Hello,", "intro": "Here is your code to use your saved {amount} deposit at {salon}:", "codeLabel": "Code", "expires": "It expires in 10 minutes.", "ignore": "If you didn't ask for it, ignore this email: nobody can use your deposit without the code."},
+    "depositSaved": {"subject": "We've saved your deposit · {salon}", "preheader": "{amount} for your next appointment, until {date}.", "intro": "Since you paid the full price of your appointment on {when} ({service}), your {amount} deposit is saved for your next appointment for the same services, until {date}.", "howTo": "To use it, choose “I have a saved deposit” when booking online: we'll email you a code.", "button": "Book an appointment"},
     "common": {
       "greeting": "Hello {name},",
       "service": "Service",

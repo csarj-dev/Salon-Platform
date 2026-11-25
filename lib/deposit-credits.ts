@@ -1,5 +1,6 @@
 // Depósitos guardados (booking.deposit.saved): qué se guarda al anular una cita con el depósito
-// pagado, cuáles valen para una reserva nueva, y lo que se enseña de ellos.
+// pagado o al cobrarle en caja el servicio entero, cuáles valen para una reserva nueva, y lo que
+// se enseña de ellos.
 import { and, asc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db } from "../db";
@@ -29,9 +30,10 @@ export function savedDepositExpiry(now: Date, months: number, zone: string): Dat
 
 export type NewDepositCredit = typeof depositCredit.$inferInsert;
 
-// Lo que habría que guardar al anular esta cita: una fila por categoría de su depósito.
-// Vacío si no hay nada que guardar: no estaba confirmada, el depósito no se pagó, o se devolvió.
-// Solo lee: quien anula lo inserta en la misma transacción que la anulación.
+// Lo que habría que guardar de esta cita: una fila por categoría de su depósito.
+// Vacío si no hay nada que guardar: no estaba confirmada, el depósito no se pagó, se devolvió,
+// o ya se guardó antes (una cita guarda su depósito una sola vez).
+// Solo lee: quien lo guarda lo inserta en la misma transacción que su cambio.
 export async function depositCreditsToSave(
   appointmentId: number,
   opts: SavedDepositOptions,
@@ -47,7 +49,14 @@ export async function depositCreditsToSave(
     })
     .from(appointment)
     .where(eq(appointment.id, appointmentId));
-  if (!appt || appt.status !== "booked" || appt.depositCents === null || appt.depositPaidAt === null) return [];
+  if (!appt || (appt.status !== "booked" && appt.status !== "completed")) return [];
+  if (appt.depositCents === null || appt.depositPaidAt === null) return [];
+  const [already] = await db
+    .select({ id: depositCredit.id })
+    .from(depositCredit)
+    .where(eq(depositCredit.sourceAppointmentId, appointmentId))
+    .limit(1);
+  if (already) return [];
 
   // Si se pagó con tarjeta, el dinero está en el TPV de ese cobrador; si se devolvió, no hay nada
   const payments = await db
@@ -103,6 +112,7 @@ export async function depositCreditsToSave(
 export type SavedDeposit = {
   id: number;
   amountCents: number;
+  origin: string; // "cancelled" | "paid_in_full"
   expiresAt: Date;
   usedAt: Date | null;
   usedAppointmentId: number | null;
@@ -114,6 +124,7 @@ export async function depositsSavedFrom(appointmentId: number): Promise<SavedDep
     .select({
       id: depositCredit.id,
       amountCents: depositCredit.amountCents,
+      origin: depositCredit.origin,
       expiresAt: depositCredit.expiresAt,
       usedAt: depositCredit.usedAt,
       usedAppointmentId: depositCredit.usedAppointmentId,
@@ -130,6 +141,60 @@ export async function depositPaidAt(appointmentId: number): Promise<Date | null>
     .from(appointment)
     .where(eq(appointment.id, appointmentId));
   return row?.paidAt ?? null;
+}
+
+// ---- Guardarlo al cobrar en caja ----
+
+export type KeepAtTillResult =
+  | { ok: true; cents: number; expiresAt: Date }
+  // disabled: el salón no guarda depósitos · not_started: la cita aún no ha empezado
+  // not_eligible: no está confirmada, el depósito no se pagó o se devolvió · already_saved: ya se guardó
+  | { ok: false; reason: "disabled" | "not_found" | "not_started" | "not_eligible" | "already_saved" };
+
+// La clienta paga en caja el servicio entero: el depósito que ya pagó no se descuenta y se le
+// guarda para otra cita, igual que al anular a tiempo. La cita no cambia.
+export async function keepDepositAtTill(
+  appointmentId: number,
+  opts: SavedDepositOptions | undefined,
+  userId: string | null,
+  now: Date = new Date(),
+): Promise<KeepAtTillResult> {
+  if (!opts) return { ok: false, reason: "disabled" };
+  const [appt] = await db
+    .select({ startsAt: appointment.startsAt })
+    .from(appointment)
+    .where(eq(appointment.id, appointmentId));
+  if (!appt) return { ok: false, reason: "not_found" };
+  if (appt.startsAt > now) return { ok: false, reason: "not_started" };
+
+  const credits = await depositCreditsToSave(appointmentId, opts, now);
+  return db.transaction(async (tx) => {
+    // Con la cita bloqueada, nadie más guarda a la vez: si ya hay algo guardado, no se repite
+    await tx.select({ id: appointment.id }).from(appointment).where(eq(appointment.id, appointmentId)).for("update");
+    const [already] = await tx
+      .select({ id: depositCredit.id })
+      .from(depositCredit)
+      .where(eq(depositCredit.sourceAppointmentId, appointmentId))
+      .limit(1);
+    if (already) return { ok: false, reason: "already_saved" } as const;
+    if (credits.length === 0) return { ok: false, reason: "not_eligible" } as const;
+    await tx.insert(depositCredit).values(credits.map((c) => ({ ...c, origin: "paid_in_full", createdBy: userId })));
+    return {
+      ok: true,
+      cents: credits.reduce((sum, c) => sum + c.amountCents, 0),
+      expiresAt: credits[0].expiresAt,
+    } as const;
+  });
+}
+
+// ¿Se guardó algo del depósito de esta cita? (entonces su pago con tarjeta ya no se devuelve)
+export async function hasSavedDeposit(appointmentId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: depositCredit.id })
+    .from(depositCredit)
+    .where(eq(depositCredit.sourceAppointmentId, appointmentId))
+    .limit(1);
+  return row !== undefined;
 }
 
 

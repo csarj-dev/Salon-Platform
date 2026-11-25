@@ -4,6 +4,7 @@ import type { EmailStatusInfo } from "@/lib/email/email-status";
 import type { KoiboxCardState } from "@/lib/koibox/card-state";
 import { KOIBOX_TONE } from "@/components/admin/appointment-marks";
 import { CancelButton } from "@/components/admin/cancel-button";
+import { KeepDepositButton } from "@/components/admin/keep-deposit-button";
 import { RefundButton } from "@/components/admin/refund-button";
 import { textAction } from "@/components/admin/panel-ui";
 import { ResendEmailButton } from "@/components/admin/resend-email-button";
@@ -12,7 +13,7 @@ import { ValidateButton } from "@/components/admin/validate-button";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { koiboxWorkKey } from "@/lib/koibox/card-state";
 import { paymentsForAppointment } from "@/lib/payments-db";
-import { depositPaidAt, depositsSavedFrom, depositsUsedBy } from "@/lib/deposit-credits";
+import { depositPaidAt, depositsSavedFrom, depositsUsedBy, savedDepositExpiry } from "@/lib/deposit-credits";
 import { loadSalonConfig } from "@/lib/salon-config";
 import { cn } from "@/lib/utils";
 import { buildWhatsAppLink, toWhatsAppNumber } from "@/lib/whatsapp-link";
@@ -108,10 +109,19 @@ export async function AppointmentDetail({
   const fmt = (d: Date) => formatDateTime(d, locale, zone);
   const waKey =
     data.status === "expired" ? "contactExpired" : data.status === "pending_deposit" ? "contactPending" : "contactGeneric";
-  const whatsappHref = buildWhatsAppLink(
-    toWhatsAppNumber(data.clientPhone, phoneCountryCode),
-    tWa(waKey, { name: data.clientName, salon: salonName, id: data.id, service: data.serviceName, when: fmt(data.startsAt) }),
-  );
+  // Con un depósito guardado de esta cita sin usar, el WhatsApp le cuenta eso (como el correo)
+  const savedLive = saved.filter((s) => s.usedAt === null && s.expiresAt.getTime() > now);
+  const whatsappText =
+    savedLive.length > 0
+      ? tWa("contactSavedDeposit", {
+          name: data.clientName,
+          salon: salonName,
+          id: data.id,
+          amount: formatPrice(savedLive.reduce((sum, s) => sum + s.amountCents, 0), locale, currency),
+          date: fmt(new Date(Math.min(...savedLive.map((s) => s.expiresAt.getTime())))),
+        })
+      : tWa(waKey, { name: data.clientName, salon: salonName, id: data.id, service: data.serviceName, when: fmt(data.startsAt) });
+  const whatsappHref = buildWhatsAppLink(toWhatsAppNumber(data.clientPhone, phoneCountryCode), whatsappText);
 
   const dueSoon =
     data.status === "pending_deposit" && data.depositDueAt !== null && data.depositDueAt.getTime() - now < URGENT_MS;
@@ -125,6 +135,20 @@ export async function AppointmentDetail({
     data.hasEmail === true &&
     (data.status === "cancelled" || (data.status === "booked" && data.startsAt.getTime() > now));
   const showNoEmail = data.hasEmail === false && (data.status === "booked" || data.status === "cancelled");
+
+  // «Guardar el depósito» al cobrar en caja el servicio entero: cita ya empezada, depósito pagado,
+  // sin devolver y sin nada guardado todavía
+  const savedConfig = config.booking.deposit.saved;
+  const showKeepAtTill =
+    actionable &&
+    canValidate &&
+    savedConfig !== undefined &&
+    (data.status === "booked" || data.status === "completed") &&
+    data.depositCents !== null &&
+    paidAt !== null &&
+    saved.length === 0 &&
+    !payments.some((p) => p.status === "refunded") &&
+    data.startsAt.getTime() <= now;
 
   // Líneas de detalle: depósito, quién validó, cambios, cancelación, correo
   const lines: ReactNode[] = [];
@@ -194,7 +218,9 @@ export async function AppointmentDetail({
           ? t("savedDeposit.used", { amount: money(s.amountCents), id: s.usedAppointmentId })
           : s.expiresAt.getTime() <= now
             ? t("savedDeposit.expired", { amount: money(s.amountCents), date: fmt(s.expiresAt) })
-            : t("savedDeposit.kept", { amount: money(s.amountCents), date: fmt(s.expiresAt) })}
+            : s.origin === "paid_in_full"
+              ? t("savedDeposit.keptAtTill", { amount: money(s.amountCents), date: fmt(s.expiresAt) })
+              : t("savedDeposit.kept", { amount: money(s.amountCents), date: fmt(s.expiresAt) })}
       </p>,
     );
   }
@@ -256,8 +282,17 @@ export async function AppointmentDetail({
         {t("whatsapp")}
       </a>
       {showResend && <ResendEmailButton appointmentId={data.id} />}
+      {/* Con el depósito guardado para otra cita, el pago ya no se devuelve */}
       {canRefund &&
+        saved.length === 0 &&
         paidNow.map((p) => <RefundButton key={p.id} paymentId={p.id} amount={money(p.amountCents)} />)}
+      {showKeepAtTill && savedConfig && data.depositCents !== null && (
+        <KeepDepositButton
+          appointmentId={data.id}
+          amount={money(data.depositCents)}
+          until={fmt(savedDepositExpiry(new Date(now), savedConfig.months, zone))}
+        />
+      )}
       {showCancel && (
         <CancelButton
           appointmentId={data.id}

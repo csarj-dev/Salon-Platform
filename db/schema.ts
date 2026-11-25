@@ -478,7 +478,7 @@ export const depositCredit = pgTable(
     clientId: integer("client_id")
       .notNull()
       .references(() => client.id, { onDelete: "cascade" }),
-    // La cita anulada de la que sale
+    // La cita de la que sale (anulada a tiempo, o cobrada entera en caja)
     sourceAppointmentId: integer("source_appointment_id")
       .notNull()
       .references(() => appointment.id, { onDelete: "cascade" }),
@@ -492,9 +492,14 @@ export const depositCredit = pgTable(
     // Cuándo y en qué cita se usó
     usedAt: timestamp("used_at", { withTimezone: true }),
     usedAppointmentId: integer("used_appointment_id").references(() => appointment.id, { onDelete: "set null" }),
+    // Por qué se guardó: "cancelled" (anulada a tiempo) o "paid_in_full" (pagó el servicio entero en caja)
+    origin: text("origin").notNull().default("cancelled"),
+    // Quién del equipo lo guardó. null = la clienta al anular, un script, o se borró ese usuario.
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   },
   (t) => [
     index("deposit_credit_client_idx").on(t.clientId),
+    check("deposit_credit_origin_valid", sql`${t.origin} IN ('cancelled', 'paid_in_full')`),
     index("deposit_credit_source_idx").on(t.sourceAppointmentId),
     check("deposit_credit_amount_positive", sql`${t.amountCents} > 0`),
     check("deposit_credit_expires_after_created", sql`${t.expiresAt} > ${t.createdAt}`),
@@ -534,7 +539,11 @@ export const depositCode = pgTable(
 );
 
 // Correos enviados a las clientas: qué se mandó, a quién y cómo fue
-export const emailKind = pgEnum("email_kind", ["confirmation", "cancellation", "reminder", "rescheduled"]);
+export const emailKind = pgEnum("email_kind", [
+  "confirmation", "cancellation", "reminder", "rescheduled",
+  // Se le guardó el depósito al cobrarle el servicio entero en caja
+  "deposit_saved",
+]);
 export const emailStatus = pgEnum("email_status", ["pending", "sent", "failed"]);
 
 export const emailLog = pgTable(

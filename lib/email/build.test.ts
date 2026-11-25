@@ -120,6 +120,27 @@ describe("otros correos", () => {
   });
 });
 
+describe("depósito guardado al cobrar el servicio entero", () => {
+  const withSaved = { ...data, savedDeposit: { cents: 1500, expiresAt: new Date("2027-05-02T10:30:00Z") } };
+
+  it("dice el importe, hasta cuándo vale y cómo usarlo", () => {
+    const mail = build("deposit_saved", withSaved);
+    expect(mail.subject).toBe("Te hemos guardado tu depósito · The Room");
+    expect(mail.text).toContain("15,00");
+    expect(mail.text).toContain("2 de mayo");
+    expect(mail.text).toContain("Tengo un depósito guardado");
+    expect(mail.text).toContain("https://salon.example.com/es/services");
+  });
+
+  it("en inglés", () => {
+    expect(build("deposit_saved", { ...withSaved, locale: "en" }, en).subject).toBe("We've saved your deposit · The Room");
+  });
+
+  it("sin depósito guardado no se manda", () => {
+    expect(() => build("deposit_saved")).toThrow();
+  });
+});
+
 describe("aviso de cancelación", () => {
   it("si la clienta puede cancelar sola, se lo dice", () => {
     expect(build("confirmation").text).toContain("puedes cambiar o cancelar la cita tú misma");

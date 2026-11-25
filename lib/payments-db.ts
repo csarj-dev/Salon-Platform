@@ -8,6 +8,7 @@ import { pgErrorCode } from "./booking";
 import { salonCollectors } from "./collectors";
 import { collectorForAppointment } from "./collectors-db";
 import { isDepositOverdue } from "./deposit";
+import { hasSavedDeposit } from "./deposit-credits";
 import {
   REDSYS_REST_URL, buildPaymentForm, buildRefundRequest, isAuthorized, newOrderCode, readNotification,
   readRefundReply, redsysCredentials, redsysEnvironment,
@@ -210,7 +211,8 @@ export type RefundResult =
       // not_found / not_paid: no hay un pago cobrado que devolver · no_key: falta la clave del TPV
       // unreachable: no se pudo hablar con Redsys · rejected / error: Redsys no la aceptó
       // bad_reply: la respuesta no se entiende o su firma no cuadra
-      reason: "not_found" | "not_paid" | "no_key" | "unreachable" | "rejected" | "error" | "bad_reply";
+      // deposit_saved: el depósito de esa cita se le guardó para otra cita (no se devuelve dos veces)
+      reason: "not_found" | "not_paid" | "no_key" | "unreachable" | "rejected" | "error" | "bad_reply" | "deposit_saved";
       detail?: string; // código de Redsys (Ds_Response o SIS…), para el registro y el panel
     };
 
@@ -235,6 +237,7 @@ export async function refundPayment(
   const [p] = await db.select().from(payment).where(eq(payment.id, paymentId));
   if (!p) return { ok: false, reason: "not_found" };
   if (p.status !== "paid") return { ok: false, reason: "not_paid" };
+  if (await hasSavedDeposit(p.appointmentId)) return { ok: false, reason: "deposit_saved" };
 
   const key = keyForPayment(p, config, env);
   if (!key) return { ok: false, reason: "no_key" };
