@@ -216,9 +216,6 @@
     "cancelYes": "Sí, cancelar",
     "cancelNo": "No, mantenerla",
     "cancelling": "Cancelando…",
-      "keepAtTill": "Save the deposit",
-      "keepingAtTill": "Saving…",
-      "confirmKeepAtTill": "Is the client paying the full price at the till? Her {amount} deposit will be saved for her next appointment for the same services, until {date}, and she'll get an email.",
     "cancelErrors": {
       "notFound": "No encontramos esta cita. Revisa el enlace del correo.",
       "disabled": "Para cancelar, escríbenos por WhatsApp.",
